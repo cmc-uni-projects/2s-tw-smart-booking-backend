@@ -36,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
 
+    // ✅ Đăng ký người dùng mới
     @Override
     @Transactional
     public void register(RegisterRequest request) {
@@ -48,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = new User();
+        user.setUserId(UUID.randomUUID().toString());
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -60,25 +62,27 @@ public class AuthServiceImpl implements AuthService {
         user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
 
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Role 'CUSTOMER' not found"));
         user.addRole(customerRole);
 
         userRepository.save(user);
 
+        // Gửi email xác minh
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationToken);
     }
 
+    // ✅ Đăng nhập
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
 
-        if (!user.getIsEmailVerified()) {
+        if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
             throw new UnauthorizedException("Please verify your email before logging in");
         }
 
-        if ("SUSPENDED".equals(user.getStatus()) || "BANNED".equals(user.getStatus())) {
+        if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
             throw new UnauthorizedException("Your account is not active");
         }
 
@@ -97,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
                 .collect(Collectors.toSet());
 
         LoginResponse.UserResponse userResponse = new LoginResponse.UserResponse(
-                user.getUserId().toString(),
+                user.getUserId(), // không cần .toString()
                 user.getFullName(),
                 user.getEmail(),
                 user.getPhoneNumber(),
@@ -109,13 +113,14 @@ public class AuthServiceImpl implements AuthService {
         return new LoginResponse(token, expiresIn, userResponse);
     }
 
+    // ✅ Xác minh email
     @Override
     @Transactional
     public void verifyEmail(String token) {
         User user = userRepository.findByVerificationToken(token)
                 .orElseThrow(() -> new BadRequestException("Invalid verification token"));
 
-        if (user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
+        if (user.getVerificationTokenExpiry() == null || user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Verification token has expired");
         }
 
@@ -123,9 +128,11 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus("ACTIVE");
         user.setVerificationToken(null);
         user.setVerificationTokenExpiry(null);
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
     }
 
+    // ✅ Quên mật khẩu
     @Override
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
@@ -135,11 +142,13 @@ public class AuthServiceImpl implements AuthService {
         String resetToken = UUID.randomUUID().toString();
         user.setResetPasswordToken(resetToken);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 
         emailService.sendResetPasswordEmail(user.getEmail(), user.getFullName(), resetToken);
     }
 
+    // ✅ Đặt lại mật khẩu
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
@@ -150,16 +159,18 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByResetPasswordToken(request.getToken())
                 .orElseThrow(() -> new BadRequestException("Invalid reset token"));
 
-        if (user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
+        if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Reset token has expired");
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
     }
 
+    // ✅ Đổi mật khẩu
     @Override
     @Transactional
     public void changePassword(ChangePasswordRequest request, String userId) {
@@ -175,22 +186,25 @@ public class AuthServiceImpl implements AuthService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
     }
 
+    // ✅ Gửi lại email xác minh
     @Override
     @Transactional
     public void resendVerificationEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        if (user.getIsEmailVerified()) {
+        if (Boolean.TRUE.equals(user.getIsEmailVerified())) {
             throw new BadRequestException("Email is already verified");
         }
 
         String verificationToken = UUID.randomUUID().toString();
         user.setVerificationToken(verificationToken);
         user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationToken);

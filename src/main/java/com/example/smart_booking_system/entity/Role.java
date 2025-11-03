@@ -16,26 +16,18 @@ public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "roleId")
     private Integer roleId;
 
-    @Column(name = "roleName", unique = true, nullable = false, length = 64)
+    @Column(nullable = false, unique = true, length = 64)
     private String roleName;
 
-    @Column(name = "description")
     private String description;
 
-    @Column(name = "createdAt", updatable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-    }
-
-    // Constructor for easy creation
-    public Role(String roleName, String description) {
-        this.roleName = roleName;
-        this.description = description;
     }
 }

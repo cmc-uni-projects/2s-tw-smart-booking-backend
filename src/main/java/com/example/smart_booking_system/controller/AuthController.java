@@ -3,6 +3,7 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.request.auth.*;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.auth.LoginResponse;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,9 +14,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Authentication APIs")
 public class AuthController {
@@ -46,11 +48,22 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    @Operation(summary = "Verify email", description = "Verify user email with token")
-    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
-        authService.verifyEmail(token);
-        return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now login."));
+    public ResponseEntity<Map<String, Object>> verifyEmail(@RequestParam("token") String token) {
+        try {
+            authService.verifyEmail(token);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Email verified successfully"
+            ));
+        } catch (BadRequestException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
     }
+
+
 
     @PostMapping("/resend-verification")
     @Operation(summary = "Resend verification email", description = "Resend email verification link")

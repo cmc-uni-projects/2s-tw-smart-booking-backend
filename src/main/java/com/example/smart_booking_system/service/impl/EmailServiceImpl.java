@@ -10,8 +10,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
-
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+
 
 @Service
 @RequiredArgsConstructor
@@ -30,14 +31,16 @@ public class EmailServiceImpl implements EmailService {
     public void sendVerificationEmail(String toEmail, String fullName, String verificationToken) {
         try {
             String subject = "Verify Your Email - Smart Booking";
-            String verificationUrl = frontendUrl + "/verify-email?token=" + verificationToken;
+
+            // ✅ Encode token để tránh lỗi khi click từ Gmail/Outlook
+            String encodedToken = URLEncoder.encode(verificationToken, StandardCharsets.UTF_8);
+            String verificationUrl = frontendUrl + "/verify-email?token=" + encodedToken;
 
             Context context = new Context();
             context.setVariable("fullName", fullName);
             context.setVariable("verificationUrl", verificationUrl);
 
             String htmlContent = templateEngine.process("email/verification-email", context);
-
             sendHtmlEmail(toEmail, subject, htmlContent);
         } catch (Exception e) {
             throw new RuntimeException("Failed to send verification email", e);

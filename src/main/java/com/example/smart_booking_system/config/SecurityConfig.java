@@ -4,6 +4,7 @@ import com.example.smart_booking_system.security.CustomUserDetailsService;
 import com.example.smart_booking_system.security.JwtAuthenticationEntryPoint;
 import com.example.smart_booking_system.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value; // <-- THÊM IMPORT NÀY
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,6 +18,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration; // <-- THÊM IMPORT NÀY
+import org.springframework.web.cors.CorsConfigurationSource; // <-- THÊM IMPORT NÀY
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // <-- THÊM IMPORT NÀY
+
+import java.util.Arrays; // <-- THÊM IMPORT NÀY
+import java.util.List; // <-- THÊM IMPORT NÀY
 
 @Configuration
 @EnableWebSecurity
@@ -27,6 +34,10 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    // Tự động đọc URL frontend từ application.properties
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -50,7 +61,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configure(http))
+                // SỬA DÒNG NÀY:
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 )
@@ -60,7 +72,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers(
-                                "/api/auth/**",
+                                // SỬA DÒNG NÀY (thêm /v1):
+                                "/api/v1/auth/**",
                                 "/api/hotels/search",
                                 "/api/hotels/featured",
                                 "/api/hotels/{id}",
@@ -87,5 +100,32 @@ public class SecurityConfig {
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // ==========================================================
+    // === THÊM BEAN MỚI NÀY ĐỂ CẤU HÌNH CORS ===
+    // ==========================================================
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Cho phép frontend (từ application.properties)
+        configuration.setAllowedOrigins(List.of(frontendUrl));
+
+        // Cho phép các method này
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        // Cho phép các header này (quan trọng cho JWT)
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+
+        // Cho phép gửi credentials (cookie/token)
+        configuration.setAllowCredentials(true);
+
+        // Thời gian cache cho preflight request
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration); // Áp dụng cho tất cả các đường dẫn API
+        return source;
     }
 }

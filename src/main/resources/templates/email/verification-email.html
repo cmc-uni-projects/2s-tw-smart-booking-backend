@@ -1,13 +1,83 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác thực Email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content p {
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer {
+            background-color: #f8f8f8;
+            color: #777;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
+<div class="container">
+    <div class="header">
+        <h1>Chào mừng tới Smart Booking!</h1>
+    </div>
+    <div class="content">
+        <p>Xin chào <strong th:text="${username}">Bạn</strong>,</p>
 
+        <p>Cảm ơn bạn đã đăng ký tài khoản tại hệ thống Smart Booking. Vui lòng nhấn vào nút bên dưới để xác thực địa chỉ email của bạn và kích hoạt tài khoản.</p>
+
+        <p style="text-align: center;">
+            <a th:href="${verificationUrl}" class="button">Kích hoạt tài khoản</a>
+        </p>
+
+        <p>Nếu nút trên không hoạt động, bạn có thể sao chép và dán đường dẫn sau vào trình duyệt:</p>
+        <p style="word-break: break-all; font-size: 14px;">
+            <a th:href="${verificationUrl}" th:text="${verificationUrl}">Link xác thực</a>
+        </p>
+
+        <p>Trân trọng,<br>Đội ngũ Smart Booking</p>
+    </div>
+    <div class="footer">
+        <p>&copy; 2025 Smart Booking. All rights reserved.</p>
+    </div>
+</div>
 </body>
 </html>
