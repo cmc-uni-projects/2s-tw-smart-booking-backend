@@ -1,82 +1,138 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xác thực Email</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xác thực Email - TravelMate</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f9fb;
             margin: 0;
             padding: 0;
+            color: #333;
         }
+
         .container {
-            width: 90%;
             max-width: 600px;
-            margin: 20px auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e3eef3;
         }
+
         .header {
-            background-color: #007bff;
+            background: linear-gradient(135deg, #00a8e8, #006494);
             color: #ffffff;
-            padding: 20px;
             text-align: center;
+            padding: 30px 20px;
         }
+
+        .header img {
+            width: 100px;
+            margin-bottom: 10px;
+        }
+
         .header h1 {
-            margin: 0;
             font-size: 24px;
+            margin: 10px 0 0;
+            letter-spacing: 0.5px;
         }
+
         .content {
-            padding: 30px;
+            padding: 35px 30px;
+            line-height: 1.7;
         }
+
+        .content h2 {
+            color: #006494;
+            margin-bottom: 10px;
+        }
+
         .content p {
             margin-bottom: 20px;
+            font-size: 15px;
+            color: #444;
         }
+
         .button {
             display: inline-block;
-            background-color: #007bff;
-            color: #ffffff;
-            padding: 12px 25px;
+            background-color: #28a9e0;
+            color: #fff !important;
+            padding: 14px 28px;
+            border-radius: 8px;
             text-decoration: none;
-            border-radius: 5px;
             font-weight: bold;
+            transition: all 0.3s ease;
         }
+
+        .button:hover {
+            background-color: #1b8dc4;
+        }
+
+        .link-box {
+            word-break: break-all;
+            font-size: 13px;
+            color: #006494;
+            background: #f1faff;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
         .footer {
-            background-color: #f8f8f8;
-            color: #777;
-            padding: 20px;
+            background-color: #f7f9fa;
             text-align: center;
+            padding: 20px;
             font-size: 12px;
+            color: #888;
+            border-top: 1px solid #e0e8ec;
+        }
+
+        @media (max-width: 600px) {
+            .content {
+                padding: 25px 20px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
+    <!-- Header -->
     <div class="header">
-        <h1>Chào mừng tới Smart Booking!</h1>
+        <a href="https://ibb.co/tpdH25rf"><img src="https://i.ibb.co/Kx15sHvZ/logo-travelmate-xoafont.png" alt="logo-travelmate-xoafont" border="0"></a>
     </div>
+
+    <!-- Content -->
     <div class="content">
-        <p>Xin chào <strong th:text="${username}">Bạn</strong>,</p>
+        <h2>Xin chào <strong th:text="${username}">Bạn</strong>,</h2>
 
-        <p>Cảm ơn bạn đã đăng ký tài khoản tại hệ thống Smart Booking. Vui lòng nhấn vào nút bên dưới để xác thực địa chỉ email của bạn và kích hoạt tài khoản.</p>
-
-        <p style="text-align: center;">
-            <a th:href="${verificationUrl}" class="button">Kích hoạt tài khoản</a>
+        <p>
+            Cảm ơn bạn đã đăng ký tài khoản tại hệ thống <strong>TravelMate</strong>.
+            Vui lòng nhấn vào nút bên dưới để xác thực địa chỉ email của bạn
+            và kích hoạt tài khoản.
         </p>
 
-        <p>Nếu nút trên không hoạt động, bạn có thể sao chép và dán đường dẫn sau vào trình duyệt:</p>
-        <p style="word-break: break-all; font-size: 14px;">
-            <a th:href="${verificationUrl}" th:text="${verificationUrl}">Link xác thực</a>
+        <p style="text-align: center; margin: 30px 0;">
+            <a th:href="${verificationUrl}" class="button">Xác thực tài khoản</a>
         </p>
 
-        <p>Trân trọng,<br>Đội ngũ Smart Booking</p>
+        <p>Nếu nút trên không hoạt động, hãy sao chép và dán đường dẫn sau vào trình duyệt:</p>
+        <p class="link-box">
+            <a th:href="${verificationUrl}" th:text="${verificationUrl}" style="color:#006494; text-decoration:none;"></a>
+        </p>
+
+        <p>Trân trọng,<br /><strong>Đội ngũ TravelMate</strong></p>
     </div>
+
+    <!-- Footer -->
     <div class="footer">
-        <p>&copy; 2025 Smart Booking. All rights reserved.</p>
+        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
     </div>
 </div>
 </body>

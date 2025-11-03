@@ -53,13 +53,12 @@ public class AuthServiceImpl implements AuthService {
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setPhoneNumber(request.getPhoneNumber());
         user.setStatus("INACTIVE");
         user.setIsEmailVerified(false);
 
         String verificationToken = UUID.randomUUID().toString();
         user.setVerificationToken(verificationToken);
-        user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+        user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(10));
 
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
                 .orElseThrow(() -> new ResourceNotFoundException("Role 'CUSTOMER' not found"));
@@ -73,17 +72,17 @@ public class AuthServiceImpl implements AuthService {
 
     // ✅ Đăng nhập
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
+                .orElseThrow(() -> new UnauthorizedException("Sai email hoặc mật khẩu"));
 
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
-            throw new UnauthorizedException("Please verify your email before logging in");
+            throw new UnauthorizedException("Hãy xác minh email của bạn trước khi đăng nhập");
         }
 
         if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
-            throw new UnauthorizedException("Your account is not active");
+            throw new UnauthorizedException("Tài khoản của bạn đã bị " + user.getStatus().toLowerCase());
         }
 
         Authentication authentication = authenticationManager.authenticate(
@@ -101,7 +100,7 @@ public class AuthServiceImpl implements AuthService {
                 .collect(Collectors.toSet());
 
         LoginResponse.UserResponse userResponse = new LoginResponse.UserResponse(
-                user.getUserId(), // không cần .toString()
+                user.getUserId(),
                 user.getFullName(),
                 user.getEmail(),
                 user.getPhoneNumber(),

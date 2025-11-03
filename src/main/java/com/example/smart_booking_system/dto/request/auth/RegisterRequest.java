@@ -33,11 +33,7 @@ public class RegisterRequest {
     @NotBlank(message = "Password confirmation is required")
     private String confirmPassword;
 
-    @Pattern(
-            regexp = "^[+]?[(]?[0-9]{1,4}[)]?[-\\s\\.]?[(]?[0-9]{1,4}[)]?[-\\s\\.]?[0-9]{1,9}$",
-            message = "Invalid phone number format"
-    )
-    private String phoneNumber;
+    // === ĐÃ XÓA TRƯỜNG phoneNumber TẠI ĐÂY ===
 
     /**
      * Validate if password and confirmPassword match
