@@ -23,7 +23,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Authentication APIs")
 public class AuthController {
 
     private final AuthService authService;
@@ -31,7 +30,6 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/register")
-    @Operation(summary = "Register new user", description = "Register a new user account")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -39,14 +37,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login", description = "Authenticate user and return JWT token")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Logout", description = "Invalidate current JWT token")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
@@ -80,28 +76,24 @@ public class AuthController {
 
 
     @PostMapping("/resend-verification")
-    @Operation(summary = "Resend verification email", description = "Resend email verification link")
     public ResponseEntity<ApiResponse<Void>> resendVerification(@RequestParam String email) {
         authService.resendVerificationEmail(email);
         return ResponseEntity.ok(ApiResponse.success("Verification email sent. Please check your inbox."));
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Forgot password", description = "Request password reset link")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
         return ResponseEntity.ok(ApiResponse.success("Password reset link sent to your email."));
     }
 
     @PostMapping("/reset-password")
-    @Operation(summary = "Reset password", description = "Reset password with token")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.success("Password reset successful. You can now login with your new password."));
     }
 
     @PostMapping("/change-password")
-    @Operation(summary = "Change password", description = "Change password for authenticated user")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -110,7 +102,6 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Get current user", description = "Get current authenticated user information")
     public ResponseEntity<ApiResponse<CustomUserDetails>> getCurrentUser(
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ResponseEntity.ok(ApiResponse.success(currentUser));
