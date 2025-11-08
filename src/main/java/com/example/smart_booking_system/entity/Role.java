@@ -21,7 +21,6 @@ public class Role {
     @Column(nullable = false, unique = true, length = 64)
     private String roleName;
 
-    private String description;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -108,4 +108,15 @@ public class JwtTokenProvider {
     public long getExpirationTime() {
         return jwtExpiration;
     }
+
+    // hàm lấy thời hạn token
+    public Date extractExpiration(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+    }
+
 }

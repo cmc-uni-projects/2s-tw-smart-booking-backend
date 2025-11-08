@@ -39,7 +39,6 @@ public class DataInitializer {
                     .or(() -> {
                         Role role = new Role();
                         role.setRoleName(roleName);
-                        role.setDescription(roleName + " role");
                         roleRepository.save(role);
                         System.out.println("✅ Created default role: " + roleName);
                         return java.util.Optional.of(role);
