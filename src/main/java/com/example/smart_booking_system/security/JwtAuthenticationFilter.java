@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.security;
 
+import com.example.smart_booking_system.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,47 +20,55 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider tokenProvider;
-    private final CustomUserDetailsService customUserDetailsService;
+    private final JwtTokenProvider jwtUtil; // JWT helper
+    private final CustomUserDetailsService userDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
         try {
-            String jwt = getJwtFromRequest(request);
+            String authHeader = request.getHeader("Authorization");
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                String userId = tokenProvider.getUserIdFromToken(jwt);
-                UserDetails userDetails = customUserDetailsService.loadUserById(userId);
+            if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                // kiểm tra token đã bị thu hồi chưa
+                if (tokenBlacklistService.isBlacklisted(token)) {
+                    logger.warn("Token đã bị thu hồi");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"error\": \"Token is blacklisted. Please login again.\"}");
+                    return;
+                }
 
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                // nếu chưa bị thu hồi thì kiểm tra token có hợp lệ không
+                if (jwtUtil.validateToken(token)) {
+                    String userId = jwtUtil.getUserIdFromToken(token);
+
+                    if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        UserDetails userDetails = userDetailsService.loadUserById(userId);
+
+                        UsernamePasswordAuthenticationToken auth =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails, null, userDetails.getAuthorities());
+
+                        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    }
+                }
             }
+
+
+            filterChain.doFilter(request, response);
+
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+            logger.error("Không thể xác thực JWT", ex);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\": \"Invalid token.\"}");
         }
 
-        filterChain.doFilter(request, response);
-    }
-
-    /**
-     * Extract JWT token from Authorization header
-     */
-    private String getJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-
-        return null;
     }
 }

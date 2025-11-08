@@ -5,7 +5,9 @@ import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.auth.LoginResponse;
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.security.CustomUserDetails;
+import com.example.smart_booking_system.security.JwtTokenProvider;
 import com.example.smart_booking_system.service.AuthService;
+import com.example.smart_booking_system.service.TokenBlacklistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Date;
 import java.util.Map;
 
 @RestController
@@ -23,6 +27,8 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/register")
     @Operation(summary = "Register new user", description = "Register a new user account")
@@ -40,10 +46,18 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Logout", description = "Logout current user")
-    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal CustomUserDetails currentUser) {
-        // In stateless JWT, logout is handled on client side by removing token
-        // Optionally implement token blacklist here
+    @Operation(summary = "Logout", description = "Invalidate current JWT token")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            Date exp = jwtTokenProvider.extractExpiration(token);
+            tokenBlacklistService.blacklist(token, exp.toInstant()
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDateTime());
+        }
+
         return ResponseEntity.ok(ApiResponse.success("Logout successful"));
     }
 

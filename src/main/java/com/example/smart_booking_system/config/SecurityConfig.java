@@ -90,7 +90,7 @@ public class SecurityConfig {
 
                         // Customer endpoints
                         .requestMatchers("/api/bookings/**", "/api/reviews/**")
-                        .hasAnyRole("CUSTOMER", "ADMIN")
+                        .hasAnyRole("CUSTOMER", "ADMIN","OWNER")
 
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
