@@ -7,11 +7,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 
 @Service
@@ -135,4 +138,28 @@ public class EmailServiceImpl implements EmailService {
 
         mailSender.send(message);
     }
+    @Override
+    @Async
+    public void sendHtmlEmail(String to, String subject, String templateName, Context context) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    mimeMessage,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            String htmlContent = templateEngine.process(templateName, context);
+
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            mailSender.send(mimeMessage);
+
+        } catch (MessagingException e) {
+            System.err.println("Lỗi khi gửi email HTML: " + e.getMessage());
+        }
+    }
 }
+

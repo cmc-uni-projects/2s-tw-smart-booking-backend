@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Đơn đăng ký bị từ chối</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6;">
+<h2>Xin chào, <span th:text="${applicantName}">Tên Người Dùng</span>.</h2>
+
+<p>Chúng tôi rất tiếc phải thông báo. Đơn đăng ký trở thành chủ khách sạn của bạn tại Smart Booking System đã bị <strong>TỪ CHỐI</strong>.</p>
+
+<div style="background-color: #fcecec; border: 1px solid #e57373; padding: 10px; border-radius: 5px;">
+    <strong>Lý do từ chối:</strong>
+    <p th:text="${reason}">Ảnh chụp CCCD bị mờ, vui lòng nộp lại.</p>
+</div>
+
+<p>Bạn có thể nộp lại đơn đăng ký mới (sử dụng chức năng "Nộp đơn") với thông tin chính xác hơn.</p>
+
+<p>Trân trọng,<br>Đội ngũ Smart Booking System</p>
+</body>
+</html>

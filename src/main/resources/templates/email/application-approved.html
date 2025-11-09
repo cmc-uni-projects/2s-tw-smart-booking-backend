@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Đơn đăng ký được duyệt</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6;">
+<h2>Xin chào, <span th:text="${applicantName}">Tên Người Dùng</span>!</h2>
+
+<p>Chúc mừng! Đơn đăng ký trở thành chủ khách sạn của bạn tại Smart Booking System đã được <strong>DUYỆT</strong>.</p>
+
+<p>Giờ đây bạn đã có thể đăng nhập và bắt đầu quản lý khách sạn của mình.</p>
+
+<div style="background-color: #f4f4f4; padding: 10px; border-radius: 5px;">
+    <strong>Ghi chú từ Admin:</strong>
+    <p th:text="${reason}">Hồ sơ hợp lệ.</p>
+</div>
+
+<p>Cảm ơn bạn đã tham gia,<br>Đội ngũ Smart Booking System</p>
+</body>
+</html>

@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service.impl;
 
+import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.dto.request.application.OwnerApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.request.admin.OwnerApplicationReviewDTO;
 import com.example.smart_booking_system.dto.response.admin.OwnerApplicationDTO;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.thymeleaf.context.Context;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
     private final OwnerApplicationRepository applicationRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Override
     public OwnerApplicationDTO submitApplication(OwnerApplicationSubmitDTO submitDTO, String applicantUsername) {
@@ -44,7 +47,6 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         return convertToDTO(savedApp);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public List<OwnerApplicationDTO> getApplicationsByStatus(ApplicationStatus status) {
@@ -58,25 +60,27 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     public OwnerApplicationDTO reviewApplication(Long applicationId, OwnerApplicationReviewDTO reviewDTO, String adminUsername) {
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new EntityNotFoundException("Admin not found: " + adminUsername));
-
         OwnerApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new EntityNotFoundException("Application not found: " + applicationId));
-
         if (application.getStatus() != ApplicationStatus.PENDING) {
             throw new IllegalStateException("Đơn này đã được xử lý rồi.");
         }
-
         ApplicationStatus newStatus = ApplicationStatus.valueOf(reviewDTO.getStatus().toUpperCase());
         application.setAdminReason(reviewDTO.getReason());
         application.setStatus(newStatus);
         application.setReviewedAt(LocalDateTime.now());
         application.setReviewedBy(admin);
 
+        User applicant = application.getUserId();
+
         if (newStatus == ApplicationStatus.APPROVED) {
-            User applicant = application.getUserId();
+            if (applicant == null) throw new EntityNotFoundException("Không tìm thấy người nộp đơn.");
+        }
+        OwnerApplication savedApp = applicationRepository.save(application);
+        if (applicant != null) {
+            sendReviewNotificationEmail(applicant, savedApp);
         }
 
-        OwnerApplication savedApp = applicationRepository.save(application);
         return convertToDTO(savedApp);
     }
     private OwnerApplicationDTO convertToDTO(OwnerApplication app) {
@@ -104,5 +108,28 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
             dto.setReviewedByAdminName(app.getReviewedBy().getFullName());
         }
         return dto;
+    }
+
+    private void sendReviewNotificationEmail(User applicant, OwnerApplication application) {
+        String applicantEmail = applicant.getEmail();
+        String applicantName = applicant.getFullName();
+        String adminReason = application.getAdminReason();
+        ApplicationStatus status = application.getStatus();
+
+        Context context = new Context();
+        context.setVariable("applicantName", applicantName);
+        context.setVariable("reason", (adminReason != null && !adminReason.isEmpty()) ? adminReason : "N/A");
+
+        String subject, templateName;
+        if (status == ApplicationStatus.APPROVED) {
+            subject = "Chúc mừng! Đơn đăng ký làm chủ khách sạn của bạn đã được DUYỆT";
+            templateName = "email/application-approved";
+        } else if (status == ApplicationStatus.REJECTED) {
+            subject = "Thông báo: Đơn đăng ký làm chủ khách sạn của bạn đã bị TỪ CHỐI";
+            templateName = "email/application-rejected";
+        } else {
+            return;
+        }
+        emailService.sendHtmlEmail(applicantEmail, subject, templateName, context);
     }
 }
