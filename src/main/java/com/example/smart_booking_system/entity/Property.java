@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.entity;
 
 
+import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.enums.PropertyType;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -53,6 +54,9 @@ public class Property {
     private int reviewCount = 0;
 
     private boolean isActive = false;
+
+    @Enumerated(EnumType.STRING)
+    private PropertyStatus propertyStatus ;
 
     private LocalDate createdAt = LocalDate.now();
 
