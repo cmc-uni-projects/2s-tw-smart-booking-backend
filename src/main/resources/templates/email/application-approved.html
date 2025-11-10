@@ -4,18 +4,35 @@
     <meta charset="UTF-8">
     <title>Đơn đăng ký được duyệt</title>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6;">
-<h2>Xin chào, <span th:text="${applicantName}">Tên Người Dùng</span>!</h2>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f7f6;">
+<table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; margin-top: 30px; margin-bottom: 30px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <tr>
+        <td align="center" style="background-color: #28a745; padding: 30px 20px; color: #ffffff; font-size: 24px; font-weight: bold;">
+            Đơn của bạn đã được DUYỆT
+        </td>
+    </tr>
+    <tr>
+        <td style="background-color: #ffffff; padding: 40px 30px;">
+            <h2 style="color: #28a745; margin-top: 0;">Chúc mừng, <span th:text="${applicantName}">Tên Người Dùng</span>!</h2>
+            <p style="color: #333; line-height: 1.6;">Đơn đăng ký trở thành chủ khách sạn của bạn tại Smart Booking System đã được <strong>DUYỆT</strong>.</p>
+            <p style="color: #333; line-height: 1.6;">Giờ đây bạn đã có thể đăng nhập và bắt đầu quản lý khách sạn của mình.</p>
 
-<p>Chúc mừng! Đơn đăng ký trở thành chủ khách sạn của bạn tại Smart Booking System đã được <strong>DUYỆT</strong>.</p>
-
-<p>Giờ đây bạn đã có thể đăng nhập và bắt đầu quản lý khách sạn của mình.</p>
-
-<div style="background-color: #f4f4f4; padding: 10px; border-radius: 5px;">
-    <strong>Ghi chú từ Admin:</strong>
-    <p th:text="${reason}">Hồ sơ hợp lệ.</p>
-</div>
-
-<p>Cảm ơn bạn đã tham gia,<br>Đội ngũ Smart Booking System</p>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 5px; margin-top: 20px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <strong style="color: #333;">Ghi chú từ Admin:</strong>
+                        <p style="margin: 5px 0 0 0; color: #555;" th:text="${reason}">Hồ sơ hợp lệ.</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td style="background-color: #f4f7f6; padding: 30px 30px; text-align: center; color: #888; font-size: 12px;">
+            Cảm ơn bạn đã tham gia,<br>
+            Đội ngũ Smart Booking System
+        </td>
+    </tr>
+</table>
 </body>
 </html>

@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.thymeleaf.context.Context;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,25 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setBusinessLicenseNumber(submitDTO.getBusinessLicenseNumber());
 
         OwnerApplication savedApp = applicationRepository.save(application);
+
+        try {
+            String subject = "Xác nhận nộp đơn đăng ký làm chủ khách sạn";
+            String templateName = "email/application-submitted-confirmation";
+
+            Context context = new Context();
+            context.setVariable("applicantName", applicant.getFullName());
+            context.setVariable("applicationId", savedApp.getId());
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
+            context.setVariable("submittedAt", savedApp.getCreatedAt().format(formatter));
+
+            emailService.sendHtmlEmail(applicant.getEmail(), subject, templateName, context);
+
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi email xác nhận nộp đơn: " + e.getMessage());
+
+        }
+
         return convertToDTO(savedApp);
     }
 
@@ -76,13 +96,16 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         if (newStatus == ApplicationStatus.APPROVED) {
             if (applicant == null) throw new EntityNotFoundException("Không tìm thấy người nộp đơn.");
         }
+
         OwnerApplication savedApp = applicationRepository.save(application);
+
         if (applicant != null) {
             sendReviewNotificationEmail(applicant, savedApp);
         }
 
         return convertToDTO(savedApp);
     }
+
     private OwnerApplicationDTO convertToDTO(OwnerApplication app) {
         OwnerApplicationDTO dto = new OwnerApplicationDTO();
         dto.setId(app.getId());
@@ -130,6 +153,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         } else {
             return;
         }
+
         emailService.sendHtmlEmail(applicantEmail, subject, templateName, context);
     }
 }
