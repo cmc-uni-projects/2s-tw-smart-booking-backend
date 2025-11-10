@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service;
 
+import org.thymeleaf.context.Context;
 public interface EmailService {
 
     void sendVerificationEmail(String toEmail, String fullName, String verificationToken);
@@ -11,4 +12,6 @@ public interface EmailService {
     void sendOwnerApplicationNotification(String adminEmail, String applicantName, String applicationId);
 
     void sendApplicationStatusEmail(String toEmail, String fullName, String status, String reason);
+
+    void sendHtmlEmail(String to, String subject, String templateName, Context context);
 }
