@@ -45,4 +45,20 @@ public class PropertyController {
 
         return ResponseEntity.ok(propertyService.searchProperties(city, keyword));
     }
+
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> updateProperty(
+            @PathVariable int id,
+            @RequestBody Property updatedProperty
+    ) {
+        try {
+            Property property = propertyService.updateProperty(id, updatedProperty);
+            return ResponseEntity.ok(property);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error updating property: " + e.getMessage());
+        }
+    }
 }

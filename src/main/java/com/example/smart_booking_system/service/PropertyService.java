@@ -6,6 +6,7 @@ import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -59,6 +60,75 @@ public class PropertyService {
 
         return propertyRepository.searchProperties(city, keyword);
     }
+
+    public Property updateProperty(int id, Property updatedProperty) {
+        Property existingProperty = propertyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Property not found with id: " + id));
+
+        if (updatedProperty.getPropertyName() != null &&
+                !updatedProperty.getPropertyName().equals(existingProperty.getPropertyName())) {
+            existingProperty.setPropertyName(updatedProperty.getPropertyName());
+        }
+
+        if (updatedProperty.getAddress() != null &&
+                !updatedProperty.getAddress().equals(existingProperty.getAddress())) {
+            existingProperty.setAddress(updatedProperty.getAddress());
+        }
+
+        if (updatedProperty.getCity() != null &&
+                !updatedProperty.getCity().equals(existingProperty.getCity())) {
+            existingProperty.setCity(updatedProperty.getCity());
+        }
+
+        if (updatedProperty.getCountry() != null &&
+                !updatedProperty.getCountry().equals(existingProperty.getCountry())) {
+            existingProperty.setCountry(updatedProperty.getCountry());
+        }
+
+        if (updatedProperty.getPostalCode() != null &&
+                !updatedProperty.getPostalCode().equals(existingProperty.getPostalCode())) {
+            existingProperty.setPostalCode(updatedProperty.getPostalCode());
+        }
+
+        if (updatedProperty.getDescription() != null &&
+                !updatedProperty.getDescription().equals(existingProperty.getDescription())) {
+            existingProperty.setDescription(updatedProperty.getDescription());
+        }
+
+        if (updatedProperty.getLatitude() != null &&
+                !updatedProperty.getLatitude().equals(existingProperty.getLatitude())) {
+            existingProperty.setLatitude(updatedProperty.getLatitude());
+        }
+
+        if (updatedProperty.getLongitude() != null &&
+                !updatedProperty.getLongitude().equals(existingProperty.getLongitude())) {
+            existingProperty.setLongitude(updatedProperty.getLongitude());
+        }
+
+        if (updatedProperty.getPhoneContact() != null &&
+                !updatedProperty.getPhoneContact().equals(existingProperty.getPhoneContact())) {
+            existingProperty.setPhoneContact(updatedProperty.getPhoneContact());
+        }
+
+        if (updatedProperty.getEmailContact() != null &&
+                !updatedProperty.getEmailContact().equals(existingProperty.getEmailContact())) {
+            existingProperty.setEmailContact(updatedProperty.getEmailContact());
+        }
+
+        if (updatedProperty.getPropertyType() != null &&
+                !updatedProperty.getPropertyType().equals(existingProperty.getPropertyType())) {
+            existingProperty.setPropertyType(updatedProperty.getPropertyType());
+        }
+
+        if (updatedProperty.isActive() != existingProperty.isActive()) {
+            existingProperty.setActive(updatedProperty.isActive());
+        }
+
+        existingProperty.setUpdatedAt(LocalDate.now());
+
+        return propertyRepository.save(existingProperty);
+    }
+
 
 
 }
