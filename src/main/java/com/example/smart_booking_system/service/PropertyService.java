@@ -6,6 +6,7 @@ import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 public class PropertyService {
@@ -51,4 +52,13 @@ public class PropertyService {
         // Save and return
         return propertyRepository.save(property);
     }
+
+    public List<Property> searchProperties(String city, String keyword) {
+        if (city != null && city.trim().isEmpty()) city = null;
+        if (keyword != null && keyword.trim().isEmpty()) keyword = null;
+
+        return propertyRepository.searchProperties(city, keyword);
+    }
+
+
 }

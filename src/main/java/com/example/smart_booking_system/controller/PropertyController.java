@@ -7,6 +7,8 @@ import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/properties")
 public class PropertyController {
@@ -14,7 +16,6 @@ public class PropertyController {
     public PropertyController(PropertyService propertyService) {
         this.propertyService = propertyService;
     }
-
 
     @PostMapping("/add")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
@@ -36,5 +37,12 @@ public class PropertyController {
                     .body("Error adding property: " + e.getMessage());
         }
     }
-    
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Property>> searchProperties(
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String keyword) {
+
+        return ResponseEntity.ok(propertyService.searchProperties(city, keyword));
+    }
 }
