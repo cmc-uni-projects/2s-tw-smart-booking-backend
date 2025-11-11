@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/roomtype")
+@RequestMapping("/api/roomtype")
 public class RoomTypeController {
     private final RoomTypeService roomTypeService;
     public RoomTypeController(RoomTypeService roomTypeService) {
@@ -24,7 +24,6 @@ public class RoomTypeController {
     {
         try {
             RoomType savedRoomType = roomTypeService.addRoomType(roomType);
-
             return ResponseEntity
                     .status(201)
                     .body(savedRoomType);
@@ -36,7 +35,7 @@ public class RoomTypeController {
         } catch (Exception e) {
             return ResponseEntity
                     .internalServerError()
-                    .body("Error adding property: " + e.getMessage());
+                    .body("Error adding room types: " + e.getMessage());
         }
     }
 }

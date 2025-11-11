@@ -16,7 +16,7 @@ public class RoomType {
     private int roomTypeId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "propertId")
+    @JoinColumn(name = "propertyId")
     private Property propertyId;
 
     private String roomTypeName;
