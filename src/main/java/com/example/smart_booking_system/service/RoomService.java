@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.enums.RoomCategory;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -74,4 +77,29 @@ public class RoomService {
         return roomRepository.save(room);
     }
 
+    private RoomResponseDTO toDTO(Room room) {
+        return RoomResponseDTO.builder()
+                .roomId(room.getRoomId())
+                .roomName(room.getRoomName())
+                .roomCategory(room.getRoomCategory())
+                .description(room.getDescription())
+                .capacity(room.getCapacity())
+                .pricePerNight(room.getPricePerNight())
+                .roomStatus(room.getRoomStatus())
+                .isActive(room.isActive())
+                .propertyId(room.getPropertyId().getPropertyId())
+                .build();
+    }
+
+    public List<RoomResponseDTO> searchRooms(Integer propertyId, String keyword) {
+        List<Room> rooms = roomRepository.searchRooms(propertyId, keyword);
+
+        if (rooms.isEmpty()) {
+            throw new IllegalArgumentException("No rooms found matching your search criteria.");
+        }
+
+        return rooms.stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
 }

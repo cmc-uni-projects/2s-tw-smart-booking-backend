@@ -35,4 +35,27 @@ public class RoomController {
                     .body("Error adding room: " + e.getMessage());
         }
     }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> searchRooms(
+            @RequestParam(required = false) Integer propertyId,
+            @RequestParam(required = false) String keyword
+    ) {
+        try {
+            return ResponseEntity.ok(roomService.searchRooms(propertyId, keyword));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error searching rooms: " + e.getMessage());
+        }
+    }
+
+
 }
