@@ -101,4 +101,27 @@ public class RoomController {
         }
     }
 
+    @PutMapping("/set-active/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> setRoomActiveStatus(
+            @PathVariable int id,
+            @RequestParam boolean isActive
+    ) {
+        try {
+            String message = roomService.updateRoomActiveStatus(id, isActive);
+            return ResponseEntity.ok(message);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error updating room active status: " + e.getMessage());
+        }
+    }
+
+
 }

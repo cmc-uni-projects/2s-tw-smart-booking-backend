@@ -163,5 +163,19 @@ public class RoomService {
         return "Room with id " + id + " has been deactivated successfully.";
     }
 
+    public String updateRoomActiveStatus(int id, boolean isActive) {
+        Room room = roomRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found with id: " + id));
+
+        if (room.isActive() == isActive) {
+            return "Room with id " + id + " is already " + (isActive ? "active." : "inactive.");
+        }
+
+        room.setActive(isActive);
+        roomRepository.save(room);
+
+        return "Room with id " + id + " has been set to " + (isActive ? "active" : "inactive") + ".";
+    }
+
 
 }
