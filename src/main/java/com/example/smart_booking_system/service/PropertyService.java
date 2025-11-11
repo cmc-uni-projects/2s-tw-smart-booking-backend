@@ -1,10 +1,17 @@
 package com.example.smart_booking_system.service;
 
 import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
+import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
+import com.example.smart_booking_system.repository.UserRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.context.Context;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,8 +21,12 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class PropertyService {
+@Transactional
+public class  PropertyService {
     private final PropertyRepository propertyRepository;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
+
     public Property addProperty(Property property) {
         // Validate address
         if (property.getAddress() == null || property.getAddress().trim().isEmpty()) {
@@ -49,8 +60,24 @@ public class PropertyService {
             property.setPropertyStatus(PropertyStatus.PENDING);
         }
 
-        // Save and return
-        return propertyRepository.save(property);
+        Property savedProperty = propertyRepository.save(property);
+        User owner = savedProperty.getOwnerId(); // Lấy Owner từ property đã lưu
+
+        // --- BẮT ĐẦU LOGIC GỬI MAIL CHO OWNER ---
+        if (owner != null) {
+            try {
+                // Gọi hàm helper mới
+                sendPropertySubmittedEmail(owner, savedProperty);
+            } catch (Exception e) {
+                // (Nên dùng Logger)
+                System.err.println("Lỗi gửi email xác nhận cho Owner: " + e.getMessage());
+                // Không ném lỗi ra ngoài, vì lưu đơn đã thành công
+            }
+        }
+        // --- KẾT THÚC LOGIC GỬI MAIL ---
+
+        return savedProperty;
+
     }
 
     public List<Property> searchProperties(String city, String keyword) {
@@ -147,6 +174,96 @@ public class PropertyService {
         dto.setReviewCount(property.getReviewCount());
         return dto;
     }
+    /**
+     * Chức năng 4.1: Lấy danh sách Property theo trạng thái
+     */
+    @Transactional(readOnly = true)
+    public List<Property> getPropertiesByStatus(PropertyStatus status) {
+        // (Chúng ta trả về Entity đầy đủ để Admin xem chi tiết)
+        return propertyRepository.findByPropertyStatus(status);
+    }
 
+    /**
+     * Chức năng 4.2: Admin xét duyệt Property
+     */
+    @Transactional
+    public Property reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, User admin) {
+        // 1. Tìm Property
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Property với ID: " + propertyId));
 
+        if (property.getPropertyStatus() != PropertyStatus.PENDING) {
+            throw new IllegalStateException("Cơ sở này đã được xử lý (duyệt hoặc từ chối) trước đó.");
+        }
+
+        // 2. Lấy trạng thái mới từ DTO
+        PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
+
+        // 3. Cập nhật Property
+        property.setPropertyStatus(newStatus);
+        property.setUpdatedAt(LocalDate.now());
+
+        if (newStatus == PropertyStatus.APPROVE) {
+            property.setActive(true); // Tự động kích hoạt khi duyệt
+        } else if (newStatus == PropertyStatus.REJECTED) {
+            property.setActive(false); // Tự động tắt nếu từ chối
+        }
+        // --- KẾT THÚC SỬA ---
+
+        // (Tùy chọn: Bạn có thể thêm một cột 'adminReason' vào Entity 'Property' nếu muốn lưu lý do)
+
+        Property savedProperty = propertyRepository.save(property);
+
+        // 4. Lấy Owner (chủ cơ sở)
+        User owner = property.getOwnerId();
+
+        // 5. Gửi email thông báo cho Owner
+        if (owner != null) {
+            sendPropertyReviewEmail(owner, savedProperty, reviewDTO.getReason());
+        }
+
+        return savedProperty;
+    }
+
+    /**
+     * Hàm Helper: Gửi email thông báo kết quả duyệt Property
+     */
+    private void sendPropertyReviewEmail(User owner, Property property, String reason) {
+        String ownerEmail = owner.getEmail();
+        String ownerName = owner.getFullName();
+        String propertyName = property.getPropertyName();
+        PropertyStatus status = property.getPropertyStatus(); // Lấy trạng thái của đơn
+
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        context.setVariable("reason", (reason != null && !reason.isEmpty()) ? reason : "N/A");
+
+        String subject;
+        String templateName;
+
+        if (property.getPropertyStatus() == PropertyStatus.APPROVE) {
+            subject = "Chúc mừng! Cơ sở " + propertyName + " của bạn đã được DUYỆT";
+            templateName = "email/property-approved";
+        } else if (property.getPropertyStatus() == PropertyStatus.REJECTED) {
+            subject = "Thông báo: Cơ sở " + propertyName + " của bạn đã bị TỪ CHỐI";
+            templateName = "email/property-rejected";
+        } else {
+            return; // Không gửi mail
+        }
+        emailService.sendHtmlEmail(ownerEmail, subject, templateName, context);
+    }
+    private void sendPropertySubmittedEmail(User owner, Property property) {
+        String subject = "Xác nhận: Đã nhận được đơn đăng ký cơ sở " + property.getPropertyName();
+        // (File HTML này bạn phải tạo trong /templates/email/ nhé)
+        String templateName = "email/property-submitted-confirmation";
+
+        Context context = new Context();
+        context.setVariable("ownerName", owner.getFullName());
+        context.setVariable("propertyName", property.getPropertyName());
+
+        emailService.sendHtmlEmail(owner.getEmail(), subject, templateName, context);
+    }
 }
+
+

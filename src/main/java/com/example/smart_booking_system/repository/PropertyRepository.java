@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.enums.PropertyStatus;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -28,4 +29,6 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             nativeQuery = true
     )
     List<Property> findFeaturedProperties();
+
+    List<Property> findByPropertyStatus(PropertyStatus status);
 }

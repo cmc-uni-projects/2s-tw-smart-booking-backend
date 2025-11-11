@@ -1,9 +1,9 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.entity.Property;
-import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.web.bind.annotation.*;
 import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
 import lombok.RequiredArgsConstructor;
