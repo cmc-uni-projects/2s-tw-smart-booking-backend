@@ -81,6 +81,24 @@ public class RoomController {
         }
     }
 
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> deleteRoom(@PathVariable int id) {
+        try {
+            String message = roomService.deleteRoom(id);
 
+            return ResponseEntity.ok().body(message);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error deleting room: " + e.getMessage());
+        }
+    }
 
 }

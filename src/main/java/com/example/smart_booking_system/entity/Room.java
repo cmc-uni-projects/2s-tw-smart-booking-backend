@@ -29,5 +29,5 @@ public class Room {
     private BigDecimal pricePerNight;
     @Enumerated(EnumType.STRING)
     private RoomStatus roomStatus;
-    private boolean isActive;
+    private boolean isActive = true;
 }

@@ -149,4 +149,19 @@ public class RoomService {
         return toDTO(savedRoom);
     }
 
+    public String deleteRoom(int id) {
+        Room room = roomRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found with id: " + id));
+
+        if (room.getRoomStatus() == RoomStatus.BOOKED) {
+            throw new IllegalArgumentException("Cannot delete room because it is currently booked.");
+        }
+
+        room.setActive(false);
+        roomRepository.save(room);
+
+        return "Room with id " + id + " has been deactivated successfully.";
+    }
+
+
 }
