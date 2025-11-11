@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.service.RoomService;
 import org.springframework.http.ResponseEntity;
@@ -56,6 +57,30 @@ public class RoomController {
                     .body("Error searching rooms: " + e.getMessage());
         }
     }
+
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> updateRoom(
+            @PathVariable int id,
+            @RequestBody Room updatedRoom
+    ) {
+        try {
+            RoomResponseDTO updated = roomService.updateRoom(id, updatedRoom);
+
+            return ResponseEntity.ok(updated);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error updating room: " + e.getMessage());
+        }
+    }
+
 
 
 }

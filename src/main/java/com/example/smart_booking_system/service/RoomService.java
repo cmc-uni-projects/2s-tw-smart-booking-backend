@@ -102,4 +102,51 @@ public class RoomService {
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
+
+    public RoomResponseDTO updateRoom(int id, Room updatedRoom) {
+        Room existingRoom = roomRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found with id: " + id));
+
+        if (updatedRoom.getRoomName() != null && !updatedRoom.getRoomName().trim().isEmpty()) {
+            existingRoom.setRoomName(updatedRoom.getRoomName());
+        }
+
+        if (updatedRoom.getDescription() != null && !updatedRoom.getDescription().trim().isEmpty()) {
+            existingRoom.setDescription(updatedRoom.getDescription());
+        }
+
+        if (updatedRoom.getCapacity() > 0) {
+            existingRoom.setCapacity(updatedRoom.getCapacity());
+        }
+
+        if (updatedRoom.getPricePerNight() != null && updatedRoom.getPricePerNight().compareTo(BigDecimal.ZERO) > 0) {
+            existingRoom.setPricePerNight(updatedRoom.getPricePerNight());
+        }
+
+        if (updatedRoom.getRoomCategory() != null) {
+            boolean validCategory = Arrays.stream(RoomCategory.values())
+                    .anyMatch(c -> c.equals(updatedRoom.getRoomCategory()));
+            if (!validCategory) {
+                throw new IllegalArgumentException("Invalid room category: " + updatedRoom.getRoomCategory());
+            }
+            existingRoom.setRoomCategory(updatedRoom.getRoomCategory());
+        }
+
+        if (updatedRoom.getRoomStatus() != null) {
+            boolean validStatus = Arrays.stream(RoomStatus.values())
+                    .anyMatch(s -> s.equals(updatedRoom.getRoomStatus()));
+            if (!validStatus) {
+                throw new IllegalArgumentException("Invalid room status: " + updatedRoom.getRoomStatus());
+            }
+            existingRoom.setRoomStatus(updatedRoom.getRoomStatus());
+        }
+
+        existingRoom.setActive(updatedRoom.isActive());
+        existingRoom.setPropertyId(existingRoom.getPropertyId());
+
+        Room savedRoom = roomRepository.save(existingRoom);
+
+        return toDTO(savedRoom);
+    }
+
 }
