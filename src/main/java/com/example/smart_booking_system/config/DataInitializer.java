@@ -32,6 +32,7 @@ public class DataInitializer {
     }
 
     private void initRoles() {
+        // Dùng tên không có tiền tố
         List<String> defaultRoles = List.of("CUSTOMER", "ADMIN", "OWNER");
 
         for (String roleName : defaultRoles) {
@@ -46,8 +47,9 @@ public class DataInitializer {
         }
     }
 
-    // THÊM MỚI HÀM NÀY
+
     private void initDefaultUsers() {
+        // Dùng tên không có tiền tố
         createAccountIfNotExists(
                 "admin@travelmate.vn",
                 "Admin@123",
@@ -68,7 +70,7 @@ public class DataInitializer {
         );
     }
 
-    // THÊM MỚI HÀM HELPER NÀY
+
     private void createAccountIfNotExists(String email, String rawPassword, String fullName, Set<String> roleNames) {
         if (userRepository.existsByEmail(email)) {
             return;
