@@ -63,16 +63,15 @@ public class AdminApplicationController {
      */
     // --- SỬA HÀM NÀY ---
     @PostMapping("/properties/{propertyId}/review")
-    public ResponseEntity<Property> reviewProperty(
-            @PathVariable Integer propertyId,
-            @Valid @RequestBody PropertyReviewDTO reviewDTO,
-            Authentication authentication) { // (Giữ nguyên Authentication)
+    public ResponseEntity<PropertyDetailDTO> reviewProperty(
+        @PathVariable Integer propertyId,
+        @Valid @RequestBody PropertyReviewDTO reviewDTO,
+        Authentication authentication) {
 
-        // SỬA LẠI CÁCH LẤY ADMIN (GIỐNG HÀM Ở TRÊN)
-        String adminUsername = authentication.getName(); // Lấy email (String)
+        String adminUsername = authentication.getName();
 
-        // Truyền email (String) xuống service, không truyền object
-        Property reviewedProperty = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
-        return ResponseEntity.ok(reviewedProperty);
+        // Sửa 2: Nhận về DTO
+        PropertyDetailDTO reviewedPropertyDTO = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
+        return ResponseEntity.ok(reviewedPropertyDTO);
     }
 }

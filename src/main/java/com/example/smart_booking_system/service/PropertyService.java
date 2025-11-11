@@ -198,24 +198,23 @@ public class  PropertyService {
     /**
      * Chức năng 4.2: Admin xét duyệt Property
      */
-    // --- SỬA CHỮ KÝ HÀM NÀY ---
+    // --- SỬA HÀM NÀY ---
     @Transactional
-    public Property reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
+    public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) { // <-- Sửa 1: Đổi kiểu trả về
 
-        // 1. THÊM BƯỚC NÀY: Tìm Admin bằng username (email)
+        // 1. Tìm Admin (Code cũ)
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found: " + adminUsername));
 
         // 2. Tìm Property (Code cũ)
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Property với ID: " + propertyId));
-        // --- KẾT THÚC SỬA ---
 
         if (property.getPropertyStatus() != PropertyStatus.PENDING) {
-            // (Code cũ giữ nguyên)
+            throw new IllegalStateException("Cơ sở này đã được xử lý (duyệt hoặc từ chối) trước đó.");
         }
 
-        // (Code cũ giữ nguyên)
+        // 3. Cập nhật Property (Code cũ)
         PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
         property.setPropertyStatus(newStatus);
         property.setUpdatedAt(LocalDate.now());
@@ -228,11 +227,14 @@ public class  PropertyService {
 
         Property savedProperty = propertyRepository.save(property);
         User owner = property.getOwnerId();
+
+        // 4. Gửi email (Code cũ)
         if (owner != null) {
             sendPropertyReviewEmail(owner, savedProperty, reviewDTO.getReason());
         }
 
-        return savedProperty;
+        // 5. Sửa 2: Trả về DTO (dùng constructor của PropertyDetailDTO)
+        return new PropertyDetailDTO(savedProperty);
     }
 
     /**
@@ -242,7 +244,9 @@ public class  PropertyService {
         String ownerEmail = owner.getEmail();
         String ownerName = owner.getFullName();
         String propertyName = property.getPropertyName();
-        PropertyStatus status = property.getPropertyStatus(); // Lấy trạng thái của đơn
+
+        // --- ĐẢM BẢO DÙNG ĐÚNG BIẾN VÀ ĐÚNG ENUM ---
+        PropertyStatus status = property.getPropertyStatus();
 
         Context context = new Context();
         context.setVariable("ownerName", ownerName);
@@ -252,15 +256,17 @@ public class  PropertyService {
         String subject;
         String templateName;
 
-        if (property.getPropertyStatus() == PropertyStatus.APPROVE) {
+        // --- ĐẢM BẢO KIỂM TRA ĐÚNG PropertyStatus ---
+        if (status == PropertyStatus.APPROVE) {
             subject = "Chúc mừng! Cơ sở " + propertyName + " của bạn đã được DUYỆT";
             templateName = "email/property-approved";
-        } else if (property.getPropertyStatus() == PropertyStatus.REJECTED) {
+        } else if (status == PropertyStatus.REJECTED) {
             subject = "Thông báo: Cơ sở " + propertyName + " của bạn đã bị TỪ CHỐI";
             templateName = "email/property-rejected";
         } else {
-            return; // Không gửi mail
+            return; // Không gửi mail nếu trạng thái là PENDING
         }
+
         emailService.sendHtmlEmail(ownerEmail, subject, templateName, context);
     }
     private void sendPropertySubmittedEmail(User owner, Property property) {
