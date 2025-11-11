@@ -108,4 +108,16 @@ public class RoomTypeService {
 
         return RoomTypeMapper.toResponse(saved);
     }
+
+    public void deleteRoomType(int roomTypeId) {
+        RoomType roomType = roomTypeRepository.findRoomTypeById(roomTypeId)
+                .orElseThrow(() -> new IllegalArgumentException("Room type not found with id: " + roomTypeId));
+
+        if (!roomType.isActive()) {
+            throw new IllegalStateException("Room type is already inactive.");
+        }
+
+        roomType.setActive(false);
+        roomTypeRepository.save(roomType);
+    }
 }

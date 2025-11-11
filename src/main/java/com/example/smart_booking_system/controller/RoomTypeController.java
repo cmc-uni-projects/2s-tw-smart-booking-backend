@@ -51,7 +51,7 @@ public class RoomTypeController {
         return ResponseEntity.ok(roomTypeService.getRoomTypeById(roomTypeId));
     }
 
-    @PutMapping("/{roomTypeId}")
+    @PutMapping("/update/{roomTypeId}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateRoomType(@PathVariable int roomTypeId,
                                             @RequestBody RoomType updatedRoomType) {
@@ -62,6 +62,21 @@ public class RoomTypeController {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error updating room type: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/delete/{roomTypeId}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> deleteRoomType(@PathVariable int roomTypeId) {
+        try {
+            roomTypeService.deleteRoomType(roomTypeId);
+            return ResponseEntity.ok("Room type deactivated successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error deleting room type: " + e.getMessage());
         }
     }
 

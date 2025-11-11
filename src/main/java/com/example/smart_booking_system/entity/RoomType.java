@@ -31,4 +31,7 @@ public class RoomType {
     @Column(columnDefinition = "TEXT")
     private String policy;
 
+    @Column(nullable = false)
+    private boolean isActive = true;
+
 }
