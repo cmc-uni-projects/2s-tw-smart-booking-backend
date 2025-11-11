@@ -32,7 +32,7 @@ public class PropertyDetailDTO {
     private String ownerFullName;
 
     public PropertyDetailDTO(Property property) {
-        this.propertyId = property.getPropertId();
+        this.propertyId = property.getPropertyId();
         this.propertyName = property.getPropertyName();
         this.propertyType = property.getPropertyType();
         this.address = property.getAddress();

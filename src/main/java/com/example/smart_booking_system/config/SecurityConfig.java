@@ -77,8 +77,8 @@ public class SecurityConfig {
                                 "/api/hotels/search",
                                 "/api/hotels/featured",
                                 "/api/hotels/{id}",
-                                "/api/properties/search",  
-                                "/api/properties/featured",
+                                "/api/v1/properties/search",
+                                "/api/v1/properties/featured",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/actuator/**"
