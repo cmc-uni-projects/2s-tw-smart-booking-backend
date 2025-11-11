@@ -38,6 +38,8 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + applicantUsername));
 
         OwnerApplication application = new OwnerApplication();
+
+        // Code của bạn CHÍNH XÁC
         application.setUserId(applicant);
 
         application.setPermanentAddress(submitDTO.getPermanentAddress());
@@ -70,6 +72,15 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         return convertToDTO(savedApp);
     }
 
+    // ===== HÀM BỊ THIẾU MÀ ADMIN CONTROLLER CẦN =====
+    @Override
+    @Transactional(readOnly = true)
+    public List<OwnerApplicationDTO> getPendingOwnerApplications() {
+        // Hàm này chỉ cần gọi hàm getApplicationsByStatus của bạn
+        return this.getApplicationsByStatus(ApplicationStatus.PENDING);
+    }
+    // ===============================================
+
     @Override
     @Transactional(readOnly = true)
     public List<OwnerApplicationDTO> getApplicationsByStatus(ApplicationStatus status) {
@@ -94,6 +105,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setReviewedAt(LocalDateTime.now());
         application.setReviewedBy(admin);
 
+        // Code của bạn CHÍNH XÁC
         User applicant = application.getUserId();
 
         if (newStatus == ApplicationStatus.APPROVED) {
@@ -130,6 +142,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         dto.setReviewedAt(app.getReviewedAt());
         dto.setAdminReason(app.getAdminReason());
 
+        // Code của bạn CHÍNH XÁC
         if (app.getUserId() != null) {
             User applicant = app.getUserId();
             dto.setApplicantId(applicant.getUserId());

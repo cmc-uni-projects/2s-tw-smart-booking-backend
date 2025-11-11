@@ -20,7 +20,7 @@ public class FileUploadController {
     private final FileStorageService fileStorageService;
 
     @PostMapping("/upload")
-    @PreAuthorize("hasRole('CUSTOMER')") // Đảm bảo chỉ CUSTOMER mới được upload
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<FileUploadResponse> uploadFile(@RequestParam("file") MultipartFile file) {
         String fileName = fileStorageService.storeFile(file);
 

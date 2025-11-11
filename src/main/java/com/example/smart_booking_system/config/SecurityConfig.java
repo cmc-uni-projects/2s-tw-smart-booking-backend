@@ -61,7 +61,6 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                // SỬA DÒNG NÀY:
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
@@ -70,10 +69,17 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+
+                        // === SỬA ĐỔI CHÍNH ===
+                        // 1. Chỉ định rõ các endpoint public (thay vì /api/v1/auth/**)
                         .requestMatchers(
-                                // SỬA DÒNG NÀY (thêm /v1):
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password",
+                                "/api/v1/auth/verify-email",
+
+                                // Các endpoint public khác (giữ nguyên)
                                 "/api/hotels/search",
                                 "/api/hotels/featured",
                                 "/api/hotels/{id}",
@@ -84,18 +90,16 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/files/**"
                         ).permitAll()
+                        // === KẾT THÚC SỬA ĐỔI ===
 
-                        // Admin endpoints
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                        // Owner endpoints
-                        .requestMatchers("/api/owner/**").hasAnyRole("OWNER", "ADMIN")
-
-                        // Customer endpoints
+                        // 2. Các quy tắc về vai trò (giữ nguyên hasAuthority)
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/owner/**").hasAnyAuthority("OWNER", "ADMIN")
                         .requestMatchers("/api/bookings/**", "/api/reviews/**")
-                        .hasAnyRole("CUSTOMER", "ADMIN","OWNER")
+                        .hasAnyAuthority("CUSTOMER", "ADMIN","OWNER")
 
-                        // All other endpoints require authentication
+                        // 3. TẤT CẢ các request còn lại (bao gồm /api/v1/auth/logout)
+                        //    đều phải được xác thực.
                         .anyRequest().authenticated()
                 );
 
