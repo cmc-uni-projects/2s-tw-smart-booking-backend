@@ -4,7 +4,6 @@ import com.example.smart_booking_system.entity.Property;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-
 import java.util.List;
 
 public interface PropertyRepository extends JpaRepository<Property, Integer> {
@@ -23,4 +22,10 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             AND p.propertyStatus = 'APPROVE'
     """)
     List<Property> searchProperties(@Param("city") String city, @Param("keyword") String keyword);
+
+    @Query(
+            value = "SELECT * FROM property WHERE isActive = TRUE ORDER BY rating DESC LIMIT 10",
+            nativeQuery = true
+    )
+    List<Property> findFeaturedProperties();
 }
