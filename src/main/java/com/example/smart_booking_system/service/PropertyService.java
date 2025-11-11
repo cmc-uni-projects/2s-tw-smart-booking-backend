@@ -11,7 +11,6 @@ import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import com.example.smart_booking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import org.thymeleaf.context.Context;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
@@ -29,7 +28,6 @@ public class  PropertyService {
     private final UserRepository userRepository;
 
     public Property addProperty(Property property, String ownerId) {
-        // 1. Tìm Owner
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Owner (User) not found with ID: " + ownerId));
 
@@ -70,22 +68,14 @@ public class  PropertyService {
 
         Property savedProperty = propertyRepository.save(property);
 
-
-        // --- BẮT ĐẦU LOGIC GỬI MAIL CHO OWNER ---
         if (owner != null) {
             try {
-                // Gọi hàm helper mới
                 sendPropertySubmittedEmail(owner, savedProperty);
             } catch (Exception e) {
-                // (Nên dùng Logger)
                 System.err.println("Lỗi gửi email xác nhận cho Owner: " + e.getMessage());
-                // Không ném lỗi ra ngoài, vì lưu đơn đã thành công
             }
         }
-        // --- KẾT THÚC LOGIC GỬI MAIL ---
-
         return savedProperty;
-
     }
 
     public List<Property> searchProperties(String city, String keyword) {
@@ -182,31 +172,25 @@ public class  PropertyService {
         dto.setReviewCount(property.getReviewCount());
         return dto;
     }
-    /**
-     * Chức năng 4.1: Lấy danh sách Property theo trạng thái
-     */
+
     @Transactional(readOnly = true)
-    public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) { // <-- SỬA: Trả về DTO
+    public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) {
         List<Property> properties = propertyRepository.findByPropertyStatus(status);
 
-        // Chuyển sang DTO chi tiết
+
         return properties.stream()
-                .map(PropertyDetailDTO::new) // Giả sử PropertyDetailDTO có constructor (Property p)
+                .map(PropertyDetailDTO::new)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Chức năng 4.2: Admin xét duyệt Property
-     */
-    // --- SỬA HÀM NÀY ---
     @Transactional
-    public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) { // <-- Sửa 1: Đổi kiểu trả về
+    public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
 
-        // 1. Tìm Admin (Code cũ)
+
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found: " + adminUsername));
 
-        // 2. Tìm Property (Code cũ)
+
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Property với ID: " + propertyId));
 
@@ -214,7 +198,6 @@ public class  PropertyService {
             throw new IllegalStateException("Cơ sở này đã được xử lý (duyệt hoặc từ chối) trước đó.");
         }
 
-        // 3. Cập nhật Property (Code cũ)
         PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
         property.setPropertyStatus(newStatus);
         property.setUpdatedAt(LocalDate.now());
@@ -228,24 +211,18 @@ public class  PropertyService {
         Property savedProperty = propertyRepository.save(property);
         User owner = property.getOwnerId();
 
-        // 4. Gửi email (Code cũ)
         if (owner != null) {
             sendPropertyReviewEmail(owner, savedProperty, reviewDTO.getReason());
         }
 
-        // 5. Sửa 2: Trả về DTO (dùng constructor của PropertyDetailDTO)
         return new PropertyDetailDTO(savedProperty);
     }
 
-    /**
-     * Hàm Helper: Gửi email thông báo kết quả duyệt Property
-     */
     private void sendPropertyReviewEmail(User owner, Property property, String reason) {
         String ownerEmail = owner.getEmail();
         String ownerName = owner.getFullName();
         String propertyName = property.getPropertyName();
 
-        // --- ĐẢM BẢO DÙNG ĐÚNG BIẾN VÀ ĐÚNG ENUM ---
         PropertyStatus status = property.getPropertyStatus();
 
         Context context = new Context();
@@ -256,7 +233,6 @@ public class  PropertyService {
         String subject;
         String templateName;
 
-        // --- ĐẢM BẢO KIỂM TRA ĐÚNG PropertyStatus ---
         if (status == PropertyStatus.APPROVE) {
             subject = "Chúc mừng! Cơ sở " + propertyName + " của bạn đã được DUYỆT";
             templateName = "email/property-approved";
@@ -264,14 +240,13 @@ public class  PropertyService {
             subject = "Thông báo: Cơ sở " + propertyName + " của bạn đã bị TỪ CHỐI";
             templateName = "email/property-rejected";
         } else {
-            return; // Không gửi mail nếu trạng thái là PENDING
+            return;
         }
 
         emailService.sendHtmlEmail(ownerEmail, subject, templateName, context);
     }
     private void sendPropertySubmittedEmail(User owner, Property property) {
         String subject = "Xác nhận: Đã nhận được đơn đăng ký cơ sở " + property.getPropertyName();
-        // (File HTML này bạn phải tạo trong /templates/email/ nhé)
         String templateName = "email/property-submitted-confirmation";
 
         Context context = new Context();

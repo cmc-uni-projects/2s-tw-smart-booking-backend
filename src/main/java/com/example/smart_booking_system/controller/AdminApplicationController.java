@@ -9,8 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
-import com.example.smart_booking_system.entity.Property;
-import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
@@ -46,22 +44,15 @@ public class AdminApplicationController {
         OwnerApplicationDTO reviewedApp = applicationService.reviewApplication(applicationId, reviewDTO, adminUsername);
         return ResponseEntity.ok(reviewedApp);
     }
-    /**
-     * API 4.1: Lấy danh sách cơ sở (Property) đang chờ duyệt
-     */
-    // --- SỬA HÀM NÀY ---
-    @GetMapping("/properties/pending")
-    public ResponseEntity<List<PropertyDetailDTO>> getPendingProperties() { // <-- Sửa 1: Đổi kiểu trả về
 
-        // Sửa 2: Đổi kiểu biến
+    @GetMapping("/properties/pending")
+    public ResponseEntity<List<PropertyDetailDTO>> getPendingProperties() {
+
+
         List<PropertyDetailDTO> propertyDTOs = propertyService.getPropertiesByStatus(PropertyStatus.PENDING);
         return ResponseEntity.ok(propertyDTOs);
     }
 
-    /**
-     * API 4.2: Duyệt (APPROVE/REJECTED) một cơ sở
-     */
-    // --- SỬA HÀM NÀY ---
     @PostMapping("/properties/{propertyId}/review")
     public ResponseEntity<PropertyDetailDTO> reviewProperty(
         @PathVariable Integer propertyId,
@@ -70,7 +61,6 @@ public class AdminApplicationController {
 
         String adminUsername = authentication.getName();
 
-        // Sửa 2: Nhận về DTO
         PropertyDetailDTO reviewedPropertyDTO = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
         return ResponseEntity.ok(reviewedPropertyDTO);
     }

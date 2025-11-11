@@ -11,7 +11,6 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 public class PropertyDetailDTO {
-    // Lấy từ Property Entity
     private int propertyId;
     private String propertyName;
     private PropertyType propertyType;
@@ -29,13 +28,9 @@ public class PropertyDetailDTO {
     private boolean isActive;
     private PropertyStatus propertyStatus;
     private LocalDate createdAt;
-
-    // Lấy từ User (Owner)
     private String ownerId;
     private String ownerFullName;
 
-    // Constructor (Hàm khởi tạo) này sẽ chuyển Entity -> DTO
-    // Nó xử lý an toàn các trường LAZY (như OwnerId)
     public PropertyDetailDTO(Property property) {
         this.propertyId = property.getPropertId();
         this.propertyName = property.getPropertyName();
@@ -55,7 +50,6 @@ public class PropertyDetailDTO {
         this.propertyStatus = property.getPropertyStatus();
         this.createdAt = property.getCreatedAt();
 
-        // Xử lý an toàn liên kết LAZY (tránh lỗi ByteBuddy)
         if (property.getOwnerId() != null) {
             this.ownerId = property.getOwnerId().getUserId();
             this.ownerFullName = property.getOwnerId().getFullName();
