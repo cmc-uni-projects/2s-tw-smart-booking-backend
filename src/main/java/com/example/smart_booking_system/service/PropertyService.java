@@ -4,19 +4,18 @@ import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
-
+import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
+import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PropertyService {
     private final PropertyRepository propertyRepository;
-
-    public PropertyService(PropertyRepository propertyRepository) {
-        this.propertyRepository = propertyRepository;
-    }
-
     public Property addProperty(Property property) {
         // Validate address
         if (property.getAddress() == null || property.getAddress().trim().isEmpty()) {
@@ -129,6 +128,25 @@ public class PropertyService {
         return propertyRepository.save(existingProperty);
     }
 
+
+    public List<FeaturedPropertyDTO> getFeaturedProperties() {
+
+        List<Property> properties = propertyRepository.findFeaturedProperties();
+
+        return properties.stream()
+                .map(this::convertToFeaturedDTO)
+                .collect(Collectors.toList());
+    }
+
+    private FeaturedPropertyDTO convertToFeaturedDTO(Property property) {
+        FeaturedPropertyDTO dto = new FeaturedPropertyDTO();
+        dto.setPropertyId(property.getPropertId());
+        dto.setPropertyName(property.getPropertyName());
+        dto.setCity(property.getCity());
+        dto.setRating(property.getRating());
+        dto.setReviewCount(property.getReviewCount());
+        return dto;
+    }
 
 
 }
