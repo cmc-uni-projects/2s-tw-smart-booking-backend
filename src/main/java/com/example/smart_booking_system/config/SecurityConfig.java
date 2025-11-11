@@ -81,7 +81,8 @@ public class SecurityConfig {
                                 "/api/v1/properties/featured",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/actuator/**"
+                                "/actuator/**",
+                                "/files/**"
                         ).permitAll()
 
                         // Admin endpoints
