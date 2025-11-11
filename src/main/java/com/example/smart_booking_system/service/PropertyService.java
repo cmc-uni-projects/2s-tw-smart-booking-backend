@@ -1,23 +1,39 @@
 package com.example.smart_booking_system.service;
 
 import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
-
+import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
+import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
+import com.example.smart_booking_system.repository.UserRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.context.Context;
+import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 
 @Service
-public class PropertyService {
+@RequiredArgsConstructor
+@Transactional
+public class  PropertyService {
     private final PropertyRepository propertyRepository;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
 
-    public PropertyService(PropertyRepository propertyRepository) {
-        this.propertyRepository = propertyRepository;
-    }
+    public Property addProperty(Property property, String ownerId) {
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new EntityNotFoundException("Owner (User) not found with ID: " + ownerId));
 
-    public Property addProperty(Property property) {
+        // 2. Gán Owner vào Property
+        property.setOwnerId(owner);
+
         // Validate address
         if (property.getAddress() == null || property.getAddress().trim().isEmpty()) {
             throw new IllegalArgumentException("Address cannot be empty");
@@ -50,8 +66,16 @@ public class PropertyService {
             property.setPropertyStatus(PropertyStatus.PENDING);
         }
 
-        // Save and return
-        return propertyRepository.save(property);
+        Property savedProperty = propertyRepository.save(property);
+
+        if (owner != null) {
+            try {
+                sendPropertySubmittedEmail(owner, savedProperty);
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi email xác nhận cho Owner: " + e.getMessage());
+            }
+        }
+        return savedProperty;
     }
 
     public List<Property> searchProperties(String city, String keyword) {
@@ -130,5 +154,107 @@ public class PropertyService {
     }
 
 
+    public List<PropertyDetailDTO> getFeaturedProperties() {
 
+        List<Property> properties = propertyRepository.findFeaturedProperties();
+
+        return properties.stream()
+                .map(this::convertToFeaturedDTO)
+                .collect(Collectors.toList());
+    }
+
+    private PropertyDetailDTO convertToFeaturedDTO(Property property) {
+        PropertyDetailDTO dto = new PropertyDetailDTO();
+        dto.setPropertyId(property.getPropertId());
+        dto.setPropertyName(property.getPropertyName());
+        dto.setCity(property.getCity());
+        dto.setRating(property.getRating());
+        dto.setReviewCount(property.getReviewCount());
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) {
+        List<Property> properties = propertyRepository.findByPropertyStatus(status);
+
+
+        return properties.stream()
+                .map(PropertyDetailDTO::new)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
+
+
+        User admin = userRepository.findByEmail(adminUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found: " + adminUsername));
+
+
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Property với ID: " + propertyId));
+
+        if (property.getPropertyStatus() != PropertyStatus.PENDING) {
+            throw new IllegalStateException("Cơ sở này đã được xử lý (duyệt hoặc từ chối) trước đó.");
+        }
+
+        PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
+        property.setPropertyStatus(newStatus);
+        property.setUpdatedAt(LocalDate.now());
+
+        if (newStatus == PropertyStatus.APPROVE) {
+            property.setActive(true);
+        } else if (newStatus == PropertyStatus.REJECTED) {
+            property.setActive(false);
+        }
+
+        Property savedProperty = propertyRepository.save(property);
+        User owner = property.getOwnerId();
+
+        if (owner != null) {
+            sendPropertyReviewEmail(owner, savedProperty, reviewDTO.getReason());
+        }
+
+        return new PropertyDetailDTO(savedProperty);
+    }
+
+    private void sendPropertyReviewEmail(User owner, Property property, String reason) {
+        String ownerEmail = owner.getEmail();
+        String ownerName = owner.getFullName();
+        String propertyName = property.getPropertyName();
+
+        PropertyStatus status = property.getPropertyStatus();
+
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        context.setVariable("reason", (reason != null && !reason.isEmpty()) ? reason : "N/A");
+
+        String subject;
+        String templateName;
+
+        if (status == PropertyStatus.APPROVE) {
+            subject = "Chúc mừng! Cơ sở " + propertyName + " của bạn đã được DUYỆT";
+            templateName = "email/property-approved";
+        } else if (status == PropertyStatus.REJECTED) {
+            subject = "Thông báo: Cơ sở " + propertyName + " của bạn đã bị TỪ CHỐI";
+            templateName = "email/property-rejected";
+        } else {
+            return;
+        }
+
+        emailService.sendHtmlEmail(ownerEmail, subject, templateName, context);
+    }
+    private void sendPropertySubmittedEmail(User owner, Property property) {
+        String subject = "Xác nhận: Đã nhận được đơn đăng ký cơ sở " + property.getPropertyName();
+        String templateName = "email/property-submitted-confirmation";
+
+        Context context = new Context();
+        context.setVariable("ownerName", owner.getFullName());
+        context.setVariable("propertyName", property.getPropertyName());
+
+        emailService.sendHtmlEmail(owner.getEmail(), subject, templateName, context);
+    }
 }
+
+
