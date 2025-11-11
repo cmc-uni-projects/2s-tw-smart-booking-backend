@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.entity.Property;
 import org.springframework.web.bind.annotation.*;
-import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
+import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import org.springframework.security.core.Authentication;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -67,8 +67,8 @@ public class PropertyController {
     }
 
     @GetMapping("/featured")
-    public ResponseEntity<List<FeaturedPropertyDTO>> getFeaturedProperties() {
-        List<FeaturedPropertyDTO> properties = propertyService.getFeaturedProperties();
+    public ResponseEntity<List<PropertyDetailDTO>> getFeaturedProperties() {
+        List<PropertyDetailDTO> properties = propertyService.getFeaturedProperties();
         return ResponseEntity.ok(properties);
     }
 }

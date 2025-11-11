@@ -5,12 +5,13 @@ import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
-import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
+import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import com.example.smart_booking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import org.thymeleaf.context.Context;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
@@ -163,7 +164,7 @@ public class  PropertyService {
     }
 
 
-    public List<FeaturedPropertyDTO> getFeaturedProperties() {
+    public List<PropertyDetailDTO> getFeaturedProperties() {
 
         List<Property> properties = propertyRepository.findFeaturedProperties();
 
@@ -172,8 +173,8 @@ public class  PropertyService {
                 .collect(Collectors.toList());
     }
 
-    private FeaturedPropertyDTO convertToFeaturedDTO(Property property) {
-        FeaturedPropertyDTO dto = new FeaturedPropertyDTO();
+    private PropertyDetailDTO convertToFeaturedDTO(Property property) {
+        PropertyDetailDTO dto = new PropertyDetailDTO();
         dto.setPropertyId(property.getPropertId());
         dto.setPropertyName(property.getPropertyName());
         dto.setCity(property.getCity());
@@ -185,46 +186,48 @@ public class  PropertyService {
      * Chức năng 4.1: Lấy danh sách Property theo trạng thái
      */
     @Transactional(readOnly = true)
-    public List<Property> getPropertiesByStatus(PropertyStatus status) {
-        // (Chúng ta trả về Entity đầy đủ để Admin xem chi tiết)
-        return propertyRepository.findByPropertyStatus(status);
+    public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) { // <-- SỬA: Trả về DTO
+        List<Property> properties = propertyRepository.findByPropertyStatus(status);
+
+        // Chuyển sang DTO chi tiết
+        return properties.stream()
+                .map(PropertyDetailDTO::new) // Giả sử PropertyDetailDTO có constructor (Property p)
+                .collect(Collectors.toList());
     }
 
     /**
      * Chức năng 4.2: Admin xét duyệt Property
      */
+    // --- SỬA CHỮ KÝ HÀM NÀY ---
     @Transactional
-    public Property reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, User admin) {
-        // 1. Tìm Property
+    public Property reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
+
+        // 1. THÊM BƯỚC NÀY: Tìm Admin bằng username (email)
+        User admin = userRepository.findByEmail(adminUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found: " + adminUsername));
+
+        // 2. Tìm Property (Code cũ)
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Property với ID: " + propertyId));
+        // --- KẾT THÚC SỬA ---
 
         if (property.getPropertyStatus() != PropertyStatus.PENDING) {
-            throw new IllegalStateException("Cơ sở này đã được xử lý (duyệt hoặc từ chối) trước đó.");
+            // (Code cũ giữ nguyên)
         }
 
-        // 2. Lấy trạng thái mới từ DTO
+        // (Code cũ giữ nguyên)
         PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
-
-        // 3. Cập nhật Property
         property.setPropertyStatus(newStatus);
         property.setUpdatedAt(LocalDate.now());
 
         if (newStatus == PropertyStatus.APPROVE) {
-            property.setActive(true); // Tự động kích hoạt khi duyệt
+            property.setActive(true);
         } else if (newStatus == PropertyStatus.REJECTED) {
-            property.setActive(false); // Tự động tắt nếu từ chối
+            property.setActive(false);
         }
-        // --- KẾT THÚC SỬA ---
-
-        // (Tùy chọn: Bạn có thể thêm một cột 'adminReason' vào Entity 'Property' nếu muốn lưu lý do)
 
         Property savedProperty = propertyRepository.save(property);
-
-        // 4. Lấy Owner (chủ cơ sở)
         User owner = property.getOwnerId();
-
-        // 5. Gửi email thông báo cho Owner
         if (owner != null) {
             sendPropertyReviewEmail(owner, savedProperty, reviewDTO.getReason());
         }
