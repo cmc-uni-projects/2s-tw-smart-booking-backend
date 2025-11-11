@@ -78,4 +78,34 @@ public class RoomTypeService {
 
         return RoomTypeMapper.toResponse(roomType);
     }
+
+    public RoomTypeResponse updateRoomType(int roomTypeId, RoomType updatedRoomType) {
+        RoomType existingRoomType = roomTypeRepository.findRoomTypeById(roomTypeId)
+                .orElseThrow(() -> new IllegalArgumentException("Room type not found with id: " + roomTypeId));
+
+        if (updatedRoomType.getRoomTypeName() != null && !updatedRoomType.getRoomTypeName().trim().isEmpty()) {
+            existingRoomType.setRoomTypeName(updatedRoomType.getRoomTypeName());
+        }
+
+        if (updatedRoomType.getDescription() != null && !updatedRoomType.getDescription().trim().isEmpty()) {
+            existingRoomType.setDescription(updatedRoomType.getDescription());
+        }
+
+        if (updatedRoomType.getPricePerNight() != null) {
+            existingRoomType.setPricePerNight(updatedRoomType.getPricePerNight());
+        }
+
+        if (updatedRoomType.getCapacity() > 0) {
+            existingRoomType.setCapacity(updatedRoomType.getCapacity());
+        }
+
+        if (updatedRoomType.getPolicy() != null && !updatedRoomType.getPolicy().trim().isEmpty()) {
+            existingRoomType.setPolicy(updatedRoomType.getPolicy());
+        }
+
+
+        RoomType saved = roomTypeRepository.save(existingRoomType);
+
+        return RoomTypeMapper.toResponse(saved);
+    }
 }

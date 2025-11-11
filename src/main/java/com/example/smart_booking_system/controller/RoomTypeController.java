@@ -51,5 +51,19 @@ public class RoomTypeController {
         return ResponseEntity.ok(roomTypeService.getRoomTypeById(roomTypeId));
     }
 
+    @PutMapping("/{roomTypeId}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> updateRoomType(@PathVariable int roomTypeId,
+                                            @RequestBody RoomType updatedRoomType) {
+        try {
+            RoomTypeResponse updated = roomTypeService.updateRoomType(roomTypeId, updatedRoomType);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error updating room type: " + e.getMessage());
+        }
+    }
+
 
 }
