@@ -4,10 +4,14 @@ import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.enums.RoomStatus;
 import com.mysql.cj.protocol.ColumnDefinition;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Entity
+@Getter
+@Setter
 public class Room {
 
     @Id
