@@ -6,6 +6,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.entity.Property;
 import org.springframework.web.bind.annotation.*;
 import com.example.smart_booking_system.dto.response.property.FeaturedPropertyDTO;
+import org.springframework.security.core.Authentication;
+import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -18,9 +20,12 @@ public class PropertyController {
 
     @PostMapping("/add")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
-    public ResponseEntity<?> addProperty(@RequestBody Property property) {
+    public ResponseEntity<?> addProperty(@RequestBody Property property, Authentication authentication) {
         try {
-            Property savedProperty = propertyService.addProperty(property);
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String ownerId = userDetails.getUserId();
+
+            Property savedProperty = propertyService.addProperty(property, ownerId);
 
             return ResponseEntity
                     .status(201)

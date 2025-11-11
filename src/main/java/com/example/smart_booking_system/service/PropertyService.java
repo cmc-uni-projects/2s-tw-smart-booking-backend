@@ -27,7 +27,14 @@ public class  PropertyService {
     private final EmailService emailService;
     private final UserRepository userRepository;
 
-    public Property addProperty(Property property) {
+    public Property addProperty(Property property, String ownerId) {
+        // 1. Tìm Owner
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new EntityNotFoundException("Owner (User) not found with ID: " + ownerId));
+
+        // 2. Gán Owner vào Property
+        property.setOwnerId(owner);
+
         // Validate address
         if (property.getAddress() == null || property.getAddress().trim().isEmpty()) {
             throw new IllegalArgumentException("Address cannot be empty");
@@ -61,7 +68,7 @@ public class  PropertyService {
         }
 
         Property savedProperty = propertyRepository.save(property);
-        User owner = savedProperty.getOwnerId(); // Lấy Owner từ property đã lưu
+
 
         // --- BẮT ĐẦU LOGIC GỬI MAIL CHO OWNER ---
         if (owner != null) {
