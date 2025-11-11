@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.thymeleaf.context.Context;
 import java.time.format.DateTimeFormatter;
+import com.example.smart_booking_system.repository.RoleRepository;
+import com.example.smart_booking_system.entity.Role;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     private final OwnerApplicationRepository applicationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final RoleRepository roleRepository;
 
     @Override
     public OwnerApplicationDTO submitApplication(OwnerApplicationSubmitDTO submitDTO, String applicantUsername) {
@@ -95,6 +98,13 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         if (newStatus == ApplicationStatus.APPROVED) {
             if (applicant == null) throw new EntityNotFoundException("Không tìm thấy người nộp đơn.");
+
+
+            Role ownerRole = roleRepository.findByRoleName("OWNER")
+                    .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy ROLE_OWNER"));
+
+            applicant.addRole(ownerRole);
+            userRepository.save(applicant);
         }
 
         OwnerApplication savedApp = applicationRepository.save(application);
