@@ -26,4 +26,9 @@ public class PropertyAmenityController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @GetMapping("/property/{propertyId}")
+    public ResponseEntity<?> getByProperty(@PathVariable int propertyId) {
+        return ResponseEntity.ok(service.getAmenitiesByProperty(propertyId));
+    }
 }

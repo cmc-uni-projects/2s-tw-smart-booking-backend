@@ -11,6 +11,8 @@ import com.example.smart_booking_system.repository.PropertyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class PropertyAmenityService {
@@ -54,5 +56,11 @@ public class PropertyAmenityService {
         pa.setActive(true);
 
         return repo.save(pa);
+    }
+    public List<PropertyAmenityDTO> getAmenitiesByProperty(int propertyId) {
+        return repo.findActiveByPropertyId(propertyId)
+                .stream()
+                .map(this::toDTO)
+                .toList();
     }
 }
