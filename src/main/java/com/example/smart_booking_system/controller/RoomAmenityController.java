@@ -45,6 +45,22 @@ public class RoomAmenityController {
         }
     }
 
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> updateAmenity(
+            @PathVariable int id,
+            @RequestParam int newAmenityId
+    ) {
+        try {
+            RoomAmenityDTO dto = roomAmenityService.updateRoomAmenity(id, newAmenityId);
+            return ResponseEntity.ok(dto);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+
 
 
 }

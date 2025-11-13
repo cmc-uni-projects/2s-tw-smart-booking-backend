@@ -58,5 +58,30 @@ public class RoomAmenityService {
                 .toList();
     }
 
+    public RoomAmenityDTO updateRoomAmenity(int roomAmenityId, int newAmenityId) {
+
+        RoomAmenity ra = roomAmenityRepository.findById(roomAmenityId)
+                .orElseThrow(() -> new IllegalArgumentException("RoomAmenity not found"));
+
+        // Check amenity exists
+        Amenity amenity = amenityRepository.findById(newAmenityId)
+                .orElseThrow(() -> new IllegalArgumentException("Amenity not found"));
+
+        // Check trùng roomId + newAmenityId
+        int roomId = ra.getRoomId().getRoomId();
+
+        if (roomAmenityRepository.existsActiveExcept(roomId, newAmenityId, roomAmenityId)) {
+            throw new IllegalArgumentException("This amenity already exists in this room");
+        }
+
+        // Update
+        ra.setAmenityId(amenity);
+
+        RoomAmenity saved = roomAmenityRepository.save(ra);
+
+        return toDTO(saved);
+    }
+
+
 
 }
