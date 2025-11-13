@@ -22,4 +22,6 @@ public class RoomAmenity {
     @JoinColumn(name = "roomId")
     private Room roomId;
 
+    private boolean active;
+
 }

@@ -1,11 +1,13 @@
 package com.example.smart_booking_system.service;
 
 import com.example.smart_booking_system.dto.RoomResponseDTO;
+import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.enums.RoomStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
+import com.example.smart_booking_system.repository.RoomAmenityRepository;
 import com.example.smart_booking_system.repository.RoomRepository;
 import org.springframework.stereotype.Service;
 
@@ -21,10 +23,17 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final PropertyRepository propertyRepository;
 
-    public RoomService(RoomRepository roomRepository, PropertyRepository propertyRepository) {
+    private final RoomAmenityRepository roomAmenityRepository;
+
+
+    public RoomService(RoomRepository roomRepository,
+                       PropertyRepository propertyRepository,
+                       RoomAmenityRepository roomAmenityRepository) {
         this.roomRepository = roomRepository;
         this.propertyRepository = propertyRepository;
+        this.roomAmenityRepository = roomAmenityRepository;
     }
+
 
     public Room addRoom(Room room) {
 
@@ -78,6 +87,14 @@ public class RoomService {
     }
 
     private RoomResponseDTO toDTO(Room room) {
+
+        List<String> amenities = roomAmenityRepository
+                .findActiveAmenitiesByRoomId(room.getRoomId())
+                .stream()
+                .map(ra -> ra.getAmenityId().getAmenityName())
+                .toList();
+
+
         return RoomResponseDTO.builder()
                 .roomId(room.getRoomId())
                 .roomName(room.getRoomName())
@@ -88,8 +105,11 @@ public class RoomService {
                 .roomStatus(room.getRoomStatus())
                 .isActive(room.isActive())
                 .propertyId(room.getPropertyId().getPropertyId())
+                .amenities(amenities)
                 .build();
     }
+
+
 
     public List<RoomResponseDTO> searchRooms(Integer propertyId, String keyword) {
         List<Room> rooms = roomRepository.searchRooms(propertyId, keyword);

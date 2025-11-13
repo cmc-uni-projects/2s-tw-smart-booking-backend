@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.dto;
 
+import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.enums.RoomStatus;
 import lombok.AllArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -23,4 +25,6 @@ public class RoomResponseDTO {
     private RoomStatus roomStatus;
     private boolean isActive;
     private int propertyId;
+
+    private List<String> amenities;
 }

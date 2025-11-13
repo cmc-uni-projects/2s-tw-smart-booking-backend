@@ -27,7 +27,7 @@ public class Property {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "userId")
-    private User OwnerId;
+    private User ownerId;
 
     private String address;
 
