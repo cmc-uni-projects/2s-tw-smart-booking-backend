@@ -78,6 +78,9 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private UserDetail userDetail;
+
     // helper methods
     public void addRole(Role role) {
         this.roles.add(role);
