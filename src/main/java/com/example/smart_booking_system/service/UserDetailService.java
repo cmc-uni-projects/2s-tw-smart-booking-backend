@@ -28,11 +28,9 @@ public class UserDetailService {
     private final FileStorageService fileStorageService;
 
     @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix; // Ví dụ: /images
+    private String staticUrlPrefix;
 
-    // ==========================================================
     // 1. LẤY DANH SÁCH (LIST)
-    // ==========================================================
     @Transactional(readOnly = true)
     public List<UserDetailResponseDTO> getAllActiveUserDetails() {
         List<UserDetail> detailsList = userDetailRepository.findAllByIsActiveTrue();
@@ -41,162 +39,128 @@ public class UserDetailService {
                 .collect(Collectors.toList());
     }
 
-    // ==========================================================
     // 2. THÊM MỚI (ADD)
-    // ==========================================================
     public UserDetailResponseDTO createUserDetail(UserDetailRequestDTO dto, String userId) {
-
         Optional<UserDetail> existingDetailOpt = userDetailRepository.findByUserUserId(userId);
 
         if (existingDetailOpt.isPresent()) {
             UserDetail existingDetail = existingDetailOpt.get();
             if (existingDetail.isActive()) {
-                // === SỬA ĐỔI VĂN BẢN ===
-                throw new ConflictException("Thông tin cá nhân của bạn đã tồn tại. Bạn có thể sử dụng chức năng 'Cập nhật' để thay đổi.");
+                throw new ConflictException("Thông tin cá nhân đã tồn tại. Vui lòng dùng chức năng cập nhật.");
             } else {
-                // Nếu đang inactive -> kích hoạt lại và cập nhật
                 return reactivateAndUpdateUserDetail(existingDetail, dto);
             }
         }
 
-        // Nếu chưa tồn tại -> tạo mới
         User user = userRepository.findById(userId)
-                // === SỬA ĐỔI VĂN BẢN ===
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản người dùng để liên kết thông tin cá nhân."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+
+        // --- UPDATE THÔNG TIN USER GỐC ---
+        if (dto.getFullName() != null && !dto.getFullName().isEmpty()) {
+            user.setFullName(dto.getFullName());
+        }
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
+            user.setPhoneNumber(dto.getPhoneNumber());
+        }
+        // JPA sẽ tự động update User khi transaction commit, nhưng save rõ ràng cũng tốt
+        userRepository.save(user);
 
         UserDetail newUserDetail = new UserDetail();
         newUserDetail.setUser(user);
-        newUserDetail.setGender(dto.getGender());
-        newUserDetail.setProfilePhotoUrl(dto.getProfilePhotoUrl());
-        newUserDetail.setAddress(dto.getAddress());
-        newUserDetail.setCity(dto.getCity());
-        newUserDetail.setCountry(dto.getCountry());
-        newUserDetail.setActive(true); // Đảm bảo active
+        mapDtoToEntity(dto, newUserDetail); // Hàm helper map dữ liệu
+        newUserDetail.setActive(true);
 
         UserDetail savedDetail = userDetailRepository.save(newUserDetail);
         return UserDetailResponseDTO.fromEntity(savedDetail);
     }
 
-    // ==========================================================
     // 3. TÌM KIẾM (SEARCH BY ID)
-    // ==========================================================
     @Transactional(readOnly = true)
     public UserDetailResponseDTO getUserDetailByUserId(String userId) {
-        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
-                // === SỬA ĐỔI VĂN BẢN ===
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân cho tài khoản này."));
+        // Nếu chưa có UserDetail, ta vẫn nên trả về thông tin cơ bản (Tên, Email) thay vì lỗi 404
+        // để Frontend form có dữ liệu hiển thị
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+
+        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId).orElse(null);
+
+        if (userDetail == null) {
+            // Tạo object ảo để trả về thông tin cơ bản cho form
+            userDetail = new UserDetail();
+            userDetail.setUser(user);
+            // Các trường khác null
+        }
+
         return UserDetailResponseDTO.fromEntity(userDetail);
     }
 
-    // ==========================================================
     // 4. CẬP NHẬT (EDIT)
-    // ==========================================================
     public UserDetailResponseDTO updateUserDetail(UserDetailRequestDTO dto, String userId) {
-
         UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                // === SỬA ĐỔI VĂN BẢN ===
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân để cập nhật."));
+                .orElseThrow(() -> new ResourceNotFoundException("Chưa có thông tin chi tiết. Vui lòng tạo mới trước."));
 
-        // Cập nhật từng phần
-        if (dto.getGender() != null) {
-            existingDetail.setGender(dto.getGender());
+        User user = existingDetail.getUser();
+
+        // --- UPDATE THÔNG TIN USER GỐC (Phone, FullName) ---
+        if (dto.getFullName() != null) {
+            user.setFullName(dto.getFullName());
         }
-        if (dto.getProfilePhotoUrl() != null) {
-            existingDetail.setProfilePhotoUrl(dto.getProfilePhotoUrl());
+        if (dto.getPhoneNumber() != null) {
+            user.setPhoneNumber(dto.getPhoneNumber());
         }
-        if (dto.getAddress() != null) {
-            existingDetail.setAddress(dto.getAddress());
-        }
-        if (dto.getCity() != null) {
-            existingDetail.setCity(dto.getCity());
-        }
-        if (dto.getCountry() != null) {
-            existingDetail.setCountry(dto.getCountry());
-        }
+        userRepository.save(user);
+
+        // --- UPDATE THÔNG TIN CHI TIẾT ---
+        mapDtoToEntity(dto, existingDetail);
 
         UserDetail updatedDetail = userDetailRepository.save(existingDetail);
         return UserDetailResponseDTO.fromEntity(updatedDetail);
     }
 
-    // ==========================================================
-    // 5. XÓA MỀM (DELETE)
-    // ==========================================================
+    // 5. XÓA MỀM
     public String deleteUserDetail(String userId) {
-
         UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                // === SỬA ĐỔI VĂN BẢN ===
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân để xóa."));
-
-
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin để xóa."));
         existingDetail.setActive(false);
         userDetailRepository.save(existingDetail);
-
-        // === SỬA ĐỔI VĂN BẢN ===
         return "Đã xóa thông tin cá nhân thành công.";
     }
 
-    // ==========================================================
-    // CÁC HÀM PHỤ (UPLOAD, HELPERS)
-    // ==========================================================
-
-    /**
-     * Xử lý upload ảnh đại diện cho người dùng
-     * @param userId ID của người dùng
-     * @param file File ảnh
-     * @return DTO đã cập nhật
-     */
+    // UPLOAD ẢNH
     public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
-        // 1. Tìm UserDetail (chỉ tìm active)
         UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
-                // === SỬA ĐỔI VĂN BẢN ===
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ cá nhân để tải ảnh lên."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ để tải ảnh."));
 
-        // 2. Gọi FileStorageService và chỉ định thư mục con là "userdetail"
         String savedFileName = fileStorageService.storeImageFile(file, "userdetail");
-
-        // 3. Tạo đường dẫn URL để truy cập ảnh
-        // (Ví dụ: /images/abc-123.png)
         String imageUrl = staticUrlPrefix + "/" + savedFileName;
 
-        // 4. Cập nhật URL vào database
         userDetail.setProfilePhotoUrl(imageUrl);
         UserDetail updatedDetail = userDetailRepository.save(userDetail);
-
-        // 5. Trả về DTO
         return UserDetailResponseDTO.fromEntity(updatedDetail);
     }
 
-    // Helper: Kích hoạt lại và cập nhật
+    // HELPER: Reactivate
     private UserDetailResponseDTO reactivateAndUpdateUserDetail(UserDetail existingDetail, UserDetailRequestDTO dto) {
         existingDetail.setActive(true);
-        existingDetail.setGender(dto.getGender());
-        existingDetail.setProfilePhotoUrl(dto.getProfilePhotoUrl());
-        existingDetail.setAddress(dto.getAddress());
-        existingDetail.setCity(dto.getCity());
-        existingDetail.setCountry(dto.getCountry());
+
+        // Update cả User gốc khi reactivate
+        User user = existingDetail.getUser();
+        if (dto.getFullName() != null) user.setFullName(dto.getFullName());
+        if (dto.getPhoneNumber() != null) user.setPhoneNumber(dto.getPhoneNumber());
+        userRepository.save(user);
+
+        mapDtoToEntity(dto, existingDetail);
 
         UserDetail updatedDetail = userDetailRepository.save(existingDetail);
         return UserDetailResponseDTO.fromEntity(updatedDetail);
     }
 
-    // Helper: Xóa file ảnh cũ
-    private void deleteOldImageFile(String oldImageUrl) {
-        // Kiểm tra xem có ảnh cũ không, và nó có phải là ảnh do hệ thống quản lý không
-        if (oldImageUrl == null || oldImageUrl.trim().isEmpty() || !oldImageUrl.startsWith(staticUrlPrefix + "/")) {
-            // Nếu rỗng, hoặc là ảnh mặc định (ví dụ: /default-avatar.png), thì không xóa
-            return;
-        }
-
-        try {
-            // Tách lấy đường dẫn tương đối (ví dụ: "/images/avatars/abc.png" -> "avatars/abc.png")
-            String oldRelativePath = oldImageUrl.substring(staticUrlPrefix.length() + 1);
-
-            // Gọi service để xóa file vật lý
-            fileStorageService.deleteFile(oldRelativePath);
-
-        } catch (Exception e) {
-            // Ghi log nếu có lỗi, nhưng không ném exception
-            System.err.println("Lỗi khi tách/xóa đường dẫn file cũ: " + oldImageUrl + " - " + e.getMessage());
-        }
+    // HELPER: Map DTO to Entity (Tránh lặp code)
+    private void mapDtoToEntity(UserDetailRequestDTO dto, UserDetail entity) {
+        if (dto.getGender() != null) entity.setGender(dto.getGender());
+        if (dto.getProfilePhotoUrl() != null) entity.setProfilePhotoUrl(dto.getProfilePhotoUrl());
+        if (dto.getAddress() != null) entity.setAddress(dto.getAddress());
+        if (dto.getCity() != null) entity.setCity(dto.getCity());
+        if (dto.getCountry() != null) entity.setCountry(dto.getCountry());
     }
 }

@@ -73,8 +73,7 @@ public class SecurityConfig {
                 .securityMatcher("/**")
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/uploads/**", "/api/v1/files/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/uploads/**", "/images/**", "/api/v1/files/**").permitAll()                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/owner/**").hasAuthority("OWNER")
                         .requestMatchers("/api/v1/customer/**").hasAuthority("CUSTOMER")
                         .requestMatchers("/api/v1/properties/search").permitAll()
