@@ -2,6 +2,7 @@ package com.example.smart_booking_system.controller;
 
 
 import com.example.smart_booking_system.entity.Amenity;
+import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.service.AmenityService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,7 +18,7 @@ public class AmenityController {
     public AmenityController(AmenityService amenityService) {
         this.amenityService = amenityService;
     }
-    @GetMapping("/search")
+    @GetMapping("/all")
     public List<Amenity> getAll(){
         return amenityService.findAll();
     }
@@ -64,6 +65,48 @@ public class AmenityController {
             return ResponseEntity
                     .internalServerError()
                     .body("Error updating amenity: " + e.getMessage());
+        }
+    }
+    @GetMapping("/type/{type}")
+    public ResponseEntity<?> getByType(@PathVariable String type) {
+        try {
+            AmenityType amenityType;
+
+            try {
+                amenityType = AmenityType.valueOf(type.toUpperCase());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid amenity type: " + type);
+            }
+
+            return ResponseEntity.ok(amenityService.findByType(amenityType));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error fetching amenity by type: " + e.getMessage());
+        }
+    }
+
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteAmenity(@PathVariable int id) {
+        try {
+
+            amenityService.deactivateAmenity(id);
+            return ResponseEntity.ok("Amenity deactivated successfully");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error deactivating amenity: " + e.getMessage());
         }
     }
 

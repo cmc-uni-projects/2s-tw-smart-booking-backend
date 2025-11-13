@@ -18,7 +18,7 @@ public class AmenityService {
 
     public Amenity addAmenity(Amenity amenity){
         if (amenityRepository.existsBynameIgnoreCase(amenity.getAmenityName())){
-            throw new RuntimeException("Amenity already exists");
+            throw new IllegalArgumentException("Amenity already exists");
         }
 
         return amenityRepository.save(amenity);
@@ -58,4 +58,22 @@ public class AmenityService {
 
         return amenityRepository.save(existingAmenity);
     }
+
+    public List<Amenity> findByType(AmenityType type) {
+        return amenityRepository.findByType(type);
+    }
+
+    public void deactivateAmenity(int id) {
+        Amenity amenity = amenityRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Amenity not found with id: " + id));
+
+        if (!amenity.isActive()) {
+            throw new IllegalArgumentException("Amenity is already inactive");
+        }
+
+        amenity.setActive(false);
+        amenityRepository.save(amenity);
+    }
+
+
 }
