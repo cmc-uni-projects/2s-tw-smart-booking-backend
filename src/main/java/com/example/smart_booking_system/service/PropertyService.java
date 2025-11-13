@@ -165,7 +165,7 @@ public class  PropertyService {
 
     private PropertyDetailDTO convertToFeaturedDTO(Property property) {
         PropertyDetailDTO dto = new PropertyDetailDTO();
-        dto.setPropertyId(property.getPropertId());
+        dto.setPropertyId(property.getPropertyId());
         dto.setPropertyName(property.getPropertyName());
         dto.setCity(property.getCity());
         dto.setRating(property.getRating());
@@ -256,5 +256,3 @@ public class  PropertyService {
         emailService.sendHtmlEmail(owner.getEmail(), subject, templateName, context);
     }
 }
-
-

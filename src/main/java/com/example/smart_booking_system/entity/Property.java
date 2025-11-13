@@ -13,6 +13,7 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @Entity
+@Table(name = "properties") // <-- SỬA ĐỔI: THÊM DÒNG NÀY
 public class Property {
 
     @Id

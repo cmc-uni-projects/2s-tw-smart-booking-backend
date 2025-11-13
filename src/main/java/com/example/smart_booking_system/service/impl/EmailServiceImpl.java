@@ -11,11 +11,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
-
 
 @Service
 @RequiredArgsConstructor
@@ -30,100 +28,127 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    /**
+     * ✅ Helper: Đảm bảo URL FE luôn có dấu "/" ở cuối
+     */
+    private String getFrontendBaseUrl() {
+        return frontendUrl.endsWith("/") ? frontendUrl : frontendUrl + "/";
+    }
+
+    // ==================================================
+    // 🔹 1. Gửi email xác thực tài khoản
+    // ==================================================
     @Override
     public void sendVerificationEmail(String toEmail, String fullName, String verificationToken) {
         try {
-            String subject = "Verify Your Email - Smart Booking";
+            String subject = "Xác thực Email - Smart Booking";
 
-            // ✅ Encode token để tránh lỗi khi click từ Gmail/Outlook
             String encodedToken = URLEncoder.encode(verificationToken, StandardCharsets.UTF_8);
-            String verificationUrl = frontendUrl + "/verify-email?token=" + encodedToken;
+            String verificationUrl = getFrontendBaseUrl() + "verify-email?token=" + encodedToken;
 
             Context context = new Context();
-            context.setVariable("fullName", fullName);
+            context.setVariable("username", fullName);
             context.setVariable("verificationUrl", verificationUrl);
 
             String htmlContent = templateEngine.process("email/verification-email", context);
-            sendHtmlEmail(toEmail, subject, htmlContent);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send verification email", e);
+            throw new RuntimeException("❌ Failed to send verification email", e);
         }
     }
 
+    // ==================================================
+    // 🔹 2. Gửi email đặt lại mật khẩu
+    // ==================================================
     @Override
     public void sendResetPasswordEmail(String toEmail, String fullName, String resetToken) {
         try {
-            String subject = "Reset Your Password - Smart Booking";
-            String resetUrl = frontendUrl + "/reset-password?token=" + resetToken;
+            String subject = "Đặt lại mật khẩu - Smart Booking";
+
+            String encodedToken = URLEncoder.encode(resetToken, StandardCharsets.UTF_8);
+            String resetPasswordUrl = getFrontendBaseUrl() + "reset-password?token=" + encodedToken;
 
             Context context = new Context();
-            context.setVariable("fullName", fullName);
-            context.setVariable("resetUrl", resetUrl);
+            context.setVariable("username", fullName);
+            context.setVariable("resetPasswordUrl", resetPasswordUrl);
 
             String htmlContent = templateEngine.process("email/reset-password-email", context);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
 
-            sendHtmlEmail(toEmail, subject, htmlContent);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send reset password email", e);
+            throw new RuntimeException("❌ Failed to send reset password email", e);
         }
     }
 
+    // ==================================================
+    // 🔹 3. Gửi xác nhận đặt phòng
+    // ==================================================
     @Override
     public void sendBookingConfirmationEmail(String toEmail, String fullName, String bookingId) {
         try {
-            String subject = "Booking Confirmation - Smart Booking";
+            String subject = "Xác nhận đặt chỗ - Smart Booking";
 
             Context context = new Context();
-            context.setVariable("fullName", fullName);
+            context.setVariable("username", fullName);
             context.setVariable("bookingId", bookingId);
-            context.setVariable("bookingUrl", frontendUrl + "/bookings/" + bookingId);
+            context.setVariable("bookingUrl", getFrontendBaseUrl() + "bookings/" + bookingId);
 
             String htmlContent = templateEngine.process("email/booking-confirmation", context);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
 
-            sendHtmlEmail(toEmail, subject, htmlContent);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send booking confirmation email", e);
+            throw new RuntimeException("❌ Failed to send booking confirmation email", e);
         }
     }
 
+    // ==================================================
+    // 🔹 4. Gửi thông báo đơn đăng ký chủ sở hữu
+    // ==================================================
     @Override
     public void sendOwnerApplicationNotification(String adminEmail, String applicantName, String applicationId) {
         try {
-            String subject = "New Owner Application - Smart Booking";
+            String subject = "Đơn đăng ký mới từ chủ sở hữu - Smart Booking";
 
             Context context = new Context();
             context.setVariable("applicantName", applicantName);
             context.setVariable("applicationId", applicationId);
-            context.setVariable("reviewUrl", frontendUrl + "/admin/applications/" + applicationId);
+            context.setVariable("reviewUrl", getFrontendBaseUrl() + "admin/applications/" + applicationId);
 
             String htmlContent = templateEngine.process("email/owner-application-notification", context);
+            sendHtmlEmailInternal(adminEmail, subject, htmlContent);
 
-            sendHtmlEmail(adminEmail, subject, htmlContent);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send owner application notification", e);
+            throw new RuntimeException("❌ Failed to send owner application notification", e);
         }
     }
 
+    // ==================================================
+    // 🔹 5. Gửi kết quả xét duyệt đơn đăng ký
+    // ==================================================
     @Override
     public void sendApplicationStatusEmail(String toEmail, String fullName, String status, String reason) {
         try {
-            String subject = "Owner Application Status - Smart Booking";
+            String subject = "Kết quả xét duyệt đơn đăng ký - Smart Booking";
 
             Context context = new Context();
-            context.setVariable("fullName", fullName);
+            context.setVariable("username", fullName);
             context.setVariable("status", status);
             context.setVariable("reason", reason);
-            context.setVariable("loginUrl", frontendUrl + "/login");
+            context.setVariable("loginUrl", getFrontendBaseUrl() + "login");
 
             String htmlContent = templateEngine.process("email/application-status", context);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
 
-            sendHtmlEmail(toEmail, subject, htmlContent);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send application status email", e);
+            throw new RuntimeException("❌ Failed to send application status email", e);
         }
     }
 
-    private void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
+    // ==================================================
+    // ✉️ Private Helper - Gửi Email HTML
+    // ==================================================
+    private void sendHtmlEmailInternal(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(
                 message,
@@ -138,28 +163,18 @@ public class EmailServiceImpl implements EmailService {
 
         mailSender.send(message);
     }
+
+    // ==================================================
+    // 🔄 Async gửi Email với template tùy chọn
+    // ==================================================
     @Override
     @Async
     public void sendHtmlEmail(String to, String subject, String templateName, Context context) {
         try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    mimeMessage,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
             String htmlContent = templateEngine.process(templateName, context);
-
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
-            mailSender.send(mimeMessage);
-
-        } catch (MessagingException e) {
-            System.err.println("Lỗi khi gửi email HTML: " + e.getMessage());
+            sendHtmlEmailInternal(to, subject, htmlContent);
+        } catch (Exception e) {
+            System.err.println("⚠️ Lỗi khi gửi email async: " + e.getMessage());
         }
     }
 }
-

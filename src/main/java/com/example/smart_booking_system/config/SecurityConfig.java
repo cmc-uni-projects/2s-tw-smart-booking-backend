@@ -4,10 +4,10 @@ import com.example.smart_booking_system.security.CustomUserDetailsService;
 import com.example.smart_booking_system.security.JwtAuthenticationEntryPoint;
 import com.example.smart_booking_system.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value; // <-- THÊM IMPORT NÀY
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,116 +18,81 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration; // <-- THÊM IMPORT NÀY
-import org.springframework.web.cors.CorsConfigurationSource; // <-- THÊM IMPORT NÀY
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // <-- THÊM IMPORT NÀY
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays; // <-- THÊM IMPORT NÀY
-import java.util.List; // <-- THÊM IMPORT NÀY
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final CustomUserDetailsService userDetailsService;
+    private final CustomUserDetailsService customUserDetailsService;
+    private final JwtAuthenticationEntryPoint unauthorizedHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    // Tự động đọc URL frontend từ application.properties
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(customUserDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    // ✅ CORS configuration (chuẩn Spring 6.5)
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
+    // ✅ Functional style không còn and()/apply()
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
-    }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                // SỬA DÒNG NÀY:
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
-                )
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers(
-                                // SỬA DÒNG NÀY (thêm /v1):
-                                "/api/v1/auth/**",
-                                "/api/hotels/search",
-                                "/api/hotels/featured",
-                                "/api/hotels/{id}",
-                                "/api/properties/search",  
-                                "/api/properties/featured",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/actuator/**"
-                        ).permitAll()
-
-                        // Admin endpoints
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                        // Owner endpoints
-                        .requestMatchers("/api/owner/**").hasAnyRole("OWNER", "ADMIN")
-
-                        // Customer endpoints
-                        .requestMatchers("/api/bookings/**", "/api/reviews/**")
-                        .hasAnyRole("CUSTOMER", "ADMIN","OWNER")
-
-                        // All other endpoints require authentication
+                .securityMatcher("/**")
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/uploads/**", "/api/v1/files/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/v1/owner/**").hasAuthority("OWNER")
+                        .requestMatchers("/api/v1/customer/**").hasAuthority("CUSTOMER")
+                        .requestMatchers("/api/v1/properties/search").permitAll()
+                        .requestMatchers("/api/v1/application/owner/**").hasAnyAuthority("CUSTOMER", "OWNER", "ADMIN")
+                        .requestMatchers("/api/v1/application/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/v1/property/**").hasAnyAuthority("OWNER", "ADMIN")
+                        .requestMatchers("/api/v1/room/**").hasAnyAuthority("OWNER", "ADMIN")
                         .anyRequest().authenticated()
-                );
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
+                // ✅ Cấu hình CSRF và CORS trực tiếp, không apply()
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable());
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-
-    // ==========================================================
-    // === THÊM BEAN MỚI NÀY ĐỂ CẤU HÌNH CORS ===
-    // ==========================================================
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        // Cho phép frontend (từ application.properties)
-        configuration.setAllowedOrigins(List.of(frontendUrl));
-
-        // Cho phép các method này
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-
-        // Cho phép các header này (quan trọng cho JWT)
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
-
-        // Cho phép gửi credentials (cookie/token)
-        configuration.setAllowCredentials(true);
-
-        // Thời gian cache cho preflight request
-        configuration.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Áp dụng cho tất cả các đường dẫn API
-        return source;
     }
 }

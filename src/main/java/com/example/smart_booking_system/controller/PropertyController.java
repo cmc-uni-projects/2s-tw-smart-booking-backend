@@ -14,8 +14,8 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/properties")
-public class PropertyController {
+@RequestMapping("/api/v1/properties")
+    public class PropertyController {
     private final PropertyService propertyService;
 
     @PostMapping("/add")
