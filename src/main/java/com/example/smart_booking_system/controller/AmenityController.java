@@ -43,4 +43,6 @@ public class AmenityController {
                     .body("Error adding amenity: " + e.getMessage());
         }
     }
+
+
 }

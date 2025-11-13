@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.repository;
 import com.example.smart_booking_system.entity.Amenity;
+import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -15,6 +16,7 @@ public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
             """)
     public List<Amenity> findAllActive();
 
-    public boolean existsBynameIgnoreCase(String name);
+    @Query("SELECT COUNT(a) > 0 FROM Amenity a WHERE LOWER(a.amenityName) = LOWER(:name)")
+    boolean existsBynameIgnoreCase(@Param("name") String name);
 
 }
