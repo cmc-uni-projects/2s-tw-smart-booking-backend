@@ -31,4 +31,15 @@ public class PropertyAmenityController {
     public ResponseEntity<?> getByProperty(@PathVariable int propertyId) {
         return ResponseEntity.ok(service.getAmenitiesByProperty(propertyId));
     }
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> update(
+            @PathVariable int id,
+            @RequestParam int newAmenityId) {
+        try {
+            return ResponseEntity.ok(service.updatePropertyAmenity(id, newAmenityId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

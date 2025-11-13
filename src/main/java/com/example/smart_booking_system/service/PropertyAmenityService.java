@@ -21,7 +21,7 @@ public class PropertyAmenityService {
     private final PropertyRepository propertyRepository;
     private final AmenityRepository amenityRepository;
 
-    // Convert to DTO
+
     public PropertyAmenityDTO toDTO(PropertyAmenity pa) {
         return PropertyAmenityDTO.builder()
                 .propertyAmenityId(pa.getPropertyAmenityId())
@@ -31,7 +31,7 @@ public class PropertyAmenityService {
                 .build();
     }
 
-    // ---------------- ADD ----------------
+
     public PropertyAmenity addPropertyAmenity(int propertyId, int amenityId) {
 
         Property property = propertyRepository.findById(propertyId)
@@ -40,12 +40,12 @@ public class PropertyAmenityService {
         Amenity amenity = amenityRepository.findById(amenityId)
                 .orElseThrow(() -> new IllegalArgumentException("Amenity not found"));
 
-        // CHECK: amenityType MUST BE PROPERTY
+
         if (amenity.getAmenityType() != AmenityType.PROPERTY) {
             throw new IllegalArgumentException("This amenity is not a PROPERTY amenity");
         }
 
-        // CHECK DUPLICATE
+
         if (repo.existsActive(propertyId, amenityId)) {
             throw new IllegalArgumentException("Amenity already added to this property");
         }
@@ -62,5 +62,29 @@ public class PropertyAmenityService {
                 .stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    public PropertyAmenityDTO updatePropertyAmenity(int id, int newAmenityId) {
+
+        PropertyAmenity pa = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("PropertyAmenity not found"));
+
+        Amenity newAmenity = amenityRepository.findById(newAmenityId)
+                .orElseThrow(() -> new IllegalArgumentException("Amenity not found"));
+
+        if (newAmenity.getAmenityType() != AmenityType.PROPERTY) {
+            throw new IllegalArgumentException("This amenity is not a PROPERTY amenity");
+        }
+
+        int propertyId = pa.getPropertyId().getPropertyId();
+
+        if (repo.existsActiveExcept(propertyId, newAmenityId, id)) {
+            throw new IllegalArgumentException("This amenity is already used for this property");
+        }
+
+        pa.setAmenityId(newAmenity);
+        PropertyAmenity saved = repo.save(pa);
+
+        return toDTO(saved);
     }
 }
