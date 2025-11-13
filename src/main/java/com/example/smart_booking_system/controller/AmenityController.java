@@ -44,5 +44,29 @@ public class AmenityController {
         }
     }
 
+    @PutMapping("/update/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateAmenity(@PathVariable int id,
+                                           @RequestBody Amenity amenity) {
+        try {
+
+            Amenity updatedAmenity = amenityService.updateAmenity(id, amenity);
+
+            return ResponseEntity
+                    .ok(updatedAmenity);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error updating amenity: " + e.getMessage());
+        }
+    }
+
+
 
 }

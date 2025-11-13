@@ -27,6 +27,8 @@ public class AmenityService {
     public List<Amenity> findAll(){
         return amenityRepository.findAllActive();
     }
+
+    
     public Amenity updateAmenity(int id, Amenity updatedAmenity) {
 
         Amenity existingAmenity = amenityRepository.findById(id)
