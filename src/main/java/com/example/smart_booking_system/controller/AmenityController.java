@@ -3,6 +3,8 @@ package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.service.AmenityService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,9 +23,24 @@ public class AmenityController {
     }
 
     @PostMapping("/add")
-    public Amenity addAmenity(@RequestBody Amenity amenity){
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> addAmenity(@RequestBody Amenity amenity) {
         try {
-            Amenity newAmenity = amenityService.addAmenity(amenity);
+            Amenity savedAmenity = amenityService.addAmenity(amenity);
+
+            return ResponseEntity
+                    .status(201)
+                    .body(savedAmenity);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body("Error adding amenity: " + e.getMessage());
         }
     }
 }
