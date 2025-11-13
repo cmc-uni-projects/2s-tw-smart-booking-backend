@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 @Entity
 @Getter
 @Setter
+@Table(name = "rooms")
 public class Room {
 
     @Id

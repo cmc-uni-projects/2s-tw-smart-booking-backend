@@ -12,6 +12,7 @@ import java.util.List;
 @Repository
 public interface PropertyRepository extends JpaRepository<Property, Integer> {
 
+    // === SỬA ĐỔI CÂU QUERY BÊN DƯỚI ===
     @Query("""
         SELECT p FROM Property p
         WHERE 
@@ -20,15 +21,16 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             (:keyword IS NULL OR (
             LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%'))
             OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(p.propertyType) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            OR LOWER(CAST(p.propertyType AS string)) LIKE LOWER(CONCAT('%', :keyword, '%'))
             ))
             AND p.isActive = true
-            AND p.propertyStatus = 'APPROVE'
+            AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
     """)
     List<Property> searchProperties(@Param("city") String city, @Param("keyword") String keyword);
+    // === KẾT THÚC SỬA ĐỔI ===
 
     @Query(
-            value = "SELECT * FROM property WHERE isActive = TRUE ORDER BY rating DESC LIMIT 10",
+            value = "SELECT * FROM properties WHERE isActive = TRUE ORDER BY rating DESC LIMIT 10",
             nativeQuery = true
     )
     List<Property> findFeaturedProperties();
