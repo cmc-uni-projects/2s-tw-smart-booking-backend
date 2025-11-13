@@ -4,6 +4,7 @@ import com.example.smart_booking_system.dto.RoomAmenityDTO;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.entity.RoomAmenity;
+import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.repository.AmenityRepository;
 import com.example.smart_booking_system.repository.RoomAmenityRepository;
 import com.example.smart_booking_system.repository.RoomRepository;
@@ -22,15 +23,21 @@ public class RoomAmenityService {
 
     public RoomAmenity addRoomAmenity(int roomId, int amenityId) {
 
-        if (roomAmenityRepository.existsActive(roomId, amenityId)) {
-            throw new IllegalArgumentException("Amenity already added to this room");
-        }
-
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
         Amenity amenity = amenityRepository.findById(amenityId)
                 .orElseThrow(() -> new IllegalArgumentException("Amenity not found"));
+
+        // CHECK 1: amenity phải là ROOM
+        if (amenity.getAmenityType() != AmenityType.ROOM) {
+            throw new IllegalArgumentException("This amenity is not a ROOM amenity");
+        }
+
+        // CHECK 2: tránh thêm trùng
+        if (roomAmenityRepository.existsActive(roomId, amenityId)) {
+            throw new IllegalArgumentException("Amenity already added to this room");
+        }
 
         RoomAmenity ra = new RoomAmenity();
         ra.setRoomId(room);
@@ -39,6 +46,7 @@ public class RoomAmenityService {
 
         return roomAmenityRepository.save(ra);
     }
+
 
 
     public RoomAmenityDTO toDTO(RoomAmenity ra) {
@@ -81,6 +89,18 @@ public class RoomAmenityService {
 
         return toDTO(saved);
     }
+
+    public String deleteRoomAmenity(int id) {
+
+        RoomAmenity ra = roomAmenityRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("RoomAmenity not found"));
+
+        ra.setActive(false);
+        roomAmenityRepository.save(ra);
+
+        return "RoomAmenity deleted (soft delete) successfully.";
+    }
+
 
 
 

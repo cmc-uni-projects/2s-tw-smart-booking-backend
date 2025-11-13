@@ -60,6 +60,18 @@ public class RoomAmenityController {
         }
     }
 
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> deleteAmenity(@PathVariable int id) {
+        try {
+            String msg = roomAmenityService.deleteRoomAmenity(id);
+            return ResponseEntity.ok(msg);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 
 
 
