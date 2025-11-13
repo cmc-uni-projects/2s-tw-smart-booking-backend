@@ -42,4 +42,14 @@ public class PropertyAmenityController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> delete(@PathVariable int id) {
+        try {
+            return ResponseEntity.ok(service.deletePropertyAmenity(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

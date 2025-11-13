@@ -87,4 +87,14 @@ public class PropertyAmenityService {
 
         return toDTO(saved);
     }
+
+    public String deletePropertyAmenity(int id) {
+        PropertyAmenity pa = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("PropertyAmenity not found"));
+
+        pa.setActive(false);
+        repo.save(pa);
+
+        return "PropertyAmenity deleted successfully.";
+    }
 }
