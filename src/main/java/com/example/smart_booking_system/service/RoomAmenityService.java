@@ -22,6 +22,10 @@ public class RoomAmenityService {
 
     public RoomAmenity addRoomAmenity(int roomId, int amenityId) {
 
+        if (roomAmenityRepository.existsActive(roomId, amenityId)) {
+            throw new IllegalArgumentException("Amenity already added to this room");
+        }
+
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
@@ -36,6 +40,7 @@ public class RoomAmenityService {
         return roomAmenityRepository.save(ra);
     }
 
+
     public RoomAmenityDTO toDTO(RoomAmenity ra) {
         return RoomAmenityDTO.builder()
                 .roomAmenityId(ra.getRoomAmenityId())
@@ -44,5 +49,14 @@ public class RoomAmenityService {
                 .amenityName(ra.getAmenityId().getAmenityName())
                 .build();
     }
+
+    public List<RoomAmenityDTO> getAmenitiesByRoomId(int roomId) {
+        List<RoomAmenity> list = roomAmenityRepository.findActiveByRoomId(roomId);
+
+        return list.stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
 
 }

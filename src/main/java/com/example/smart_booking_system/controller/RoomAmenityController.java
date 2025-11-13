@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.RoomAmenityDTO;
 import com.example.smart_booking_system.entity.RoomAmenity;
 import com.example.smart_booking_system.service.RoomAmenityService;
 import com.example.smart_booking_system.security.CustomUserDetails;
@@ -32,6 +33,18 @@ public class RoomAmenityController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<?> getAmenitiesByRoom(@PathVariable int roomId) {
+        try {
+            List<RoomAmenityDTO> list = roomAmenityService.getAmenitiesByRoomId(roomId);
+            return ResponseEntity.ok(list);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 
 
 }

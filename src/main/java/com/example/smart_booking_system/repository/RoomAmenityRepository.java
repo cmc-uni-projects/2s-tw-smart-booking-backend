@@ -17,4 +17,21 @@ public interface RoomAmenityRepository extends JpaRepository<RoomAmenity, Intege
         AND ra.active = true
     """)
     List<RoomAmenity> findActiveAmenitiesByRoomId(@Param("roomId") int roomId);
+
+    @Query("""
+    SELECT ra FROM RoomAmenity ra
+    WHERE ra.roomId.roomId = :roomId
+    AND ra.active = true
+""")
+    List<RoomAmenity> findActiveByRoomId(@Param("roomId") int roomId);
+
+    @Query("""
+    SELECT COUNT(ra) > 0 FROM RoomAmenity ra
+    WHERE ra.roomId.roomId = :roomId
+    AND ra.amenityId.amenityId = :amenityId
+    AND ra.active = true
+""")
+    boolean existsActive(@Param("roomId") int roomId,
+                         @Param("amenityId") int amenityId);
+
 }
