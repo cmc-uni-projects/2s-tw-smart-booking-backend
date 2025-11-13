@@ -18,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-
 @RequestMapping("/api/v1/userdetails")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER') or hasRole('OWNER') or hasRole('ADMIN')")
@@ -26,20 +25,9 @@ public class UserDetailController {
 
     private final UserDetailService userDetailService;
 
-
-    @GetMapping("/search")
-    public ResponseEntity<?> getMyUserDetail(
-            @AuthenticationPrincipal CustomUserDetails currentUser) {
-        try {
-            UserDetailResponseDTO detail = userDetailService.getUserDetailByUserId(currentUser.getUserId());
-            return ResponseEntity.ok(ApiResponse.success(detail));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi khi lấy chi tiết người dùng: " + e.getMessage()));
-        }
-    }
-
+    // ==========================================================
+    // 1. THÊM MỚI (ADD) - User tự thêm chi tiết cho mình
+    // ==========================================================
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<?>> createUserDetail(
             @Valid @RequestBody UserDetailRequestDTO dto,
@@ -54,6 +42,25 @@ public class UserDetailController {
         }
     }
 
+    // ==========================================================
+    // 2. TÌM KIẾM (SEARCH) - User tự lấy chi tiết của mình
+    // ==========================================================
+    @GetMapping("/search")
+    public ResponseEntity<?> getMyUserDetail(
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        try {
+            UserDetailResponseDTO detail = userDetailService.getUserDetailByUserId(currentUser.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(detail));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi khi lấy chi tiết người dùng: " + e.getMessage()));
+        }
+    }
+
+    // ==========================================================
+    // 3. CẬP NHẬT (EDIT) - User tự cập nhật chi tiết của mình
+    // ==========================================================
     @PutMapping("/edit")
     public ResponseEntity<ApiResponse<?>> updateUserDetail(
             @Valid @RequestBody UserDetailRequestDTO dto,
@@ -68,7 +75,9 @@ public class UserDetailController {
         }
     }
 
-
+    // ==========================================================
+    // 4. XÓA MỀM (DELETE) - User tự xóa chi tiết của mình
+    // ==========================================================
     @DeleteMapping("/delete")
     public ResponseEntity<ApiResponse<?>> deleteUserDetail(
             @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -82,7 +91,9 @@ public class UserDetailController {
         }
     }
 
-
+    // ==========================================================
+    // HÀM PHỤ: User tự UPLOAD ẢNH
+    // ==========================================================
     @PostMapping("/upload-photo")
     public ResponseEntity<ApiResponse<?>> uploadPhoto(
             @AuthenticationPrincipal CustomUserDetails currentUser,

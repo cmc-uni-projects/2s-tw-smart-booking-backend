@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,15 +30,20 @@ public class UserDetailService {
     @Value("${file.static-url-prefix}")
     private String staticUrlPrefix; // Ví dụ: /images
 
-    // Lấy thông tin chi tiết (chỉ lấy active)
+    // ==========================================================
+    // 1. LẤY DANH SÁCH (LIST)
+    // ==========================================================
     @Transactional(readOnly = true)
-    public UserDetailResponseDTO getUserDetailByUserId(String userId) {
-        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi tiết người dùng (hoặc đã bị vô hiệu hóa) cho ID: " + userId));
-        return UserDetailResponseDTO.fromEntity(userDetail);
+    public List<UserDetailResponseDTO> getAllActiveUserDetails() {
+        List<UserDetail> detailsList = userDetailRepository.findAllByIsActiveTrue();
+        return detailsList.stream()
+                .map(UserDetailResponseDTO::fromEntity)
+                .collect(Collectors.toList());
     }
 
-    // Tạo thông tin chi tiết
+    // ==========================================================
+    // 2. THÊM MỚI (ADD)
+    // ==========================================================
     public UserDetailResponseDTO createUserDetail(UserDetailRequestDTO dto, String userId) {
 
         Optional<UserDetail> existingDetailOpt = userDetailRepository.findByUserUserId(userId);
@@ -44,8 +51,8 @@ public class UserDetailService {
         if (existingDetailOpt.isPresent()) {
             UserDetail existingDetail = existingDetailOpt.get();
             if (existingDetail.isActive()) {
-                // Nếu đang active -> báo lỗi
-                throw new ConflictException("Chi tiết người dùng đã tồn tại. Vui lòng sử dụng PUT để cập nhật.");
+                // === SỬA ĐỔI VĂN BẢN ===
+                throw new ConflictException("Thông tin cá nhân của bạn đã tồn tại. Bạn có thể sử dụng chức năng 'Cập nhật' để thay đổi.");
             } else {
                 // Nếu đang inactive -> kích hoạt lại và cập nhật
                 return reactivateAndUpdateUserDetail(existingDetail, dto);
@@ -54,7 +61,8 @@ public class UserDetailService {
 
         // Nếu chưa tồn tại -> tạo mới
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+                // === SỬA ĐỔI VĂN BẢN ===
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản người dùng để liên kết thông tin cá nhân."));
 
         UserDetail newUserDetail = new UserDetail();
         newUserDetail.setUser(user);
@@ -69,24 +77,25 @@ public class UserDetailService {
         return UserDetailResponseDTO.fromEntity(savedDetail);
     }
 
-    private UserDetailResponseDTO reactivateAndUpdateUserDetail(UserDetail existingDetail, UserDetailRequestDTO dto) {
-        existingDetail.setActive(true);
-        existingDetail.setGender(dto.getGender());
-        existingDetail.setProfilePhotoUrl(dto.getProfilePhotoUrl());
-        existingDetail.setAddress(dto.getAddress());
-        existingDetail.setCity(dto.getCity());
-        existingDetail.setCountry(dto.getCountry());
-
-        UserDetail updatedDetail = userDetailRepository.save(existingDetail);
-        return UserDetailResponseDTO.fromEntity(updatedDetail);
+    // ==========================================================
+    // 3. TÌM KIẾM (SEARCH BY ID)
+    // ==========================================================
+    @Transactional(readOnly = true)
+    public UserDetailResponseDTO getUserDetailByUserId(String userId) {
+        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
+                // === SỬA ĐỔI VĂN BẢN ===
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân cho tài khoản này."));
+        return UserDetailResponseDTO.fromEntity(userDetail);
     }
 
-
-    // Cập nhật thông tin chi tiết (chỉ cập nhật active)
+    // ==========================================================
+    // 4. CẬP NHẬT (EDIT)
+    // ==========================================================
     public UserDetailResponseDTO updateUserDetail(UserDetailRequestDTO dto, String userId) {
 
         UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi tiết người dùng (hoặc đã bị vô hiệu hóa) cho ID: " + userId));
+                // === SỬA ĐỔI VĂN BẢN ===
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân để cập nhật."));
 
         // Cập nhật từng phần
         if (dto.getGender() != null) {
@@ -109,18 +118,26 @@ public class UserDetailService {
         return UserDetailResponseDTO.fromEntity(updatedDetail);
     }
 
-    // Xóa thông tin chi tiết
+    // ==========================================================
+    // 5. XÓA MỀM (DELETE)
+    // ==========================================================
     public String deleteUserDetail(String userId) {
 
         UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi tiết người dùng (hoặc đã bị vô hiệu hóa) cho ID: " + userId));
+                // === SỬA ĐỔI VĂN BẢN ===
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin cá nhân để xóa."));
 
 
         existingDetail.setActive(false);
         userDetailRepository.save(existingDetail);
 
-        return "Chi tiết người dùng cho ID " + userId + " đã được vô hiệu hóa thành công.";
+        // === SỬA ĐỔI VĂN BẢN ===
+        return "Đã xóa thông tin cá nhân thành công.";
     }
+
+    // ==========================================================
+    // CÁC HÀM PHỤ (UPLOAD, HELPERS)
+    // ==========================================================
 
     /**
      * Xử lý upload ảnh đại diện cho người dùng
@@ -131,7 +148,8 @@ public class UserDetailService {
     public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
         // 1. Tìm UserDetail (chỉ tìm active)
         UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi tiết người dùng cho ID: " + userId));
+                // === SỬA ĐỔI VĂN BẢN ===
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ cá nhân để tải ảnh lên."));
 
         // 2. Gọi FileStorageService và chỉ định thư mục con là "userdetail"
         String savedFileName = fileStorageService.storeImageFile(file, "userdetail");
@@ -148,6 +166,20 @@ public class UserDetailService {
         return UserDetailResponseDTO.fromEntity(updatedDetail);
     }
 
+    // Helper: Kích hoạt lại và cập nhật
+    private UserDetailResponseDTO reactivateAndUpdateUserDetail(UserDetail existingDetail, UserDetailRequestDTO dto) {
+        existingDetail.setActive(true);
+        existingDetail.setGender(dto.getGender());
+        existingDetail.setProfilePhotoUrl(dto.getProfilePhotoUrl());
+        existingDetail.setAddress(dto.getAddress());
+        existingDetail.setCity(dto.getCity());
+        existingDetail.setCountry(dto.getCountry());
+
+        UserDetail updatedDetail = userDetailRepository.save(existingDetail);
+        return UserDetailResponseDTO.fromEntity(updatedDetail);
+    }
+
+    // Helper: Xóa file ảnh cũ
     private void deleteOldImageFile(String oldImageUrl) {
         // Kiểm tra xem có ảnh cũ không, và nó có phải là ảnh do hệ thống quản lý không
         if (oldImageUrl == null || oldImageUrl.trim().isEmpty() || !oldImageUrl.startsWith(staticUrlPrefix + "/")) {
