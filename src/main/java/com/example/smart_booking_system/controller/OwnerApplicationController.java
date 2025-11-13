@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/applications")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('CUSTOMER')")
+@PreAuthorize("hasRole('CUSTOMER')")
 public class OwnerApplicationController {
 
     private final OwnerApplicationService applicationService;

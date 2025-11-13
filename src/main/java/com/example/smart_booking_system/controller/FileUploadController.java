@@ -26,7 +26,7 @@ public class FileUploadController {
 
         // Tạo URL công khai cho file
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/files/") // Đây là đường dẫn ta sẽ cấu hình ở bước 4
+                .path("/uploads/") // Đây là đường dẫn ta sẽ cấu hình ở bước 4
                 .path(fileName)
                 .toUriString();
 
