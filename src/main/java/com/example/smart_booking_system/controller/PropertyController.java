@@ -10,13 +10,17 @@ import org.springframework.security.core.Authentication;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
-// --- IMPORTS MỚI ---
+// --- Imports cho các hàm mới ---
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
-// --- KẾT THÚC IMPORTS MỚI ---
+import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
+// --- Kết thúc Imports ---
 
 import java.util.List;
 
@@ -50,7 +54,6 @@ public class PropertyController {
         }
     }
 
-    // --- ENDPOINT MỚI ĐỂ XỬ LÝ NỘP ĐƠN ---
     @PostMapping("/submit-application")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> submitPropertyApplication(
@@ -84,7 +87,6 @@ public class PropertyController {
                     .body(ApiResponse.error("Lỗi khi nộp đơn: " + e.getMessage()));
         }
     }
-    // --- KẾT THÚC ENDPOINT MỚI ---
 
     @GetMapping("/search")
     public ResponseEntity<List<Property>> searchProperties(
@@ -114,5 +116,61 @@ public class PropertyController {
     public ResponseEntity<List<PropertyDetailDTO>> getFeaturedProperties() {
         List<PropertyDetailDTO> properties = propertyService.getFeaturedProperties();
         return ResponseEntity.ok(properties);
+    }
+
+    // =================================================================
+    // === 2 ENDPOINT MỚI CHO ADMIN DUYỆT CƠ SỞ (Hotels Submissions) ===
+    // =================================================================
+
+    /**
+     * [ADMIN] Lấy danh sách cơ sở theo trạng thái (VD: PENDING)
+     */
+    @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getPropertiesByStatus(@PathVariable String status) {
+        try {
+            // Chuyển string "pending" thành Enum PropertyStatus.PENDING
+            PropertyStatus propertyStatus = PropertyStatus.valueOf(status.toUpperCase());
+
+            List<PropertyDetailDTO> properties = propertyService.getPropertiesByStatus(propertyStatus);
+
+            return ResponseEntity.ok(ApiResponse.success(properties.size() + " cơ sở được tìm thấy", properties));
+
+        } catch (IllegalArgumentException e) {
+            // Bắt lỗi nếu status không hợp lệ (VD: "peending" thay vì "pending")
+            return ResponseEntity.badRequest().body(ApiResponse.error("Trạng thái không hợp lệ: " + status));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * [ADMIN] Duyệt (Approve) hoặc Từ chối (Reject) một cơ sở
+     */
+    @PostMapping("/{propertyId}/review")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> reviewProperty(
+            @PathVariable Integer propertyId,
+            @Valid @RequestBody PropertyReviewDTO reviewDTO, // DTO chứa { status, reason }
+            Authentication authentication
+    ) {
+        try {
+            // Lấy email của Admin đang đăng nhập (chính là username)
+            String adminUsername = authentication.getName();
+
+            PropertyDetailDTO reviewedProperty = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
+
+            String message = reviewDTO.getStatus().equalsIgnoreCase("APPROVE")
+                    ? "Duyệt cơ sở thành công"
+                    : "Từ chối cơ sở thành công";
+
+            return ResponseEntity.ok(ApiResponse.success(message, reviewedProperty));
+
+        } catch (ResourceNotFoundException | IllegalStateException e) {
+            // Bắt lỗi nếu Property không tìm thấy, hoặc đã được duyệt/từ chối trước đó
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+        }
     }
 }
