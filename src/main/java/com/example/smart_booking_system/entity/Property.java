@@ -39,6 +39,14 @@ public class Property {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // --- THÊM 2 TRƯỜNG NÀY ---
+    @Column(columnDefinition = "TEXT")
+    private String amenitiesJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String imageUrlsJson;
+    // --- KẾT THÚC THÊM MỚI ---
+
     @Column(precision = 9, scale = 6)
     private BigDecimal latitude;
 

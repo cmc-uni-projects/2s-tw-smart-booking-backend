@@ -10,12 +10,20 @@ import org.springframework.security.core.Authentication;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
+// --- IMPORTS MỚI ---
+import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
+import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartFile;
+// --- KẾT THÚC IMPORTS MỚI ---
+
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/properties")
-    public class PropertyController {
+public class PropertyController {
     private final PropertyService propertyService;
 
     @PostMapping("/add")
@@ -41,6 +49,42 @@ import java.util.List;
                     .body("Error adding property: " + e.getMessage());
         }
     }
+
+    // --- ENDPOINT MỚI ĐỂ XỬ LÝ NỘP ĐƠN ---
+    @PostMapping("/submit-application")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> submitPropertyApplication(
+            @RequestPart("propertyData") String propertyDataJson,
+            @RequestPart("propertyImages") List<MultipartFile> propertyImages,
+            Authentication authentication
+    ) {
+        try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String ownerId = userDetails.getUserId();
+
+            // Dùng ObjectMapper để chuyển đổi String JSON thành DTO
+            ObjectMapper objectMapper = new ObjectMapper();
+            PropertyApplicationSubmitDTO dto = objectMapper.readValue(propertyDataJson, PropertyApplicationSubmitDTO.class);
+
+            // Gọi Service
+            PropertyDetailDTO newProperty = propertyService.submitPropertyApplication(dto, propertyImages, ownerId);
+
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Nộp đơn đăng ký cơ sở thành công", newProperty));
+
+        } catch (IllegalArgumentException | com.fasterxml.jackson.core.JsonProcessingException e) {
+            // Lỗi từ DTO validation hoặc JSON parse
+            return ResponseEntity
+                    .badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity
+                    .internalServerError()
+                    .body(ApiResponse.error("Lỗi khi nộp đơn: " + e.getMessage()));
+        }
+    }
+    // --- KẾT THÚC ENDPOINT MỚI ---
 
     @GetMapping("/search")
     public ResponseEntity<List<Property>> searchProperties(

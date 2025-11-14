@@ -72,14 +72,16 @@ public class SecurityConfig {
         http
                 .securityMatcher("/**")
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/uploads/**", "/images/**", "/api/v1/files/**").permitAll()                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/uploads/**", "/images/**", "/api/v1/files/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/owner/**").hasAuthority("OWNER")
                         .requestMatchers("/api/v1/customer/**").hasAuthority("CUSTOMER")
                         .requestMatchers("/api/v1/properties/search").permitAll()
                         .requestMatchers("/api/v1/applications/owner/**").hasAnyAuthority("CUSTOMER", "OWNER", "ADMIN")
                         .requestMatchers("/api/v1/applications/admin/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/v1/property/**").hasAnyAuthority("OWNER", "ADMIN")
+                        .requestMatchers("/api/v1/properties/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/api/v1/room/**").hasAnyAuthority("OWNER", "ADMIN")
                         .anyRequest().authenticated()
                 )
