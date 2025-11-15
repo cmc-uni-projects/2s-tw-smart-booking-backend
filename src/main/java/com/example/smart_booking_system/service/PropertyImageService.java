@@ -40,7 +40,7 @@ public class PropertyImageService {
 
         return files.stream()
                 .map(file -> {
-                    String savedPath = fileStorageService.storeImageFile(file, "property");
+                    String savedPath = fileStorageService.storeImageFile(file, "properties");
 
                     PropertyImage pi = new PropertyImage();
                     pi.setProperty(property);
