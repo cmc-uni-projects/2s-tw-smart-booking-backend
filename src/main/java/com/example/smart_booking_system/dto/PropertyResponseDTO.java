@@ -14,7 +14,6 @@ public class PropertyResponseDTO {
     private String propertyName;
     private PropertyType propertyType;
 
-    private int ownerId;
 
     private String address;
     private String country;
