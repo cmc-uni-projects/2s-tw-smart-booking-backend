@@ -22,7 +22,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     private final Path fileStorageLocation; // Thư mục gốc (ví dụ: ./uploads/images)
 
     private static final List<String> ALLOWED_IMAGE_EXTENSIONS = Arrays.asList(
-            "png", "jpg", "jpeg", "gif", "bmp"
+            "png", "jpg", "jpeg", "gif", "bmp", "webp","heic", "heif"
     );
 
     public FileStorageServiceImpl(@Value("${file.upload-dir}") String uploadDir) {
