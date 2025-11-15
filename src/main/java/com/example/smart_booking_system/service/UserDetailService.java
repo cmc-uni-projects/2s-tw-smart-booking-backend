@@ -4,163 +4,127 @@ import com.example.smart_booking_system.dto.request.user.UserDetailRequestDTO;
 import com.example.smart_booking_system.dto.response.user.UserDetailResponseDTO;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.entity.UserDetail;
-import com.example.smart_booking_system.exception.ConflictException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.UserDetailRepository;
 import com.example.smart_booking_system.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.multipart.MultipartFile;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional; // <-- Import quan trọng
+import org.springframework.util.StringUtils; // <-- Import quan trọng
 
 @Service
-@RequiredArgsConstructor
-@Transactional
 public class UserDetailService {
-
-    private final UserDetailRepository userDetailRepository;
     private final UserRepository userRepository;
-    private final FileStorageService fileStorageService;
+    private final UserDetailRepository userDetailRepository;
 
-    @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix;
+    @Autowired
+    public UserDetailService(UserRepository userRepository, UserDetailRepository userDetailRepository) {
+        this.userRepository = userRepository;
+        this.userDetailRepository = userDetailRepository;
+    }
 
-    // 1. LẤY DANH SÁCH (LIST)
+    /**
+     * Lấy thông tin hồ sơ kết hợp từ cả 2 bảng User và UserDetail.
+     */
+    // === SỬA LỖI 500 ===
+    // Đã xóa (readOnly = true) để cho phép .save() trong orElseGet()
+    @Transactional
+    public UserDetailResponseDTO getUserDetail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        // Tự động tạo UserDetail nếu chưa có
+        // Logic này cần Transaction (không thể readOnly)
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElseGet(() -> {
+                    UserDetail newUserDetail = new UserDetail();
+                    newUserDetail.setUser(user);
+                    return userDetailRepository.save(newUserDetail);
+                });
+
+        UserDetailResponseDTO responseDTO = new UserDetailResponseDTO();
+
+        // Lấy từ User
+        responseDTO.setUserId(user.getUserId());
+        responseDTO.setEmail(user.getEmail());
+        responseDTO.setFullName(user.getFullName());
+        responseDTO.setPhoneNumber(user.getPhoneNumber());
+
+        // Lấy từ UserDetail (đã thêm dateOfBirth)
+        responseDTO.setUserdetailId(userDetail.getUserdetailId());
+        responseDTO.setGender(userDetail.getGender());
+        responseDTO.setDateOfBirth(userDetail.getDateOfBirth());
+        responseDTO.setProfilePhotoUrl(userDetail.getProfilePhotoUrl());
+        responseDTO.setAddress(userDetail.getAddress());
+        responseDTO.setCity(userDetail.getCity());
+        responseDTO.setCountry(userDetail.getCountry());
+
+        return responseDTO;
+    }
+
+    /**
+     * Cập nhật thông tin hồ sơ vào cả 2 bảng User và UserDetail.
+     * Trả về DTO đã được cập nhật.
+     */
+    @Transactional
+    public UserDetailResponseDTO updateUserDetail(String email, UserDetailRequestDTO userDetailRequestDTO) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("UserDetail not found for user: " + email));
+
+        // Cập nhật các trường của User
+        user.setFullName(userDetailRequestDTO.getFullName());
+        user.setPhoneNumber(userDetailRequestDTO.getPhoneNumber());
+        userRepository.save(user); // Lưu thay đổi của User
+
+        // Cập nhật các trường của UserDetail (đã thêm dateOfBirth)
+        userDetail.setGender(userDetailRequestDTO.getGender());
+        userDetail.setDateOfBirth(userDetailRequestDTO.getDateOfBirth());
+        userDetail.setProfilePhotoUrl(userDetailRequestDTO.getProfilePhotoUrl());
+        userDetail.setAddress(userDetailRequestDTO.getAddress());
+        userDetail.setCity(userDetailRequestDTO.getCity());
+        userDetail.setCountry(userDetailRequestDTO.getCountry());
+        userDetailRepository.save(userDetail); // Lưu thay đổi của UserDetail
+
+        // Trả về DTO đã cập nhật (để sửa Lỗi 3 của ProfilePage)
+        return this.getUserDetail(email);
+    }
+
+    /**
+     * (Giai đoạn 2) Kiểm tra xem 4 trường bắt buộc đã hoàn tất hay chưa.
+     */
     @Transactional(readOnly = true)
-    public List<UserDetailResponseDTO> getAllActiveUserDetails() {
-        List<UserDetail> detailsList = userDetailRepository.findAllByIsActiveTrue();
-        return detailsList.stream()
-                .map(UserDetailResponseDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
+    public ProfileStatusResponse checkProfileCompleteness(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElse(null); // Có thể user chưa có UserDetail
 
-    // 2. THÊM MỚI (ADD)
-    public UserDetailResponseDTO createUserDetail(UserDetailRequestDTO dto, String userId) {
-        Optional<UserDetail> existingDetailOpt = userDetailRepository.findByUserUserId(userId);
+        // Kiểm tra trường của User
+        boolean isUserComplete = StringUtils.hasText(user.getFullName()) &&
+                StringUtils.hasText(user.getPhoneNumber());
 
-        if (existingDetailOpt.isPresent()) {
-            UserDetail existingDetail = existingDetailOpt.get();
-            if (existingDetail.isActive()) {
-                throw new ConflictException("Thông tin cá nhân đã tồn tại. Vui lòng dùng chức năng cập nhật.");
-            } else {
-                return reactivateAndUpdateUserDetail(existingDetail, dto);
-            }
+        // Kiểm tra trường của UserDetail
+        boolean isDetailComplete = false;
+        if (userDetail != null) {
+            isDetailComplete = StringUtils.hasText(userDetail.getGender()) &&
+                    userDetail.getDateOfBirth() != null;
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
-
-        // --- UPDATE THÔNG TIN USER GỐC ---
-        if (dto.getFullName() != null && !dto.getFullName().isEmpty()) {
-            user.setFullName(dto.getFullName());
-        }
-        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().isEmpty()) {
-            user.setPhoneNumber(dto.getPhoneNumber());
-        }
-        // JPA sẽ tự động update User khi transaction commit, nhưng save rõ ràng cũng tốt
-        userRepository.save(user);
-
-        UserDetail newUserDetail = new UserDetail();
-        newUserDetail.setUser(user);
-        mapDtoToEntity(dto, newUserDetail); // Hàm helper map dữ liệu
-        newUserDetail.setActive(true);
-
-        UserDetail savedDetail = userDetailRepository.save(newUserDetail);
-        return UserDetailResponseDTO.fromEntity(savedDetail);
+        return new ProfileStatusResponse(isUserComplete && isDetailComplete);
     }
 
-    // 3. TÌM KIẾM (SEARCH BY ID)
-    @Transactional(readOnly = true)
-    public UserDetailResponseDTO getUserDetailByUserId(String userId) {
-        // Nếu chưa có UserDetail, ta vẫn nên trả về thông tin cơ bản (Tên, Email) thay vì lỗi 404
-        // để Frontend form có dữ liệu hiển thị
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
-
-        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId).orElse(null);
-
-        if (userDetail == null) {
-            // Tạo object ảo để trả về thông tin cơ bản cho form
-            userDetail = new UserDetail();
-            userDetail.setUser(user);
-            // Các trường khác null
-        }
-
-        return UserDetailResponseDTO.fromEntity(userDetail);
-    }
-
-    // 4. CẬP NHẬT (EDIT)
-    public UserDetailResponseDTO updateUserDetail(UserDetailRequestDTO dto, String userId) {
-        UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có thông tin chi tiết. Vui lòng tạo mới trước."));
-
-        User user = existingDetail.getUser();
-
-        // --- UPDATE THÔNG TIN USER GỐC (Phone, FullName) ---
-        if (dto.getFullName() != null) {
-            user.setFullName(dto.getFullName());
-        }
-        if (dto.getPhoneNumber() != null) {
-            user.setPhoneNumber(dto.getPhoneNumber());
-        }
-        userRepository.save(user);
-
-        // --- UPDATE THÔNG TIN CHI TIẾT ---
-        mapDtoToEntity(dto, existingDetail);
-
-        UserDetail updatedDetail = userDetailRepository.save(existingDetail);
-        return UserDetailResponseDTO.fromEntity(updatedDetail);
-    }
-
-    // 5. XÓA MỀM
-    public String deleteUserDetail(String userId) {
-        UserDetail existingDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin để xóa."));
-        existingDetail.setActive(false);
-        userDetailRepository.save(existingDetail);
-        return "Đã xóa thông tin cá nhân thành công.";
-    }
-
-    // UPLOAD ẢNH
-    public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
-        UserDetail userDetail = userDetailRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ để tải ảnh."));
-
-        String savedFileName = fileStorageService.storeImageFile(file, "userdetail");
-        String imageUrl = staticUrlPrefix + "/" + savedFileName;
-
-        userDetail.setProfilePhotoUrl(imageUrl);
-        UserDetail updatedDetail = userDetailRepository.save(userDetail);
-        return UserDetailResponseDTO.fromEntity(updatedDetail);
-    }
-
-    // HELPER: Reactivate
-    private UserDetailResponseDTO reactivateAndUpdateUserDetail(UserDetail existingDetail, UserDetailRequestDTO dto) {
-        existingDetail.setActive(true);
-
-        // Update cả User gốc khi reactivate
-        User user = existingDetail.getUser();
-        if (dto.getFullName() != null) user.setFullName(dto.getFullName());
-        if (dto.getPhoneNumber() != null) user.setPhoneNumber(dto.getPhoneNumber());
-        userRepository.save(user);
-
-        mapDtoToEntity(dto, existingDetail);
-
-        UserDetail updatedDetail = userDetailRepository.save(existingDetail);
-        return UserDetailResponseDTO.fromEntity(updatedDetail);
-    }
-
-    // HELPER: Map DTO to Entity (Tránh lặp code)
-    private void mapDtoToEntity(UserDetailRequestDTO dto, UserDetail entity) {
-        if (dto.getGender() != null) entity.setGender(dto.getGender());
-        if (dto.getProfilePhotoUrl() != null) entity.setProfilePhotoUrl(dto.getProfilePhotoUrl());
-        if (dto.getAddress() != null) entity.setAddress(dto.getAddress());
-        if (dto.getCity() != null) entity.setCity(dto.getCity());
-        if (dto.getCountry() != null) entity.setCountry(dto.getCountry());
+    /**
+     * DTO nội bộ (Inner class) để trả về trạng thái hồ sơ
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProfileStatusResponse {
+        private boolean isProfileComplete;
     }
 }
