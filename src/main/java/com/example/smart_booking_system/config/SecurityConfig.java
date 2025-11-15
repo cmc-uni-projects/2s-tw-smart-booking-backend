@@ -6,6 +6,7 @@ import com.example.smart_booking_system.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // Thêm import này
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -26,7 +27,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity // Giữ lại EnableMethodSecurity để @PreAuthorize vẫn hoạt động
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -52,7 +53,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // ✅ CORS configuration (chuẩn Spring 6.5)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -66,29 +66,54 @@ public class SecurityConfig {
         return source;
     }
 
-    // ✅ Functional style không còn and()/apply()
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/**")
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/uploads/**", "/images/**", "/api/v1/files/**").permitAll()                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/owner/**").hasAuthority("OWNER")
-                        .requestMatchers("/api/v1/customer/**").hasAuthority("CUSTOMER")
-                        .requestMatchers("/api/v1/properties/search").permitAll()
-                        .requestMatchers("/api/v1/applications/owner/**").hasAnyAuthority("CUSTOMER", "OWNER", "ADMIN")
-                        .requestMatchers("/api/v1/applications/admin/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/v1/property/**").hasAnyAuthority("OWNER", "ADMIN")
-                        .requestMatchers("/api/v1/room/**").hasAnyAuthority("OWNER", "ADMIN")
-                        .anyRequest().authenticated()
-                )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
-                // ✅ Cấu hình CSRF và CORS trực tiếp, không apply()
+                // Cấu hình CORS và CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable());
+                .csrf(csrf -> csrf.disable())
 
+                // Xử lý lỗi xác thực
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
+
+                // Quản lý session
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Cấu hình các quy tắc bảo vệ
+                .authorizeHttpRequests(authorize -> authorize
+                        // ===== 1. PUBLIC ROUTES (Phải được định nghĩa đầu tiên) =====
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/uploads/**", "/images/**", "/api/v1/files/**").permitAll()
+                        .requestMatchers("/api/v1/properties/search").permitAll()
+                        .requestMatchers("/api/v1/properties/featured").permitAll()
+                        .requestMatchers("/api/v1/properties/{id}").permitAll()
+
+                        // ===== 2. ADMIN ROUTES =====
+                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                        // ===== 3. OWNER ROUTES =====
+                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        .requestMatchers("/api/v1/properties/submit-application").hasRole("OWNER")
+                        .requestMatchers("/api/v1/owner/**").hasRole("OWNER")
+
+                        // ===== 4. CUSTOMER ROUTES =====
+                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        .requestMatchers("/api/v1/customer/**").hasRole("CUSTOMER")
+                        .requestMatchers("/api/v1/applications/owner/**").hasRole("CUSTOMER")
+
+                        // ===== 5. MIXED/COMBO ROUTES (Owner & Admin) =====
+                        // ✅ ĐÃ CHUYỂN SANG hasAnyRole
+                        .requestMatchers("/api/v1/properties/add").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/api/v1/properties/update/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers("/api/v1/room/**").hasAnyRole("OWNER", "ADMIN")
+
+                        // ===== 6. DEFAULT =====
+                        .anyRequest().authenticated()
+                );
+
+        // Thêm các provider và filter
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

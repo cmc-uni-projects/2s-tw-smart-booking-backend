@@ -4,6 +4,9 @@ import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.repository.PropertyRepository;
+import com.example.smart_booking_system.service.FileStorageService; // Thêm
+import com.example.smart_booking_system.exception.InternalServerException; // Thêm
+import com.fasterxml.jackson.databind.ObjectMapper; // Thêm
 import org.springframework.stereotype.Service;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
@@ -11,12 +14,14 @@ import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import com.example.smart_booking_system.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile; // Thêm
 import org.thymeleaf.context.Context;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 
+import java.util.ArrayList; // Thêm
 import java.util.List;
 
 @Service
@@ -26,6 +31,11 @@ public class  PropertyService {
     private final PropertyRepository propertyRepository;
     private final EmailService emailService;
     private final UserRepository userRepository;
+
+    // --- DEPENDENCIES MỚI ---
+    private final FileStorageService fileStorageService;
+    private final ObjectMapper objectMapper;
+    // --- KẾT THÚC ---
 
     public Property addProperty(Property property, String ownerId) {
         User owner = userRepository.findById(ownerId)
@@ -77,6 +87,73 @@ public class  PropertyService {
         }
         return savedProperty;
     }
+
+    // --- HÀM MỚI ĐỂ XỬ LÝ NỘP ĐƠN ---
+    @Transactional
+    public PropertyDetailDTO submitPropertyApplication(
+            com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO dto,
+            List<MultipartFile> images,
+            String ownerId
+    ) {
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new EntityNotFoundException("Owner (User) not found with ID: " + ownerId));
+
+        // 1. Upload ảnh và lấy danh sách đường dẫn tương đối
+        List<String> imageUrls = new ArrayList<>();
+        if (images != null && !images.isEmpty()) {
+            imageUrls = images.stream()
+                    .map(file -> fileStorageService.storeImageFile(file, "properties")) // Lưu vào thư mục /uploads/properties
+                    .collect(Collectors.toList());
+        }
+
+        // 2. Map DTO vào Entity
+        Property property = new Property();
+        property.setOwnerId(owner);
+        property.setPropertyName(dto.getPropertyName());
+        property.setDescription(dto.getDescription());
+        property.setPropertyType(dto.getPropertyType());
+        property.setAddress(dto.getAddress());
+        property.setCity(dto.getCity());
+        property.setCountry(dto.getCountry());
+
+        // Lấy SĐT/Email từ chủ sở hữu
+        property.setPhoneContact(owner.getPhoneNumber());
+        property.setEmailContact(owner.getEmail());
+
+        // TODO: Cần logic để lấy PostalCode, Lat, Lng từ địa chỉ.
+        // Hiện tại, chúng ta sẽ đặt giá trị giả định.
+        property.setPostalCode("70000"); // Ví dụ
+        property.setLatitude(BigDecimal.valueOf(10.7769)); // Ví dụ
+        property.setLongitude(BigDecimal.valueOf(106.7009)); // Ví dụ
+
+        // 3. Chuyển Map/List thành chuỗi JSON
+        try {
+            property.setAmenitiesJson(objectMapper.writeValueAsString(dto.getAmenities()));
+            property.setImageUrlsJson(objectMapper.writeValueAsString(imageUrls));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new InternalServerException("Lỗi khi xử lý JSON: " + e.getMessage());
+        }
+
+        // 4. Set trạng thái mặc định
+        property.setPropertyStatus(PropertyStatus.PENDING); // Chờ duyệt
+        property.setActive(false); // Chưa hoạt động
+        property.setCreatedAt(LocalDate.now());
+        property.setUpdatedAt(LocalDate.now());
+
+        // 5. Lưu vào CSDL
+        Property savedProperty = propertyRepository.save(property);
+
+        // 6. Gửi mail xác nhận (tái sử dụng hàm helper đã có)
+        try {
+            sendPropertySubmittedEmail(owner, savedProperty);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi email xác nhận cho Owner: " + e.getMessage());
+            // Không ném lỗi ra ngoài để tránh rollback transaction
+        }
+
+        return new PropertyDetailDTO(savedProperty);
+    }
+    // --- KẾT THÚC HÀM MỚI ---
 
     public List<Property> searchProperties(String city, String keyword) {
         if (city != null && city.trim().isEmpty()) city = null;
