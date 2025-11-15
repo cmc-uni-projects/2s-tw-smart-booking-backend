@@ -3,6 +3,8 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.smart_booking_system.service.SearchHistoryService;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.smart_booking_system.entity.Property;
 import org.springframework.web.bind.annotation.*;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
@@ -25,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/v1/properties")
 public class PropertyController {
     private final PropertyService propertyService;
+    private final SearchHistoryService searchHistoryService;
 
     @PostMapping("/add")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
@@ -87,11 +90,24 @@ public class PropertyController {
     @GetMapping("/search")
     public ResponseEntity<List<Property>> searchProperties(
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            Authentication authentication // <-- NHẬN VÀO ĐỐI TƯỢNG AUTHENTICATION
+    ) {
+
+        // 1. Xử lý lưu lịch sử tìm kiếm
+        if (authentication != null && authentication.isAuthenticated()) {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String userId = userDetails.getUserId();
+
+            String searchTerm = (keyword != null) ? keyword : city;
+
+            if (searchTerm != null && !searchTerm.isBlank()) {
+                searchHistoryService.saveSearchHistory(userId, searchTerm);
+            }
+        }
 
         return ResponseEntity.ok(propertyService.searchProperties(city, keyword));
     }
-
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateProperty(
