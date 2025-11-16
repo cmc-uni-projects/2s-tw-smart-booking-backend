@@ -27,7 +27,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // Giữ lại EnableMethodSecurity để @PreAuthorize vẫn hoạt động
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -69,17 +69,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Cấu hình CORS và CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-
-                // Xử lý lỗi xác thực
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
-
-                // Quản lý session
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // Cấu hình các quy tắc bảo vệ
                 .authorizeHttpRequests(authorize -> authorize
                         // ===== 1. PUBLIC ROUTES (Phải được định nghĩa đầu tiên) =====
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -89,31 +82,36 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/properties/featured").permitAll()
                         .requestMatchers("/api/v1/properties/{id}").permitAll()
 
-                        // ===== 2. ADMIN ROUTES =====
-                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        // === BẮT ĐẦU SỬA LỖI ===
+                        // ===== 2. GENERAL AUTHENTICATED ROUTES =====
+                        // (Thêm các route này, vì nó không thuộc /admin, /owner, hay /customer)
+                        .requestMatchers(
+                                "/api/v1/user-details/me",
+                                "/api/v1/user-details/update",
+                                "/api/v1/user-details/profile-status"
+                        ).authenticated()
+                        // === KẾT THÚC SỬA LỖI ===
+
+                        // ===== 3. ADMIN ROUTES =====
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // ===== 3. OWNER ROUTES =====
-                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        // ===== 4. OWNER ROUTES =====
                         .requestMatchers("/api/v1/properties/submit-application").hasRole("OWNER")
                         .requestMatchers("/api/v1/owner/**").hasRole("OWNER")
 
-                        // ===== 4. CUSTOMER ROUTES =====
-                        // ✅ ĐÃ CHUYỂN SANG hasRole
+                        // ===== 5. CUSTOMER ROUTES =====
                         .requestMatchers("/api/v1/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/v1/applications/owner/**").hasRole("CUSTOMER")
 
-                        // ===== 5. MIXED/COMBO ROUTES (Owner & Admin) =====
-                        // ✅ ĐÃ CHUYỂN SANG hasAnyRole
+                        // ===== 6. MIXED/COMBO ROUTES (Owner & Admin) =====
                         .requestMatchers("/api/v1/properties/add").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/api/v1/properties/update/**").hasAnyRole("OWNER", "ADMIN")
                         .requestMatchers("/api/v1/room/**").hasAnyRole("OWNER", "ADMIN")
 
-                        // ===== 6. DEFAULT =====
+                        // ===== 7. DEFAULT =====
                         .anyRequest().authenticated()
                 );
 
-        // Thêm các provider và filter
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
