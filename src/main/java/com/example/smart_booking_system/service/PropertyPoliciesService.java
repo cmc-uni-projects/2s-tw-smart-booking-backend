@@ -42,23 +42,85 @@ public class PropertyPoliciesService {
     // ==========================
     // 2) UPDATE POLICY
     // ==========================
-    public PropertyPoliciesResponseDTO updatePolicies(
-            int propertyId, int policyId, PropertyPoliciesRequestDTO req) {
+    public PropertyPoliciesResponseDTO updatePolicies(int propertyId, PropertyPoliciesRequestDTO req) {
 
-        PropertyPolicies policies = policiesRepo.findById(policyId)
-                .orElseThrow(() -> new RuntimeException("Policy not found"));
+        PropertyPolicies policies = policiesRepo.findByPropertyId(propertyId);
 
-        // Kiểm tra policyId có thuộc propertyId không
-        if (policies.getPropertyId().getPropertyId() != propertyId) {
-            throw new RuntimeException("Policy does not belong to this property.");
+        if (policies == null) {
+            throw new RuntimeException("Policies not found for this property");
         }
 
-        mapFields(req, policies);
+        // ==== UPDATE FIELD NÀO ĐƯỢC GỬI LÊN, GIỮ NGUYÊN FIELD KHÁC ====
+
+        if (req.getPetPolicyDescription() != null) {
+            policies.setPetPolicyDescription(req.getPetPolicyDescription());
+        }
+        policies.setPetsAllowed(req.isPetsAllowed());
+
+        if (req.getSmokingPolicyDescription() != null) {
+            policies.setSmokingPolicyDescription(req.getSmokingPolicyDescription());
+        }
+        policies.setSmokingAllowed(req.isSmokingAllowed());
+
+        if (req.getChildrenPolicyDescription() != null) {
+            policies.setChildrenPolicyDescription(req.getChildrenPolicyDescription());
+        }
+        policies.setChildrenAllowed(req.isChildrenAllowed());
+
+        if (req.getCheckInFrom() != null) {
+            policies.setCheckInFrom(req.getCheckInFrom());
+        }
+        if (req.getCheckInTo() != null) {
+            policies.setCheckInTo(req.getCheckInTo());
+        }
+        if (req.getCheckOutFrom() != null) {
+            policies.setCheckOutFrom(req.getCheckOutFrom());
+        }
+        if (req.getCheckOutTo() != null) {
+            policies.setCheckOutTo(req.getCheckOutTo());
+        }
+
+        if (req.getQuietHours() != null) {
+            policies.setQuietHours(req.getQuietHours());
+        }
+
+        // Cancellation
+        policies.setAllowFreeCancellation(req.isAllowFreeCancellation());
+
+        if (req.getFreeCancellationDays() != null) {
+            policies.setFreeCancellationDays(req.getFreeCancellationDays());
+        }
+        if (req.getCancellationPolicyDescription() != null) {
+            policies.setCancellationPolicyDescription(req.getCancellationPolicyDescription());
+        }
+
+        // Prepayment
+        policies.setRequiresPrepayment(req.isRequiresPrepayment());
+
+        if (req.getPrepaymentPolicy() != null) {
+            policies.setPrepaymentPolicy(req.getPrepaymentPolicy());
+        }
+
+        // Deposit
+        policies.setSecurityDepositRequired(req.isSecurityDepositRequired());
+
+        if (req.getSecurityDepositAmount() != null) {
+            policies.setSecurityDepositAmount(req.getSecurityDepositAmount());
+        }
+        if (req.getSecurityDepositDescription() != null) {
+            policies.setSecurityDepositDescription(req.getSecurityDepositDescription());
+        }
+
+        if (req.getMinimumAge() != null) {
+            policies.setMinimumAge(req.getMinimumAge());
+        }
 
         policiesRepo.save(policies);
 
         return convertToDTO(policies);
     }
+
+
 
     // ==========================
     // 3) GET POLICY
