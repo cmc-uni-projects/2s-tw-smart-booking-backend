@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate; // <-- THÊM IMPORT NÀY
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,6 +27,11 @@ public class UserDetail {
     @Column(length = 50)
     private String gender;
 
+    // === BẮT ĐẦU CODE MỚI ===
+    @Column
+    private LocalDate dateOfBirth; // <-- THÊM TRƯỜNG NÀY
+    // === KẾT THÚC CODE MỚI ===
+
     @Column(length = 512)
     private String profilePhotoUrl;
 
@@ -39,7 +45,7 @@ public class UserDetail {
     private String country;
 
     @Column(nullable = false)
-    private boolean isActive = true; // Để hỗ trợ xóa mềm
+    private boolean isActive = true;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -50,7 +56,7 @@ public class UserDetail {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        isActive = true; // Đảm bảo khi tạo mới luôn active
+        isActive = true;
     }
 
     @PreUpdate

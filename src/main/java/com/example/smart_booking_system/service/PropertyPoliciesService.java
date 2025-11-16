@@ -1,6 +1,5 @@
 package com.example.smart_booking_system.service;
 
-
 import com.example.smart_booking_system.dto.PropertyPoliciesResponseDTO;
 import com.example.smart_booking_system.dto.request.PropertyPoliciesRequestDTO;
 import com.example.smart_booking_system.entity.Property;
@@ -17,19 +16,69 @@ public class PropertyPoliciesService {
     private final PropertyPoliciesRepository policiesRepo;
     private final PropertyRepository propertyRepo;
 
-    public PropertyPoliciesResponseDTO createOrUpdatePolicies(PropertyPoliciesRequestDTO req) {
+    // ==========================
+    // 1) ADD POLICY
+    // ==========================
+    public PropertyPoliciesResponseDTO addPolicies(int propertyId, PropertyPoliciesRequestDTO req) {
 
-        Property property = propertyRepo.findById(req.getPropertyId())
+        Property property = propertyRepo.findById(propertyId)
                 .orElseThrow(() -> new RuntimeException("Property not found"));
 
-        // Lấy policies theo propertyId
-        PropertyPolicies policies = policiesRepo.findByPropertyId(req.getPropertyId());
-        if (policies == null) {
-            policies = new PropertyPolicies();
-            policies.setPropertyId(property);
+        // Nếu đã có policy thì không cho add nữa
+        if (policiesRepo.findByPropertyId(propertyId) != null) {
+            throw new RuntimeException("Policies already exist. Use update instead.");
         }
 
-        // Map fields
+        PropertyPolicies policies = new PropertyPolicies();
+        policies.setPropertyId(property);
+
+        mapFields(req, policies);
+
+        policiesRepo.save(policies);
+
+        return convertToDTO(policies);
+    }
+
+    // ==========================
+    // 2) UPDATE POLICY
+    // ==========================
+    public PropertyPoliciesResponseDTO updatePolicies(
+            int propertyId, int policyId, PropertyPoliciesRequestDTO req) {
+
+        PropertyPolicies policies = policiesRepo.findById(policyId)
+                .orElseThrow(() -> new RuntimeException("Policy not found"));
+
+        // Kiểm tra policyId có thuộc propertyId không
+        if (policies.getPropertyId().getPropertyId() != propertyId) {
+            throw new RuntimeException("Policy does not belong to this property.");
+        }
+
+        mapFields(req, policies);
+
+        policiesRepo.save(policies);
+
+        return convertToDTO(policies);
+    }
+
+    // ==========================
+    // 3) GET POLICY
+    // ==========================
+    public PropertyPoliciesResponseDTO getPoliciesByPropertyId(int propertyId) {
+
+        PropertyPolicies policies = policiesRepo.findByPropertyId(propertyId);
+
+        if (policies == null) {
+            throw new RuntimeException("Policies not found for propertyId " + propertyId);
+        }
+
+        return convertToDTO(policies);
+    }
+
+    // ===========================================
+    // SUPPORT METHOD — MAP DTO → ENTITY
+    // ===========================================
+    private void mapFields(PropertyPoliciesRequestDTO req, PropertyPolicies policies) {
+
         policies.setPetsAllowed(req.isPetsAllowed());
         policies.setPetPolicyDescription(req.getPetPolicyDescription());
 
@@ -58,20 +107,11 @@ public class PropertyPoliciesService {
         policies.setSecurityDepositDescription(req.getSecurityDepositDescription());
 
         policies.setMinimumAge(req.getMinimumAge());
-
-        policiesRepo.save(policies);
-
-        return convertToDTO(policies);
     }
 
-    public PropertyPoliciesResponseDTO getPoliciesByPropertyId(int propertyId) {
-        PropertyPolicies policies = policiesRepo.findByPropertyId(propertyId);
-        if (policies == null) {
-            throw new RuntimeException("Policies not found for propertyId " + propertyId);
-        }
-        return convertToDTO(policies);
-    }
-
+    // ===========================================
+    // SUPPORT METHOD — ENTITY → DTO
+    // ===========================================
     private PropertyPoliciesResponseDTO convertToDTO(PropertyPolicies p) {
 
         PropertyPoliciesResponseDTO dto = new PropertyPoliciesResponseDTO();
