@@ -8,7 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/room")
+@RequestMapping("/api/v1/room")
 public class RoomController {
     private final RoomService roomService;
 
