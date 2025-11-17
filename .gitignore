@@ -33,3 +33,9 @@ build/
 .vscode/
 
 src/main/resources/application.properties
+
+# --- Python AI Service ---
+python_module/vector_store/
+python_module/__pycache__/
+python_module/*.env
+python_module/venv/
