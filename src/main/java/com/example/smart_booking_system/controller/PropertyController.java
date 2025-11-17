@@ -146,4 +146,21 @@ public class PropertyController {
         }
     }
 
+    @GetMapping("/my-active-properties")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> getMyActiveProperties(Authentication authentication) {
+        try {
+            String ownerId = authentication.getName(); // Hoặc lấy từ CustomUserDetails
+            // Note: Nếu authentication.getName() trả về email, hãy dùng logic userDetails.getUserId() như cũ
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Thành công",
+                    propertyService.getOwnerActiveProperties(userDetails.getUserId())
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
 }

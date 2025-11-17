@@ -68,7 +68,7 @@ public class PropertyDetailsService {
         // 2. Lấy Rooms theo propertyId
         // ============================
         // Cần đảm bảo RoomRepository có hàm findByPropertyId hoặc findByProperty_PropertyId
-        List<Room> rooms = roomRepository.findByPropertyId_PropertyId(propertyId);
+        List<Room> rooms = roomRepository.findByPropertyId_PropertyIdAndIsActiveTrue(propertyId);
 
         List<RoomResponseDTO> roomDTOs = rooms.stream().map(room -> {
             RoomResponseDTO dto = new RoomResponseDTO();

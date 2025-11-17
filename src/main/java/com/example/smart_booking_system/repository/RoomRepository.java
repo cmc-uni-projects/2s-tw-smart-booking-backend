@@ -10,8 +10,7 @@ import java.util.List;
 
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Integer> {
-    List<Room> findByPropertyId_PropertyId(int propertyId);
-
+    List<Room> findByPropertyId_PropertyIdAndIsActiveTrue(int propertyId);
     @Query("""
         SELECT r FROM Room r
         WHERE 

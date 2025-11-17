@@ -25,4 +25,6 @@ public interface PropertyService {
 
     PropertyDetailDTO submitPropertyApplication(PropertyApplicationSubmitDTO dto, List<MultipartFile> images, String ownerId);
     List<PropertyDetailDTO> getOwnerProperties(String ownerId);
+
+    List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId);
 }

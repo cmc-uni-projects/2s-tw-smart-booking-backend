@@ -130,6 +130,18 @@ public class PropertyServiceImpl implements PropertyService {
     // ==================================================================
 
     // ✅ HÀM MỚI: Lấy danh sách tài sản của Owner (trừ REJECTED)
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId) {
+        // Chỉ lấy trạng thái APPROVE (Đã duyệt/Hoạt động)
+        List<Property> properties = propertyRepository.findByOwner_UserIdAndPropertyStatus(ownerId, PropertyStatus.APPROVE);
+
+        return properties.stream()
+                .map(this::mapToPropertyDetailDTO) // Tái sử dụng hàm map có ảnh bìa
+                .collect(Collectors.toList());
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<PropertyDetailDTO> getOwnerProperties(String ownerId) {
