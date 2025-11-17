@@ -13,7 +13,7 @@ public class RoomAmenityResponseDTO {
     private int roomId;
     private int amenityId;
     private String amenityName;
-    private boolean active; // ✅ Thêm trường này để đồng bộ với Entity
+    private boolean active;
 
     public RoomAmenityResponseDTO(RoomAmenity entity) {
         this.roomAmenityId = entity.getRoomAmenityId();

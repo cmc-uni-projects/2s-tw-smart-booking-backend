@@ -63,8 +63,9 @@ public class RoomDetailService {
         List<RoomImageResponseDTO> imageDTOs = images.stream().map(img ->
                 new RoomImageResponseDTO(
                         img.getRoomImageId(),
-                        img.getRoom().getRoomId(), // ✅ getRoom() thay vì getRoomId()
+                        img.getRoom().getRoomId(),
                         img.getImageUrl(),
+                        img.isCover(),
                         img.isActive()
                 )
         ).collect(Collectors.toList());
