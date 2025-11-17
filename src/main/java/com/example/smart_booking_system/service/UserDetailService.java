@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // <-- Import quan trọng
 import org.springframework.util.StringUtils; // <-- Import quan trọng
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserDetailService {
@@ -104,18 +106,32 @@ public class UserDetailService {
         UserDetail userDetail = userDetailRepository.findByUser(user)
                 .orElse(null); // Có thể user chưa có UserDetail
 
-        // Kiểm tra trường của User
-        boolean isUserComplete = StringUtils.hasText(user.getFullName()) &&
-                StringUtils.hasText(user.getPhoneNumber());
+        List<String> missing = new ArrayList<>();
 
-        // Kiểm tra trường của UserDetail
-        boolean isDetailComplete = false;
-        if (userDetail != null) {
-            isDetailComplete = StringUtils.hasText(userDetail.getGender()) &&
-                    userDetail.getDateOfBirth() != null;
+        // 1. Kiểm tra trường của User
+        if (!StringUtils.hasText(user.getFullName())) {
+            missing.add("Họ và Tên");
+        }
+        if (!StringUtils.hasText(user.getPhoneNumber())) {
+            missing.add("Số điện thoại");
         }
 
-        return new ProfileStatusResponse(isUserComplete && isDetailComplete);
+        // 2. Kiểm tra trường của UserDetail
+        if (userDetail == null) {
+            missing.add("Giới tính");
+            missing.add("Ngày sinh");
+        } else {
+            if (!StringUtils.hasText(userDetail.getGender())) {
+                missing.add("Giới tính");
+            }
+            if (userDetail.getDateOfBirth() == null) {
+                missing.add("Ngày sinh");
+            }
+        }
+
+        // 3. Trả về DTO mới
+        boolean isComplete = missing.isEmpty();
+        return new ProfileStatusResponse(isComplete, missing);
     }
 
     /**
@@ -126,5 +142,6 @@ public class UserDetailService {
     @AllArgsConstructor
     public static class ProfileStatusResponse {
         private boolean isProfileComplete;
+        private java.util.List<String> missingFields;
     }
 }

@@ -9,9 +9,12 @@ import com.example.smart_booking_system.repository.RoomRepository;
 import com.example.smart_booking_system.service.impl.FileStorageServiceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.transaction.Transactional;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class RoomImageService {
@@ -19,6 +22,25 @@ public class RoomImageService {
     private final RoomRepository roomRepository;
     private final RoomImageRepository roomImageRepository;
     private final FileStorageServiceImpl fileStorageService;
+
+    @Transactional
+    public void setCoverImage(int roomId, int imageId) {
+        // 1. Kiểm tra ảnh tồn tại
+        RoomImage image = roomImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found"));
+
+        // 2. Kiểm tra ảnh có thuộc phòng này không
+        if (image.getRoom().getRoomId() != roomId) {
+            throw new BadRequestException("Image does not belong to this room");
+        }
+
+        // 3. Reset các ảnh khác
+        roomImageRepository.resetCoverImageByRoomId(roomId);
+
+        // 4. Set ảnh này làm bìa
+        image.setCover(true);
+        roomImageRepository.save(image);
+    }
 
     public RoomImageService(RoomRepository roomRepository,
                             RoomImageRepository roomImageRepository,
@@ -55,7 +77,8 @@ public class RoomImageService {
                     saved.getRoomImageId(),
                     roomId,
                     saved.getImageUrl(),
-                    saved.isActive()
+                    saved.isActive(),
+                    saved.isCover()
             ));
         }
 
@@ -73,9 +96,10 @@ public class RoomImageService {
                         img.getRoomImageId(),
                         img.getRoom().getRoomId(),
                         img.getImageUrl(),
-                        img.isActive()
+                        img.isActive(),
+                        img.isCover()
                 ))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     // ================== DELETE ================== //

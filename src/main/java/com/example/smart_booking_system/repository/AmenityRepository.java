@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional; // ✅ Thêm import này
 
 @Repository
 public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
@@ -45,4 +46,10 @@ public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
               AND a.amenityType = :type
             """)
     List<Amenity> findByType(@Param("type") AmenityType type);
+
+    // 1. Tìm chính xác theo tên và loại (Dùng để map dữ liệu khi Owner gửi đơn)
+    Optional<Amenity> findByAmenityNameAndAmenityType(String amenityName, AmenityType amenityType);
+
+    // 2. Kiểm tra tồn tại chính xác (Dùng để tránh tạo trùng lặp khi seed dữ liệu)
+    boolean existsByAmenityNameAndAmenityType(String amenityName, AmenityType amenityType);
 }
