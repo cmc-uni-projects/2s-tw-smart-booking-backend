@@ -13,22 +13,20 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${file.static-path-pattern}")
-    private String staticPathPattern;
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 1. Tạo đường dẫn tuyệt đối tới thư mục ./uploads
+        // Lấy đường dẫn vật lý chuẩn (file:///...)
         String resourceLocation = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
 
-        // Log ra để kiểm tra khi chạy
-        System.out.println("================================================");
-        System.out.println("Mapping URL: " + staticPathPattern);
-        System.out.println("To Path:     " + resourceLocation);
-        System.out.println("================================================");
+        System.out.println("=== CONFIGURING STATIC RESOURCES ===");
+        System.out.println("Storage Path: " + resourceLocation);
 
-        // 2. Đăng ký handler
-        registry.addResourceHandler(staticPathPattern)
+        // ✅ 1. Hỗ trợ đường dẫn chuẩn mới (/uploads/**)
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(resourceLocation);
+
+        // ✅ 2. Hỗ trợ đường dẫn cũ (/images/**) để ảnh Owner hiển thị được
+        registry.addResourceHandler("/images/**")
                 .addResourceLocations(resourceLocation);
     }
 }

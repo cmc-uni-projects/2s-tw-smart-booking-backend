@@ -6,20 +6,29 @@ import java.time.LocalDateTime;
 
 @Data
 public class OwnerApplicationDTO {
-
     private Long id;
     private ApplicationStatus status;
+
     private String permanentAddress;
     private String hometownAddress;
+
     private String cardFrontImage;
     private String cardBackImage;
     private String businessLicenseImage;
     private String businessLicenseNumber;
+
     private LocalDateTime createdAt;
     private LocalDateTime reviewedAt;
     private String adminReason;
+
+    // --- Thông tin người nộp (User) ---
     private String applicantId;
     private String applicantFullName;
     private String applicantEmail;
+
+    // ✅ THÊM 2 TRƯỜNG NÀY
+    private String applicantPhoneNumber;
+    private String applicantAvatar;
+
     private String reviewedByAdminName;
 }
