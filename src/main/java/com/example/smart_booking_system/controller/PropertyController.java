@@ -115,8 +115,9 @@ public class PropertyController {
             @RequestBody Property updatedProperty
     ) {
         try {
-            Property property = propertyService.updateProperty(id, updatedProperty);
+            PropertyDetailDTO property = propertyService.updateProperty(id, updatedProperty);
             return ResponseEntity.ok(property);
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
@@ -128,6 +129,21 @@ public class PropertyController {
     public ResponseEntity<List<PropertyDetailDTO>> getFeaturedProperties() {
         List<PropertyDetailDTO> properties = propertyService.getFeaturedProperties();
         return ResponseEntity.ok(properties);
+    }
+
+    @GetMapping("/my-properties")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> getMyProperties(Authentication authentication) {
+        try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String ownerId = userDetails.getUserId();
+
+            List<PropertyDetailDTO> properties = propertyService.getOwnerProperties(ownerId);
+
+            return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tài sản thành công", properties));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+        }
     }
 
 }

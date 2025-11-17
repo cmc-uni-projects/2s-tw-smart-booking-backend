@@ -15,7 +15,7 @@ public interface PropertyService {
 
     List<Property> searchProperties(String city, String keyword);
 
-    Property updateProperty(int id, Property updatedProperty);
+    PropertyDetailDTO updateProperty(int id, Property updatedProperty);
 
     List<PropertyDetailDTO> getFeaturedProperties();
 
@@ -24,4 +24,5 @@ public interface PropertyService {
     PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername);
 
     PropertyDetailDTO submitPropertyApplication(PropertyApplicationSubmitDTO dto, List<MultipartFile> images, String ownerId);
+    List<PropertyDetailDTO> getOwnerProperties(String ownerId);
 }

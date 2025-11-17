@@ -9,6 +9,8 @@ import com.example.smart_booking_system.repository.PropertyRepository;
 import com.example.smart_booking_system.service.impl.FileStorageServiceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.transaction.Transactional;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
 
 import java.util.List;
 
@@ -18,6 +20,24 @@ public class PropertyImageService {
     private final PropertyRepository propertyRepository;
     private final PropertyImageRepository propertyImageRepository;
     private final FileStorageServiceImpl fileStorageService;
+
+    @Transactional // Nhớ thêm Transactional vì có update DB
+    public void setCoverImage(int propertyId, int imageId) {
+        // 1. Kiểm tra ảnh có tồn tại và thuộc về property không
+        PropertyImage image = propertyImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found"));
+
+        if (image.getProperty().getPropertyId() != propertyId) {
+            throw new BadRequestException("Image does not belong to this property");
+        }
+
+        // 2. Reset tất cả ảnh khác thành isCover = false
+        propertyImageRepository.resetCoverImageByPropertyId(propertyId);
+
+        // 3. Set ảnh này thành isCover = true
+        image.setCover(true); // Lombok setter: setIsCover -> setCover
+        propertyImageRepository.save(image);
+    }
 
     public PropertyImageService(PropertyRepository propertyRepository,
                                 PropertyImageRepository propertyImageRepository,
