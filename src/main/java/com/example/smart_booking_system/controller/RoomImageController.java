@@ -5,11 +5,12 @@ import com.example.smart_booking_system.service.RoomImageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.smart_booking_system.dto.response.ApiResponse;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/roomImage")
+@RequestMapping("/api/v1/room-images")
 public class RoomImageController {
 
     private final RoomImageService roomImageService;
@@ -30,15 +31,32 @@ public class RoomImageController {
     }
 
     @GetMapping("/{roomId}")
-    public ResponseEntity<?> getByRoom(@PathVariable int roomId) {
+    public ResponseEntity<?> getRoomImages(@PathVariable int roomId) {
         return ResponseEntity.ok(roomImageService.getImagesByRoomId(roomId));
     }
 
     @DeleteMapping("/delete/{roomId}/{imageId}")
-    public ResponseEntity<?> delete(@PathVariable int roomId,
-                                    @PathVariable int imageId) {
-
-        roomImageService.deleteRoomImage(roomId, imageId);
-        return ResponseEntity.ok("Deleted");
+    public ResponseEntity<?> deleteImage(
+            @PathVariable int roomId,
+            @PathVariable int imageId
+    ) {
+        try {
+            roomImageService.deleteRoomImage(roomId, imageId);
+            return ResponseEntity.ok(ApiResponse.success("Đã xóa ảnh thành công", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+    @PutMapping("/{roomId}/{imageId}/set-cover")
+    public ResponseEntity<?> setCoverImage(
+            @PathVariable int roomId,
+            @PathVariable int imageId
+    ) {
+        try {
+            roomImageService.setCoverImage(roomId, imageId);
+            return ResponseEntity.ok(ApiResponse.success("Đã đặt ảnh bìa thành công", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

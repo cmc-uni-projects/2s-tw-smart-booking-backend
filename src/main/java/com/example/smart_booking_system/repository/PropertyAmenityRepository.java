@@ -11,6 +11,8 @@ import java.util.List;
 @Repository
 public interface PropertyAmenityRepository extends JpaRepository<PropertyAmenity, Integer> {
 
+    List<PropertyAmenity> findByProperty_PropertyId(int propertyId);
+
     // CHECK EXISTS
     @Query("""
         SELECT COUNT(pa) > 0 

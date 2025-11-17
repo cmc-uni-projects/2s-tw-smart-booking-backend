@@ -11,4 +11,5 @@ public class RoomImageResponseDTO {
     private int roomId;
     private String imageUrl;
     private boolean active;
+    private boolean isCover;
 }

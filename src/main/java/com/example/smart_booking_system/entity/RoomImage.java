@@ -9,16 +9,13 @@ import lombok.Setter;
 @Entity
 @Table(name = "roomimage")
 public class RoomImage {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int roomImageId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "roomId")
     private Room room;
-
     private String imageUrl;
-
     private boolean isActive = true;
+    private boolean isCover = false;
 }

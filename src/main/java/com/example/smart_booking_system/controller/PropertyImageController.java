@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.smart_booking_system.dto.response.ApiResponse;
 
 import java.util.List;
 
@@ -43,6 +44,19 @@ public class PropertyImageController {
 
         propertyImageService.deletePropertyImage(propertyId, imageId);
         return ResponseEntity.ok("Deleted");
+    }
+
+    @PutMapping("/{propertyId}/{imageId}/set-cover")
+    public ResponseEntity<?> setCoverImage(
+            @PathVariable int propertyId, // Lấy từ path cha nếu có, hoặc request param
+            @PathVariable int imageId
+    ) {
+        try {
+            propertyImageService.setCoverImage(propertyId, imageId);
+            return ResponseEntity.ok(ApiResponse.success("Đã đặt ảnh bìa thành công", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
 }

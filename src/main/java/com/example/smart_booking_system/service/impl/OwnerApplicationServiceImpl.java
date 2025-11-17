@@ -142,12 +142,17 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         dto.setReviewedAt(app.getReviewedAt());
         dto.setAdminReason(app.getAdminReason());
 
-        // Code của bạn CHÍNH XÁC
+        // --- MAPPING THÔNG TIN NGƯỜI DÙNG ---
         if (app.getUserId() != null) {
             User applicant = app.getUserId();
             dto.setApplicantId(applicant.getUserId());
             dto.setApplicantFullName(applicant.getFullName());
             dto.setApplicantEmail(applicant.getEmail());
+            dto.setApplicantPhoneNumber(applicant.getPhoneNumber());
+
+            if (applicant.getUserDetail() != null) {
+                dto.setApplicantAvatar(applicant.getUserDetail().getProfilePhotoUrl());
+            }
         }
 
         if (app.getReviewedBy() != null) {

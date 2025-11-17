@@ -1,127 +1,79 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.RoomResponseDTO;
-import com.example.smart_booking_system.entity.Room;
+import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
+import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.RoomService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/room")
+@RequestMapping("/api/v1/rooms")
+@RequiredArgsConstructor
 public class RoomController {
+
     private final RoomService roomService;
 
-    public RoomController(RoomService roomService){
-        this.roomService=roomService;
-    }
-    @PostMapping("/add")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
-    public ResponseEntity<?> addRoom(@RequestBody Room room) {
-        try {
-            Room savedRoom = roomService.addRoom(room);
-
-            return ResponseEntity
-                    .status(201)
-                    .body(savedRoom);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(e.getMessage());
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body("Error adding room: " + e.getMessage());
-        }
+    // 1. Lấy danh sách phòng
+    @GetMapping("/property/{propertyId}")
+    public ResponseEntity<?> getRoomsByProperty(@PathVariable int propertyId) {
+        List<RoomResponseDTO> rooms = roomService.getRoomsByPropertyId(propertyId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", rooms));
     }
 
-    @GetMapping("/search")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
-    public ResponseEntity<?> searchRooms(
-            @RequestParam(required = false) Integer propertyId,
-            @RequestParam(required = false) String keyword
+    // 2. Thêm phòng mới (Multipart)
+    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> addRoom(
+            @RequestPart("roomData") String roomDataJson,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         try {
-            return ResponseEntity.ok(roomService.searchRooms(propertyId, keyword));
+            ObjectMapper mapper = new ObjectMapper();
+            RoomRequestDTO dto = mapper.readValue(roomDataJson, RoomRequestDTO.class);
 
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(e.getMessage());
-
+            RoomResponseDTO savedRoom = roomService.addRoom(dto, images);
+            return ResponseEntity.ok(ApiResponse.success("Thêm phòng thành công", savedRoom));
         } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body("Error searching rooms: " + e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi thêm phòng: " + e.getMessage()));
         }
     }
 
-    @PutMapping("/update/{id}")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    // 3. Xóa phòng
+    @DeleteMapping("/{roomId}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> deleteRoom(@PathVariable int roomId) {
+        roomService.deleteRoom(roomId);
+        return ResponseEntity.ok(ApiResponse.success("Xóa phòng thành công", null));
+    }
+
+    // 4. Cập nhật (Hỗ trợ cả thông tin & upload thêm ảnh)
+    // ✅ SỬA LẠI: Dùng Multipart giống hệt Add để nhận ảnh
+    @PutMapping(value = "/{roomId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> updateRoom(
-            @PathVariable int id,
-            @RequestBody Room updatedRoom
+            @PathVariable int roomId,
+            @RequestPart("roomData") String roomDataJson,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         try {
-            RoomResponseDTO updated = roomService.updateRoom(id, updatedRoom);
+            // Parse JSON thủ công
+            ObjectMapper mapper = new ObjectMapper();
+            RoomRequestDTO dto = mapper.readValue(roomDataJson, RoomRequestDTO.class);
 
-            return ResponseEntity.ok(updated);
+            // ✅ Gọi Service truyền cả DTO và Images
+            RoomResponseDTO updatedRoom = roomService.updateRoom(roomId, dto, images);
 
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(e.getMessage());
-
+            return ResponseEntity.ok(ApiResponse.success("Cập nhật thành công", updatedRoom));
         } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body("Error updating room: " + e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi cập nhật: " + e.getMessage()));
         }
     }
-
-    @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
-    public ResponseEntity<?> deleteRoom(@PathVariable int id) {
-        try {
-            String message = roomService.deleteRoom(id);
-
-            return ResponseEntity.ok().body(message);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(e.getMessage());
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body("Error deleting room: " + e.getMessage());
-        }
-    }
-
-    @PutMapping("/set-active/{id}")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
-    public ResponseEntity<?> setRoomActiveStatus(
-            @PathVariable int id,
-            @RequestParam boolean isActive
-    ) {
-        try {
-            String message = roomService.updateRoomActiveStatus(id, isActive);
-            return ResponseEntity.ok(message);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(e.getMessage());
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body("Error updating room active status: " + e.getMessage());
-        }
-    }
-
-
 }

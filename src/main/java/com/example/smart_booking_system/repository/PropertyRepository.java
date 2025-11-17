@@ -36,4 +36,9 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     List<Property> findFeaturedProperties();
 
     List<Property> findByPropertyStatus(PropertyStatus status);
+    @Query("SELECT p FROM Property p WHERE p.owner.userId = :ownerId AND p.propertyStatus <> com.example.smart_booking_system.enums.PropertyStatus.REJECTED")
+    List<Property> findAllByOwnerIdAndNotRejected(@Param("ownerId") String ownerId);
+
+    List<Property> findByOwner_UserIdAndPropertyStatus(String ownerId, PropertyStatus status);
+
 }

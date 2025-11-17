@@ -1,7 +1,6 @@
 package com.example.smart_booking_system.service;
 
 import com.example.smart_booking_system.dto.RoomAmenityResponseDTO;
-import com.example.smart_booking_system.dto.request.UpdateRoomAmenityRequest;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.entity.RoomAmenity;
@@ -25,13 +24,15 @@ public class RoomAmenityService {
     private final AmenityRepository amenityRepository;
     private final RoomAmenityRepository roomAmenityRepository;
 
+    // Helper map DTO (Hoặc dùng constructor DTO nếu đã tạo)
     private RoomAmenityResponseDTO toDTO(RoomAmenity ra) {
-        RoomAmenityResponseDTO dto = new RoomAmenityResponseDTO();
-        dto.setRoomAmenityId(ra.getRoomAmenityId());
-        dto.setRoomId(ra.getRoomId().getRoomId());
-        dto.setAmenityId(ra.getAmenityId().getAmenityId());
-        dto.setAmenityName(ra.getAmenityId().getAmenityName());
-        return dto;
+        return new RoomAmenityResponseDTO(
+                ra.getRoomAmenityId(),
+                ra.getRoom().getRoomId(),          // ✅ SỬA: getRoom()
+                ra.getAmenity().getAmenityId(),    // ✅ SỬA: getAmenity()
+                ra.getAmenity().getAmenityName(),  // ✅ SỬA: getAmenity()
+                ra.isActive()
+        );
     }
 
     // ------------------ ADD ------------------
@@ -47,36 +48,30 @@ public class RoomAmenityService {
 
         // 1. VALIDATION PHASE
         for (int amenityId : amenityIds) {
-
             Amenity amenity = amenityRepository.findById(amenityId).orElse(null);
-
-            if (amenity == null ||
-                    !amenity.isActive() ||
-                    amenity.getAmenityType() != AmenityType.ROOM) {
-
+            if (amenity == null || !amenity.isActive() || amenity.getAmenityType() != AmenityType.ROOM) {
                 invalidAmenityIds.add(amenityId);
             }
         }
 
-        // 2. Nếu có lỗi → trả về toàn bộ lỗi
         if (!invalidAmenityIds.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Invalid amenityIds: " + invalidAmenityIds
-            );
+            throw new IllegalArgumentException("Invalid amenityIds: " + invalidAmenityIds);
         }
 
-        // 3. ADD PHASE — tất cả đã hợp lệ
+        // 2. ADD PHASE
         List<RoomAmenityResponseDTO> result = new ArrayList<>();
 
         for (int amenityId : amenityIds) {
-            if (roomAmenityRepository.existsByRoomAndAmenity(roomId, amenityId))
+            // Kiểm tra tồn tại: Cần đảm bảo Repository có hàm này
+            // existsByRoom_RoomIdAndAmenity_AmenityId là chuẩn JPA
+            if (roomAmenityRepository.existsByRoom_RoomIdAndAmenity_AmenityId(roomId, amenityId))
                 continue;
 
             Amenity amenity = amenityRepository.findById(amenityId).get();
 
             RoomAmenity ra = new RoomAmenity();
-            ra.setRoomId(room);
-            ra.setAmenityId(amenity);
+            ra.setRoom(room);       // ✅ SỬA: setRoom(room object)
+            ra.setAmenity(amenity); // ✅ SỬA: setAmenity(amenity object)
             ra.setActive(true);
 
             result.add(toDTO(roomAmenityRepository.save(ra)));
@@ -85,81 +80,60 @@ public class RoomAmenityService {
         return result;
     }
 
-
-
     // ------------------ READ ------------------
     public List<RoomAmenityResponseDTO> getRoomAmenities(int roomId) {
-        return roomAmenityRepository.findByRoomId(roomId)
+        // ✅ SỬA: Gọi hàm theo chuẩn JPA (findByRoom_RoomId)
+        return roomAmenityRepository.findByRoom_RoomId(roomId)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-
-    //update
+    // ------------------ UPDATE ------------------
     public RoomAmenityResponseDTO updateRoomAmenityByAmenityId(int roomId, int oldAmenityId, int newAmenityId) {
 
-        // 1. Tìm RoomAmenity cũ (amenityId đang gán)
-        RoomAmenity existing = roomAmenityRepository.findByRoomIdAndAmenityId(roomId, oldAmenityId);
-
-        if (existing == null) {
-            throw new IllegalArgumentException("This amenity does not belong to this room");
-        }
+        // 1. Tìm RoomAmenity cũ
+        // ✅ SỬA: findByRoom_RoomIdAndAmenity_AmenityId
+        RoomAmenity existing = roomAmenityRepository.findByRoom_RoomIdAndAmenity_AmenityId(roomId, oldAmenityId)
+                .orElseThrow(() -> new IllegalArgumentException("This amenity does not belong to this room"));
 
         // 2. Lấy amenity mới
         Amenity newAmenity = amenityRepository.findById(newAmenityId)
                 .orElseThrow(() -> new IllegalArgumentException("New amenity not found"));
 
-        // 3. Kiểm tra type phải đúng ROOM
         if (newAmenity.getAmenityType() != AmenityType.ROOM) {
             throw new IllegalArgumentException("Amenity type must be ROOM");
         }
 
-        // 4. Kiểm tra room đã có amenity mới chưa
-        boolean alreadyAssigned =
-                roomAmenityRepository.findByRoomIdAndAmenityId(roomId, newAmenityId) != null;
+        // 3. Kiểm tra trùng
+        boolean alreadyAssigned = roomAmenityRepository.existsByRoom_RoomIdAndAmenity_AmenityId(roomId, newAmenityId);
 
         if (alreadyAssigned) {
             throw new IllegalArgumentException("This room already has this amenity");
         }
 
-        // 5. Update
-        existing.setAmenityId(newAmenity);
+        // 4. Update
+        existing.setAmenity(newAmenity); // ✅ SỬA: setAmenity
         RoomAmenity saved = roomAmenityRepository.save(existing);
 
-        // 6. TRẢ DTO → KHÔNG BAO GIỜ LỖI BYTEBUDDY
-        return new RoomAmenityResponseDTO(
-                saved.getRoomAmenityId(),
-                saved.getRoomId().getRoomId(),
-                saved.getAmenityId().getAmenityId(),
-                saved.getAmenityId().getAmenityName()
-        );
+        return toDTO(saved);
     }
-
-
 
     // ------------------ DELETE ------------------
     @Transactional
     public RoomAmenityResponseDTO deleteRoomAmenity(int roomId, int amenityId) {
 
-        // 1. Kiểm tra amenity có thuộc room không
-        RoomAmenity existing = roomAmenityRepository
-                .findByRoomIdAndAmenityId(roomId, amenityId);
+        // 1. Tìm bản ghi
+        RoomAmenity existing = roomAmenityRepository.findByRoom_RoomIdAndAmenity_AmenityId(roomId, amenityId)
+                .orElseThrow(() -> new IllegalArgumentException("This amenity does not belong to this room"));
 
-        if (existing == null) {
-            throw new IllegalArgumentException("This amenity does not belong to this room");
-        }
+        // 2. Soft Delete (Set active = false)
+        // Lưu ý: Nếu repository ko có hàm softDelete, ta set thủ công và save
+        existing.setActive(false);
+        RoomAmenity saved = roomAmenityRepository.save(existing);
 
-        // 2. Soft delete
-        roomAmenityRepository.softDelete(existing.getRoomAmenityId());
+        // Hoặc nếu muốn xóa cứng: roomAmenityRepository.delete(existing);
 
-        // 3. Trả về DTO (để FE cập nhật real-time)
-        return new RoomAmenityResponseDTO(
-                existing.getRoomAmenityId(),
-                roomId,
-                amenityId,
-                existing.getAmenityId().getAmenityName()
-        );
+        return toDTO(saved);
     }
-
 }

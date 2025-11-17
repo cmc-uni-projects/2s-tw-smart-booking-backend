@@ -5,32 +5,28 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    // Lấy đường dẫn thư mục vật lý từ properties
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    // Lấy đường dẫn URL ảo từ properties
-    @Value("${file.static-path-pattern}")
-    private String staticPathPattern; // Ví dụ: /images/**
-
-    /**
-     * Cấu hình resource handler để phục vụ file tĩnh (ảnh)
-     */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Lấy đường dẫn thư mục upload
-        Path uploadPath = Paths.get(uploadDir);
-        String absoluteUploadPath = uploadPath.toFile().getAbsolutePath();
+        // Lấy đường dẫn vật lý chuẩn (file:///...)
+        String resourceLocation = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
 
-        // Ánh xạ đường dẫn ảo (ví dụ: /images/**) tới thư mục thật
-        registry
-                .addResourceHandler(staticPathPattern)
-                .addResourceLocations("file:/" + absoluteUploadPath + "/");
+        System.out.println("=== CONFIGURING STATIC RESOURCES ===");
+        System.out.println("Storage Path: " + resourceLocation);
+
+        // ✅ 1. Hỗ trợ đường dẫn chuẩn mới (/uploads/**)
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(resourceLocation);
+
+        // ✅ 2. Hỗ trợ đường dẫn cũ (/images/**) để ảnh Owner hiển thị được
+        registry.addResourceHandler("/images/**")
+                .addResourceLocations(resourceLocation);
     }
 }
