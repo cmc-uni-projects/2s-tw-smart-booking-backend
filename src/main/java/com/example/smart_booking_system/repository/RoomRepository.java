@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Integer> {
@@ -26,4 +27,13 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
             @Param("propertyId") Integer propertyId,
             @Param("keyword") String keyword
     );
+
+    @Query("""
+           SELECT r
+           FROM Room r
+           WHERE r.propertyId.propertyId = :propertyId
+             AND r.roomCategory = :category
+           """)
+    Optional<Room> findByPropertyIdAndCategory(@Param("propertyId") int propertyId,
+                                               @Param("category") com.example.smart_booking_system.enums.RoomCategory category);
 }
