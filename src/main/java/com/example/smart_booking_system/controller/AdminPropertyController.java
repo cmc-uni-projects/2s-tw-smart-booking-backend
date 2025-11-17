@@ -18,31 +18,36 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-// ✅ QUAN TRỌNG: Đường dẫn cơ sở là cho "properties"
 @RequestMapping("/api/v1/admin/properties")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminPropertyController {
 
     private final PropertyService propertyService;
-    // Xóa OwnerApplicationService
 
-    /**
-     * [ADMIN] Lấy danh sách cơ sở đang chờ duyệt (PENDING)
-     * Đường dẫn đầy đủ: /api/v1/admin/properties/pending
-     */
-    @GetMapping("/pending")
-    public ResponseEntity<?> getPendingProperties() {
+    // ✅ THÊM MỚI: API Lấy danh sách theo trạng thái (Dynamic)
+    // URL gọi: /api/v1/admin/properties/status?status=PENDING (hoặc APPROVE, REJECTED)
+    @GetMapping("/status")
+    public ResponseEntity<?> getPropertiesByStatus(@RequestParam String status) {
         try {
-            List<PropertyDetailDTO> properties = propertyService.getPropertiesByStatus(PropertyStatus.PENDING);
-            return ResponseEntity.ok(ApiResponse.success(properties.size() + " cơ sở đang chờ duyệt", properties));
+            // 1. Convert String sang Enum (Nếu sai tên sẽ nhảy xuống catch IllegalArgumentException)
+            PropertyStatus propertyStatus = PropertyStatus.valueOf(status.toUpperCase());
+
+            // 2. Gọi Service lấy danh sách
+            List<PropertyDetailDTO> properties = propertyService.getPropertiesByStatus(propertyStatus);
+
+            return ResponseEntity.ok(properties); // Trả về List trực tiếp để khớp với FE
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Trạng thái không hợp lệ: " + status));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Lỗi server: " + e.getMessage()));
         }
     }
 
     /**
-     * [ADMIN] Duyệt (Approve) hoặc Từ chối (Reject) một cơ sở
-     * Đường dẫn đầy đủ: /api/v1/admin/properties/{propertyId}/review
+     * [ADMIN] Duyệt (Approve) hoặc Từ chối (Reject)
      */
     @PostMapping("/{propertyId}/review")
     public ResponseEntity<?> reviewProperty(
@@ -51,10 +56,11 @@ public class AdminPropertyController {
             Authentication authentication
     ) {
         try {
-            String adminUsername = authentication.getName();
+            String adminUsername = (authentication != null) ? authentication.getName() : "Admin";
+
             PropertyDetailDTO reviewedProperty = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
 
-            String message = reviewDTO.getStatus().equalsIgnoreCase("APPROVE")
+            String message = "APPROVE".equalsIgnoreCase(reviewDTO.getStatus())
                     ? "Duyệt cơ sở thành công"
                     : "Từ chối cơ sở thành công";
 
@@ -63,7 +69,10 @@ public class AdminPropertyController {
         } catch (ResourceNotFoundException | IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lỗi server: " + e.getMessage()));
         }
     }
+
+    // (Bạn có thể xóa hàm /pending cũ vì hàm /status?status=PENDING đã thay thế nó)
 }

@@ -46,6 +46,7 @@ public class PropertyImageService {
                     pi.setProperty(property);
                     pi.setImageUrl(savedPath);
                     pi.setActive(true);
+                    // Mặc định isCover là false khi upload thêm qua API này
 
                     PropertyImage saved = propertyImageRepository.save(pi);
 
@@ -53,6 +54,7 @@ public class PropertyImageService {
                             saved.getPropertyImageId(),
                             propertyId,
                             saved.getImageUrl(),
+                            saved.isCover(), // ✅ SỬA LỖI: Thêm trường isCover vào đây
                             saved.isActive()
                     );
                 })
@@ -71,6 +73,7 @@ public class PropertyImageService {
                         img.getPropertyImageId(),
                         img.getProperty().getPropertyId(),
                         img.getImageUrl(),
+                        img.isCover(), // ✅ SỬA LỖI: Thêm trường isCover vào đây
                         img.isActive()
                 ))
                 .toList();

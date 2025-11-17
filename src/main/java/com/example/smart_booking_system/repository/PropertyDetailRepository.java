@@ -4,13 +4,15 @@ import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.entity.PropertyAmenity;
 import com.example.smart_booking_system.entity.PropertyImage;
+import com.example.smart_booking_system.entity.PropertyDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Optional;
 
 import java.util.List;
 
-public interface PropertyDetailRepository extends JpaRepository<Property, Integer> {
+public interface PropertyDetailRepository extends JpaRepository<PropertyDetail, Integer> {
 
     // ---------------------
     // Lấy property theo ID
@@ -18,7 +20,7 @@ public interface PropertyDetailRepository extends JpaRepository<Property, Intege
     @Query("""
            SELECT p 
            FROM Property p
-           LEFT JOIN FETCH p.OwnerId
+           LEFT JOIN FETCH p.owner o
            WHERE p.propertyId = :propertyId
            """)
     Property getPropertyDetail(@Param("propertyId") int propertyId);
@@ -56,4 +58,6 @@ public interface PropertyDetailRepository extends JpaRepository<Property, Intege
            WHERE pi.property.propertyId = :propertyId
            """)
     List<PropertyImage> getImagesByPropertyId(@Param("propertyId") int propertyId);
+
+    Optional<PropertyDetail> findByProperty_PropertyId(int propertyId);
 }

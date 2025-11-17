@@ -12,13 +12,15 @@ public class PropertyImage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int propertyImageId;   // <-- FIELD NÀY PHẢI CÓ
+    private int propertyImageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "propertyId")
     private Property property;
 
     private String imageUrl;
+
+    private boolean isCover = false;
 
     private boolean isActive = true;
 }

@@ -30,6 +30,7 @@ public class PropertyDetailDTO {
     private LocalDate createdAt;
     private String ownerId;
     private String ownerFullName;
+    private String coverImage;
 
     public PropertyDetailDTO(Property property) {
         this.propertyId = property.getPropertyId();
@@ -50,9 +51,10 @@ public class PropertyDetailDTO {
         this.propertyStatus = property.getPropertyStatus();
         this.createdAt = property.getCreatedAt();
 
-        if (property.getOwnerId() != null) {
-            this.ownerId = property.getOwnerId().getUserId();
-            this.ownerFullName = property.getOwnerId().getFullName();
+
+        if (property.getOwner() != null) {
+            this.ownerId = property.getOwner().getUserId();
+            this.ownerFullName = property.getOwner().getFullName();
         }
     }
 }

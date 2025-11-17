@@ -36,4 +36,5 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     List<Property> findFeaturedProperties();
 
     List<Property> findByPropertyStatus(PropertyStatus status);
+
 }

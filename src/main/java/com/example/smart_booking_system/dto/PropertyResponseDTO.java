@@ -14,16 +14,22 @@ public class PropertyResponseDTO {
     private String propertyName;
     private PropertyType propertyType;
 
-
     private String address;
     private String country;
+
+    // ✅ THÊM MỚI: Tỉnh/Thành phố
+    private String province;
+
     private String city;
     private String postalCode;
 
     private String description;
 
-    private String amenitiesJson;
-    private String imageUrlsJson;
+    // ✅ THÊM MỚI: Diện tích (Lấy từ bảng PropertyDetail)
+    private BigDecimal area;
+
+    // ❌ ĐÃ XÓA: amenitiesJson, imageUrlsJson
+    // (Dữ liệu này sẽ được trả về qua các list riêng trong PropertyDetailsResponseDTO)
 
     private BigDecimal latitude;
     private BigDecimal longitude;
@@ -39,4 +45,5 @@ public class PropertyResponseDTO {
 
     private LocalDate createdAt;
     private LocalDate updatedAt;
+    private String coverImage;
 }

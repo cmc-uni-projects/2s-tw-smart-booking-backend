@@ -1,26 +1,30 @@
 package com.example.smart_booking_system.config;
 
+import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Role;
 import com.example.smart_booking_system.entity.User;
+import com.example.smart_booking_system.enums.AmenityType;
+import com.example.smart_booking_system.repository.AmenityRepository;
 import com.example.smart_booking_system.repository.RoleRepository;
-import com.example.smart_booking_system.repository.UserRepository; // THÊM MỚI
+import com.example.smart_booking_system.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder; // THÊM MỚI
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set; // THÊM MỚI
-import java.util.UUID; // THÊM MỚI
+import java.util.Set;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class DataInitializer {
 
     private final RoleRepository roleRepository;
-    private final UserRepository userRepository; // THÊM MỚI
-    private final PasswordEncoder passwordEncoder; // THÊM MỚI
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AmenityRepository amenityRepository; // THÊM MỚI: Inject Repository
 
     @PostConstruct
     public void init() {
@@ -29,6 +33,9 @@ public class DataInitializer {
 
         // 2. Khởi tạo Users
         initDefaultUsers();
+
+        // 3. Khởi tạo Amenities (THÊM MỚI)
+        initAmenities();
     }
 
     private void initRoles() {
@@ -46,7 +53,6 @@ public class DataInitializer {
                     });
         }
     }
-
 
     private void initDefaultUsers() {
         // Dùng tên không có tiền tố
@@ -70,7 +76,6 @@ public class DataInitializer {
         );
     }
 
-
     private void createAccountIfNotExists(String email, String rawPassword, String fullName, Set<String> roleNames) {
         if (userRepository.existsByEmail(email)) {
             return;
@@ -93,5 +98,42 @@ public class DataInitializer {
 
         userRepository.save(user);
         System.out.println("✅ Created default user: " + email);
+    }
+
+    // --- HÀM MỚI: KHỞI TẠO AMENITIES ---
+    private void initAmenities() {
+        // 1. Danh sách tiện nghi CƠ SỞ LƯU TRÚ (Khớp với Frontend Step2_Amenities.jsx)
+        List<String> propertyAmenities = List.of(
+                "pool", "parking", "sauna", "spa", "non_smoking",
+                "wifi", "airport_transfer", "pets", "gym",
+                "smoking_area", "reception_24h", "ac"
+        );
+
+        for (String amenityName : propertyAmenities) {
+            if (!amenityRepository.existsByAmenityNameAndAmenityType(amenityName, AmenityType.PROPERTY)) {
+                Amenity amenity = new Amenity();
+                amenity.setAmenityName(amenityName);
+                amenity.setAmenityType(AmenityType.PROPERTY);
+                amenity.setActive(true);
+                amenityRepository.save(amenity);
+                System.out.println("✅ Created Property Amenity: " + amenityName);
+            }
+        }
+
+        // 2. Danh sách tiện nghi PHÒNG (Khớp với Frontend roomData.jsx)
+        List<String> roomAmenities = List.of(
+                "tv", "ac", "minibar", "tea_coffee", "wifi", "bathtub", "balcony", "non_smoking"
+        );
+
+        for (String amenityName : roomAmenities) {
+            if (!amenityRepository.existsByAmenityNameAndAmenityType(amenityName, AmenityType.ROOM)) {
+                Amenity amenity = new Amenity();
+                amenity.setAmenityName(amenityName);
+                amenity.setAmenityType(AmenityType.ROOM);
+                amenity.setActive(true);
+                amenityRepository.save(amenity);
+                System.out.println("✅ Created Room Amenity: " + amenityName);
+            }
+        }
     }
 }
