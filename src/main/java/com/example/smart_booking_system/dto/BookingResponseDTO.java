@@ -14,6 +14,7 @@ public class BookingResponseDTO {
     private Integer roomId;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
+    private Integer guestCount;  // Cho phép null
     private BigDecimal totalPrice;
     private BigDecimal penaltyAmount;
     private BigDecimal refundAmount;

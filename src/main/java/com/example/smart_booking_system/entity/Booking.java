@@ -33,6 +33,8 @@ public class Booking {
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
 
+    private Integer guestCount;  // Cho phép null
+
     private BigDecimal totalPrice;
     private BigDecimal penaltyAmount; // phạt (20%) nếu hủy muộn
     private BigDecimal refundAmount;  // tiền hoàn lại cho khách

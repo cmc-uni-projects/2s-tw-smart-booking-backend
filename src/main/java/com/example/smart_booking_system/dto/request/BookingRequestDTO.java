@@ -13,4 +13,7 @@ public class BookingRequestDTO {
 
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
+
+    private Integer guestCount;  // Cho phép null
+
 }

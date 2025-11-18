@@ -26,34 +26,64 @@ public class BookingService {
     private final UserRepository userRepo;
     private final PropertyPoliciesRepository policiesRepo;
 
-    // ---------------------------
-    // CREATE (như trước)
-    // ---------------------------
+    // ================================
+    // CREATE BOOKING (chặt chẽ, capacity cho mọi loại)
+    // ================================
     public BookingResponseDTO createBooking(BookingRequestDTO req) {
-        // (copy existing createBooking implementation)
-        User user = userRepo.findById(req.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Property property = propertyRepo.findById(req.getPropertyId())
-                .orElseThrow(() -> new RuntimeException("Property not found"));
 
-        boolean requiresWholeRoom = property.getPropertyType() == PropertyType.VILLA
-                || property.getPropertyType() == PropertyType.HOMESTAY;
+        // --- 1) basic existence checks ---
+        User user = userRepo.findById(req.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found: " + req.getUserId()));
+
+        Property property = propertyRepo.findById(req.getPropertyId())
+                .orElseThrow(() -> new RuntimeException("Property not found: " + req.getPropertyId()));
+
+        boolean requiresWholeRoom =
+                property.getPropertyType() == PropertyType.VILLA ||
+                        property.getPropertyType() == PropertyType.HOMESTAY;
 
         Room room;
+
+        // --- 2) choose room depending on property type ---
         if (requiresWholeRoom) {
+            // FE must not send roomId for Villa/Homestay
+            if (req.getRoomId() != null) {
+                throw new RuntimeException("Do not send roomId for Villa/Homestay. Booking is always the WHOLE room.");
+            }
+
             room = roomRepo.findByPropertyIdAndCategory(req.getPropertyId(), RoomCategory.WHOLE)
-                    .orElseThrow(() -> new RuntimeException("Whole room for property not found"));
+                    .orElseThrow(() -> new RuntimeException("Whole room (category=WHOLE) not found for property " + req.getPropertyId()));
         } else {
+            // HOTEL / RESORT: require roomId and membership to property
             if (req.getRoomId() == null) {
                 throw new RuntimeException("roomId is required for HOTEL/RESORT booking");
             }
+
             room = roomRepo.findById(req.getRoomId())
-                    .orElseThrow(() -> new RuntimeException("Room not found"));
+                    .orElseThrow(() -> new RuntimeException("Room not found: " + req.getRoomId()));
+
             if (room.getPropertyId() == null || room.getPropertyId().getPropertyId() != req.getPropertyId()) {
-                throw new RuntimeException("Room does not belong to the given property");
+                throw new RuntimeException("Room does not belong to the given property (roomId=" + req.getRoomId() + ", propertyId=" + req.getPropertyId() + ")");
             }
         }
 
+        // --- 3) guestCount validation (required for all types now) ---
+        if (req.getGuestCount() == null) {
+            throw new RuntimeException("guestCount is required for booking");
+        }
+        if (req.getGuestCount() <= 0) {
+            throw new RuntimeException("guestCount must be greater than 0");
+        }
+
+        Integer capacity = room.getCapacity();
+        if (capacity == null) {
+            throw new RuntimeException("Room capacity is not set for roomId: " + room.getRoomId());
+        }
+        if (req.getGuestCount() > capacity) {
+            throw new RuntimeException("guestCount exceeds room capacity (guestCount=" + req.getGuestCount() + ", capacity=" + capacity + ")");
+        }
+
+        // --- 4) date validation ---
         if (req.getCheckInDate() == null || req.getCheckOutDate() == null) {
             throw new RuntimeException("Check-in and check-out dates are required");
         }
@@ -61,29 +91,34 @@ public class BookingService {
             throw new RuntimeException("checkInDate must be before checkOutDate");
         }
 
+        // --- 5) overlapping bookings check (only CONFIRMED) ---
         List<Booking> overlapping = bookingRepo.findConfirmedOverlappingByRoomId(
-                room.getRoomId(), req.getCheckInDate(), req.getCheckOutDate());
-
+                room.getRoomId(),
+                req.getCheckInDate(),
+                req.getCheckOutDate()
+        );
         if (!overlapping.isEmpty()) {
             throw new RuntimeException("Room is already booked in the selected dates");
         }
 
+        // --- 6) price calculation ---
         long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
         if (nights <= 0) nights = 1;
 
         BigDecimal pricePerNight = room.getPricePerNight();
         if (pricePerNight == null) {
-            throw new RuntimeException("Room price is not set");
+            throw new RuntimeException("Room pricePerNight is not set for roomId: " + room.getRoomId());
         }
-
         BigDecimal total = pricePerNight.multiply(BigDecimal.valueOf(nights));
 
+        // --- 7) create booking ---
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setProperty(property);
         booking.setRoom(room);
         booking.setCheckInDate(req.getCheckInDate());
         booking.setCheckOutDate(req.getCheckOutDate());
+        booking.setGuestCount(req.getGuestCount());
         booking.setTotalPrice(total);
         booking.setPenaltyAmount(BigDecimal.ZERO);
         booking.setRefundAmount(total);
@@ -94,32 +129,29 @@ public class BookingService {
         return convertToDTO(booking);
     }
 
-    // ---------------------------
-    // CANCEL (như trước)
-    // ---------------------------
+    // ================================
+    // CANCEL BOOKING (chặt chẽ + safe)
+    // ================================
     public BookingResponseDTO cancelBooking(int bookingId) {
-
         Booking booking = bookingRepo.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
 
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new RuntimeException("Booking already cancelled");
         }
 
-        PropertyPolicies policies = null;
-        try {
-            policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
-        } catch (Exception ex) {
-            policies = null;
-        }
-
+        PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
 
         boolean allowFree = false;
+
         if (policies != null && Boolean.TRUE.equals(policies.isAllowFreeCancellation())) {
             Integer freeDays = policies.getFreeCancellationDays();
             if (freeDays == null) freeDays = 0;
+            if (freeDays < 0) freeDays = 0;
+
             LocalDate deadline = booking.getCheckInDate().minusDays(freeDays);
+            // allow free if today is on or before the deadline (inclusive)
             if (!today.isAfter(deadline)) {
                 allowFree = true;
             }
@@ -129,53 +161,41 @@ public class BookingService {
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setPenaltyAmount(BigDecimal.ZERO);
             booking.setRefundAmount(booking.getTotalPrice());
-            bookingRepo.save(booking);
-            return convertToDTO(booking);
+        } else {
+            BigDecimal penalty = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.20));
+            booking.setPenaltyAmount(penalty);
+            booking.setRefundAmount(booking.getTotalPrice().subtract(penalty));
+            booking.setStatus(BookingStatus.CANCELLED);
         }
-
-        BigDecimal penalty = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.20));
-        BigDecimal refund = booking.getTotalPrice().subtract(penalty);
-
-        booking.setStatus(BookingStatus.CANCELLED);
-        booking.setPenaltyAmount(penalty);
-        booking.setRefundAmount(refund);
 
         bookingRepo.save(booking);
         return convertToDTO(booking);
     }
 
-    // ---------------------------
-    // READ APIs (mới)
-    // ---------------------------
-
-    // 1) Get booking by id
+    // ================================
+    // GET APIs
+    // ================================
     public BookingResponseDTO getBookingById(int bookingId) {
         Booking b = bookingRepo.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
         return convertToDTO(b);
     }
 
-    // 2) Get bookings by userId (all bookings for a user)
     public List<BookingResponseDTO> getBookingsByUserId(String userId) {
-        List<Booking> list = bookingRepo.findByUserUserId(userId);
-        return list.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return bookingRepo.findByUserUserId(userId).stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    // 3) Get bookings by propertyId (all bookings for a property)
     public List<BookingResponseDTO> getBookingsByPropertyId(int propertyId) {
-        List<Booking> list = bookingRepo.findByPropertyPropertyId(propertyId);
-        return list.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return bookingRepo.findByPropertyPropertyId(propertyId).stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    // 4) Get all bookings (optionally you can add pagination later)
     public List<BookingResponseDTO> getAllBookings() {
-        List<Booking> list = bookingRepo.findAll();
-        return list.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return bookingRepo.findAll().stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    // ---------------------------
+    // ================================
     // helper convert
-    // ---------------------------
+    // ================================
     private BookingResponseDTO convertToDTO(Booking b) {
         BookingResponseDTO dto = new BookingResponseDTO();
         dto.setBookingId(b.getBookingId());
@@ -183,6 +203,7 @@ public class BookingService {
         dto.setRoomId(b.getRoom() != null ? b.getRoom().getRoomId() : null);
         dto.setCheckInDate(b.getCheckInDate());
         dto.setCheckOutDate(b.getCheckOutDate());
+        dto.setGuestCount(b.getGuestCount());
         dto.setTotalPrice(b.getTotalPrice());
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
