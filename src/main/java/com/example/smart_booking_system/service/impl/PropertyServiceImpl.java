@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service.impl;
 
+import com.example.smart_booking_system.dto.PropertyAmenityResponseDTO;
+import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
@@ -11,6 +13,7 @@ import com.example.smart_booking_system.repository.*;
 import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.service.PropertyService;
+import com.example.smart_booking_system.repository.RoomImageRepository; // ✅ Import Repository
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,8 @@ import org.thymeleaf.context.Context;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +43,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyAmenityRepository propertyAmenityRepository;
     private final PropertyImageRepository propertyImageRepository;
     private final FileStorageService fileStorageService;
+    private final RoomImageRepository roomImageRepository;
 
     // ==================================================================
     // 1. LOGIC NỘP ĐƠN ĐĂNG KÝ
@@ -129,26 +135,72 @@ public class PropertyServiceImpl implements PropertyService {
     // 2. LOGIC QUẢN LÝ TÀI SẢN (OWNER & ADMIN & SEARCH)
     // ==================================================================
 
-    // ✅ HÀM MỚI: Lấy danh sách tài sản của Owner (trừ REJECTED)
+    // ✅ HÀM MỚI: Lấy chi tiết Property kèm theo Amenities và Rooms
+    @Override
+    @Transactional(readOnly = true)
+    public PropertyDetailDTO getPropertyDetailById(Integer id) {
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+
+        PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
+
+        // 1. Lấy ảnh PROPERTY (Header)
+        List<String> propertyImages = propertyImageRepository.findByProperty_PropertyId(id)
+                .stream()
+                .map(PropertyImage::getImageUrl)
+                .collect(Collectors.toList());
+        dto.setImages(propertyImages);
+
+        // 2. Lấy Amenities
+        if (property.getPropertyAmenities() != null) {
+            List<PropertyAmenityResponseDTO> amenities = property.getPropertyAmenities().stream()
+                    .filter(PropertyAmenity::isActive)
+                    .map(PropertyAmenityResponseDTO::new)
+                    .collect(Collectors.toList());
+            dto.setAmenities(amenities);
+        }
+
+        // 3. Lấy danh sách ROOMS & ẢNH ROOM (Fix lỗi không hiện ảnh bên dưới)
+        if (property.getRooms() != null) {
+            List<RoomResponseDTO> roomDTOs = new ArrayList<>();
+
+            for (Room room : property.getRooms()) {
+                if (room.isActive()) {
+                    RoomResponseDTO roomDTO = new RoomResponseDTO(room);
+
+                    // ✅ FETCH ẢNH PHÒNG TỪ DB
+                    // Giả sử RoomImageRepository có hàm findByRoom_RoomId
+                    List<String> roomImageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
+                            .stream()
+                            .map(RoomImage::getImageUrl)
+                            .collect(Collectors.toList());
+
+                    roomDTO.setImages(roomImageUrls);
+
+                    roomDTOs.add(roomDTO);
+                }
+            }
+            dto.setRooms(roomDTOs);
+        } else {
+            dto.setRooms(new ArrayList<>());
+        }
+
+        return dto;
+    }
 
     @Override
     @Transactional(readOnly = true)
     public List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId) {
-        // Chỉ lấy trạng thái APPROVE (Đã duyệt/Hoạt động)
         List<Property> properties = propertyRepository.findByOwner_UserIdAndPropertyStatus(ownerId, PropertyStatus.APPROVE);
-
         return properties.stream()
-                .map(this::mapToPropertyDetailDTO) // Tái sử dụng hàm map có ảnh bìa
+                .map(this::mapToPropertyDetailDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PropertyDetailDTO> getOwnerProperties(String ownerId) {
-        // Gọi Repository tìm kiếm theo ownerId và loại bỏ trạng thái REJECTED
         List<Property> properties = propertyRepository.findAllByOwnerIdAndNotRejected(ownerId);
-
-        // Map sang DTO kèm theo ảnh bìa
         return properties.stream()
                 .map(this::mapToPropertyDetailDTO)
                 .collect(Collectors.toList());
@@ -175,16 +227,19 @@ public class PropertyServiceImpl implements PropertyService {
         return savedProperty;
     }
 
+    @Override
     @Transactional(readOnly = true)
-    public List<Property> searchProperties(String keyword, Integer guests) {
-        // Xử lý keyword rỗng
+    public List<PropertyDetailDTO> searchProperties(String keyword, Integer guests) {
         if (keyword != null && keyword.trim().isEmpty()) {
             keyword = null;
         }
+        // Lấy list entity
+        List<Property> properties = propertyRepository.searchProperties(keyword);
 
-        // ✅ GỌI REPOSITORY MỚI (Chỉ truyền keyword)
-        // Tham số 'guests' tạm thời không dùng đến
-        return propertyRepository.searchProperties(keyword);
+        // Chuyển sang DTO
+        return properties.stream()
+                .map(this::mapToPropertyDetailDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -192,12 +247,11 @@ public class PropertyServiceImpl implements PropertyService {
         Property existingProperty = propertyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Property not found: " + id));
 
-        // --- Logic update giữ nguyên ---
         if (updatedProperty.getPropertyName() != null) existingProperty.setPropertyName(updatedProperty.getPropertyName());
         if (updatedProperty.getAddress() != null) existingProperty.setAddress(updatedProperty.getAddress());
         if (updatedProperty.getCity() != null) existingProperty.setCity(updatedProperty.getCity());
         if (updatedProperty.getCountry() != null) existingProperty.setCountry(updatedProperty.getCountry());
-        if (updatedProperty.getProvince() != null) existingProperty.setProvince(updatedProperty.getProvince()); // Thêm dòng này nếu entity có province
+        if (updatedProperty.getProvince() != null) existingProperty.setProvince(updatedProperty.getProvince());
         if (updatedProperty.getDescription() != null) existingProperty.setDescription(updatedProperty.getDescription());
 
         existingProperty.setUpdatedAt(LocalDate.now());
@@ -209,7 +263,6 @@ public class PropertyServiceImpl implements PropertyService {
 
     @Override
     public List<PropertyDetailDTO> getFeaturedProperties() {
-        // Cập nhật dùng mapToPropertyDetailDTO để có ảnh bìa
         return propertyRepository.findFeaturedProperties().stream()
                 .map(this::mapToPropertyDetailDTO)
                 .collect(Collectors.toList());
@@ -218,7 +271,6 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     @Transactional(readOnly = true)
     public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) {
-        // Cập nhật dùng mapToPropertyDetailDTO để có ảnh bìa cho Admin
         return propertyRepository.findByPropertyStatus(status).stream()
                 .map(this::mapToPropertyDetailDTO)
                 .collect(Collectors.toList());
@@ -254,20 +306,34 @@ public class PropertyServiceImpl implements PropertyService {
     // 3. HELPER METHODS (QUAN TRỌNG)
     // ==================================================================
 
-    // ✅ Helper map Entity -> DTO và tự động lấy ảnh bìa
+    // ✅ Helper map Entity -> DTO và tự động lấy ảnh bìa + tính giá
     private PropertyDetailDTO mapToPropertyDetailDTO(Property property) {
-        // Sử dụng constructor của DTO (nếu có) hoặc set thủ công
         PropertyDetailDTO dto = new PropertyDetailDTO(property);
 
-        // Logic lấy ảnh bìa (Cover Image)
+        // 1. Logic lấy ảnh bìa (Cover Image)
         Optional<PropertyImage> coverImage = propertyImageRepository.findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId());
 
         if (coverImage.isPresent()) {
             dto.setCoverImage(coverImage.get().getImageUrl());
         } else {
-            // Fallback: Nếu không có ảnh bìa, lấy ảnh bất kỳ đầu tiên
             propertyImageRepository.findFirstByProperty_PropertyId(property.getPropertyId())
                     .ifPresent(img -> dto.setCoverImage(img.getImageUrl()));
+        }
+
+        // 2. Logic tính khoảng giá (Min - Max)
+        if (property.getRooms() != null && !property.getRooms().isEmpty()) {
+            List<BigDecimal> prices = property.getRooms().stream()
+                    .filter(Room::isActive)
+                    .map(Room::getPricePerNight)
+                    .toList();
+
+            if (!prices.isEmpty()) {
+                BigDecimal min = prices.stream().min(Comparator.naturalOrder()).orElse(BigDecimal.ZERO);
+                BigDecimal max = prices.stream().max(Comparator.naturalOrder()).orElse(BigDecimal.ZERO);
+
+                dto.setMinPrice(min);
+                dto.setMaxPrice(max);
+            }
         }
 
         return dto;
@@ -276,10 +342,6 @@ public class PropertyServiceImpl implements PropertyService {
     private void validateProperty(Property property) {
         if (property.getAddress() == null || property.getAddress().trim().isEmpty())
             throw new IllegalArgumentException("Address cannot be empty");
-    }
-
-    private PropertyDetailDTO convertToFeaturedDTO(Property property) {
-        return mapToPropertyDetailDTO(property); // Tái sử dụng hàm mới
     }
 
     private void sendPropertySubmittedEmail(User owner, Property property) {

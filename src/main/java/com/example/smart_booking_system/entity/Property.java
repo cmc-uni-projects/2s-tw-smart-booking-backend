@@ -9,6 +9,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import java.util.List;
+
 @Getter
 @Setter
 @Entity
@@ -19,17 +21,13 @@ public class Property {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int propertyId;
 
-    // Tên cơ sở
     private String propertyName;
 
-    // Loại hình (HOTEL, VILLA,...)
     @Enumerated(EnumType.STRING)
     private PropertyType propertyType;
 
-    // ✅ SỬA ĐỔI 1: Đổi tên 'OwnerId' thành 'owner' cho chuẩn convention
-    // Service sẽ gọi: property.setOwner(user);
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "userId") // Tên cột trong DB vẫn là userId
+    @JoinColumn(name = "userId")
     private User owner;
 
     private String address;
@@ -56,14 +54,13 @@ public class Property {
 
     private int reviewCount = 0;
 
-    // --- TRẠNG THÁI ---
     private boolean isActive = false;
-
     @Enumerated(EnumType.STRING)
     private PropertyStatus propertyStatus;
-
-    // --- TIMESTAMP ---
     private LocalDate createdAt = LocalDate.now();
-
     private LocalDate updatedAt = LocalDate.now();
+    @OneToMany(mappedBy = "property", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<PropertyAmenity> propertyAmenities;
+    @OneToMany(mappedBy = "propertyId", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<Room> rooms;
 }

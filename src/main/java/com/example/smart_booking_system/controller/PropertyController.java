@@ -88,9 +88,9 @@ public class PropertyController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Property>> searchProperties(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false, defaultValue = "1") Integer guests // Mặc định 1 khách
+    public ResponseEntity<List<PropertyDetailDTO>> searchProperties(
+                                                                     @RequestParam(required = false) String keyword,
+                                                                     @RequestParam(required = false, defaultValue = "1") Integer guests
     ) {
         return ResponseEntity.ok(propertyService.searchProperties(keyword, guests));
     }
@@ -147,6 +147,11 @@ public class PropertyController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PropertyDetailDTO> getPropertyDetail(@PathVariable Integer id) {
+        return ResponseEntity.ok(propertyService.getPropertyDetailById(id));
     }
 
 }
