@@ -119,21 +119,35 @@ public class UserDetailService {
                     return userDetailRepository.save(newUserDetail);
                 });
 
-        // 1. Lưu file vật lý vào thư mục con "userdetail"
-        // Kết quả trả về ví dụ: "userdetail/uuid-filename.jpg"
+        // =========================================================
+        // 🗑️ BƯỚC 1: XÓA ẢNH CŨ (Nếu có)
+        // =========================================================
+        String oldUrl = userDetail.getProfilePhotoUrl();
+        if (StringUtils.hasText(oldUrl)) {
+            try {
+                int index = oldUrl.indexOf(staticUrlPrefix);
+                if (index != -1) {
+                    String relativePath = oldUrl.substring(index + staticUrlPrefix.length() + 1);
+                    fileStorageService.deleteFile(relativePath);
+                }
+            } catch (Exception e) {
+                System.err.println("Không thể xóa ảnh cũ: " + e.getMessage());
+            }
+        }
+
+        // =========================================================
+        // 🆕 BƯỚC 2: LƯU ẢNH MỚI
+        // =========================================================
         String fileName = fileStorageService.storeImageFile(file, "userdetail");
 
-        // 2. Tạo URL truy cập công khai (ví dụ: http://localhost:8080/images/userdetail/uuid-filename.jpg)
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path(staticUrlPrefix + "/")
                 .path(fileName)
                 .toUriString();
 
-        // 3. Cập nhật URL vào database
         userDetail.setProfilePhotoUrl(fileDownloadUri);
         userDetailRepository.save(userDetail);
 
-        // 4. Trả về thông tin mới nhất
         return this.getUserDetail(user.getEmail());
     }
 
