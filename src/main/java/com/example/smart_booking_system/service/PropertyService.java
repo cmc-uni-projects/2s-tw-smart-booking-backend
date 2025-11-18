@@ -13,7 +13,7 @@ public interface PropertyService {
 
     Property addProperty(Property property, String ownerId);
 
-    List<Property> searchProperties(String city, String keyword);
+    List<Property> searchProperties(String keyword, Integer guests);
 
     PropertyDetailDTO updateProperty(int id, Property updatedProperty);
 

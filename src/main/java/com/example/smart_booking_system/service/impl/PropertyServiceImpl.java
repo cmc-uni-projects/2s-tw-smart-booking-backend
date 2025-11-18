@@ -175,11 +175,16 @@ public class PropertyServiceImpl implements PropertyService {
         return savedProperty;
     }
 
-    @Override
-    public List<Property> searchProperties(String city, String keyword) {
-        if (city != null && city.trim().isEmpty()) city = null;
-        if (keyword != null && keyword.trim().isEmpty()) keyword = null;
-        return propertyRepository.searchProperties(city, keyword);
+    @Transactional(readOnly = true)
+    public List<Property> searchProperties(String keyword, Integer guests) {
+        // Xử lý keyword rỗng
+        if (keyword != null && keyword.trim().isEmpty()) {
+            keyword = null;
+        }
+
+        // ✅ GỌI REPOSITORY MỚI (Chỉ truyền keyword)
+        // Tham số 'guests' tạm thời không dùng đến
+        return propertyRepository.searchProperties(keyword);
     }
 
     @Override

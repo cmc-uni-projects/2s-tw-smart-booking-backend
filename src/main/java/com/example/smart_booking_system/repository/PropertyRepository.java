@@ -41,4 +41,22 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
 
     List<Property> findByOwner_UserIdAndPropertyStatus(String ownerId, PropertyStatus status);
 
+    @Query("SELECT DISTINCT p FROM Property p " +
+            "JOIN Room r ON r.propertyId = p " + // Vẫn giữ JOIN để đảm bảo khách sạn có phòng
+            "WHERE p.isActive = true " +
+            // ✅ SỬA LỖI QUAN TRỌNG: Đổi 'APPROVED' thành 'APPROVE' (theo Enum của bạn)
+            "AND p.propertyStatus = 'APPROVE' " +
+            "AND r.isActive = true " +
+            "AND (:keyword IS NULL OR :keyword = '' OR " +
+            "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.country) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+        // ❌ ĐÃ TẠM ẨN ĐIỀU KIỆN CHECK GUESTS
+        // "AND (:guests IS NULL OR r.capacity >= :guests)")
+    List<Property> searchProperties(
+            @Param("keyword") String keyword
+            // @Param("guests") Integer guests (Bỏ param này trong query)
+    );
+
 }

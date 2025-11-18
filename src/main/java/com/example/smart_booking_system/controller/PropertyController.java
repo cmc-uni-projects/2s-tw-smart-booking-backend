@@ -89,24 +89,10 @@ public class PropertyController {
 
     @GetMapping("/search")
     public ResponseEntity<List<Property>> searchProperties(
-            @RequestParam(required = false) String city,
             @RequestParam(required = false) String keyword,
-            Authentication authentication // <-- NHẬN VÀO ĐỐI TƯỢNG AUTHENTICATION
+            @RequestParam(required = false, defaultValue = "1") Integer guests // Mặc định 1 khách
     ) {
-
-        // 1. Xử lý lưu lịch sử tìm kiếm
-        if (authentication != null && authentication.isAuthenticated()) {
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            String userId = userDetails.getUserId();
-
-            String searchTerm = (keyword != null) ? keyword : city;
-
-            if (searchTerm != null && !searchTerm.isBlank()) {
-                searchHistoryService.saveSearchHistory(userId, searchTerm);
-            }
-        }
-
-        return ResponseEntity.ok(propertyService.searchProperties(city, keyword));
+        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests));
     }
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")

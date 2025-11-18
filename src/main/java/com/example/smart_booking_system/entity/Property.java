@@ -32,34 +32,25 @@ public class Property {
     @JoinColumn(name = "userId") // Tên cột trong DB vẫn là userId
     private User owner;
 
-    // --- ĐỊA CHỈ ---
     private String address;
     private String country;
     private String city;
 
-    // ✅ SỬA ĐỔI 2: Thêm trường Province (Tỉnh/Thành) khớp với Frontend
     private String province;
 
     private String postalCode;
 
     @Column(columnDefinition = "TEXT")
     private String description;
-
-    // ❌ ĐÃ XÓA: amenitiesJson và imageUrlsJson
-    // (Vì dữ liệu này giờ đã được lưu sang bảng PropertyAmenity và PropertyImage)
-
-    // --- TỌA ĐỘ (Có thể để mặc định 0 nếu chưa dùng map) ---
     @Column(precision = 9, scale = 6)
     private BigDecimal latitude;
 
     @Column(precision = 9, scale = 6)
     private BigDecimal longitude;
 
-    // --- LIÊN HỆ ---
     private String phoneContact;
     private String emailContact;
 
-    // --- ĐÁNH GIÁ ---
     @Column(precision = 2, scale = 1)
     private BigDecimal rating = BigDecimal.ZERO;
 
