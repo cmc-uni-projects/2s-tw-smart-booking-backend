@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
+import com.example.smart_booking_system.exception.BadRequestException;
 
 @RestController
 @RequestMapping("/api/v1/user-details")
@@ -57,5 +60,23 @@ public class UserDetailController {
 
         UserDetailService.ProfileStatusResponse response = userDetailService.checkProfileCompleteness(currentUser.getEmail());
         return ResponseEntity.ok(response); // Trả về DTO { isProfileComplete: ... }
+    }
+    @PostMapping("/upload-avatar")
+    public ResponseEntity<ApiResponse<?>> uploadPhoto(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            // ✅ SỬA 3: Đổi tên tham số từ "image" thành "file" (vì frontend gửi formData.append("file", ...))
+            @RequestParam("file") MultipartFile imageFile) {
+
+        try {
+            UserDetailResponseDTO updatedDetail = userDetailService.uploadProfilePhoto(
+                    currentUser.getUserId(),
+                    imageFile
+            );
+            return ResponseEntity.ok(ApiResponse.success("Upload ảnh đại diện thành công", updatedDetail));
+        } catch (BadRequestException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi khi upload ảnh: " + e.getMessage()));
+        }
     }
 }

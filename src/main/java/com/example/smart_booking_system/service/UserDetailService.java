@@ -7,13 +7,17 @@ import com.example.smart_booking_system.entity.UserDetail;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.UserDetailRepository;
 import com.example.smart_booking_system.repository.UserRepository;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value; // ✅ Import Value
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // <-- Import quan trọng
-import org.springframework.util.StringUtils; // <-- Import quan trọng
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile; // ✅ Import MultipartFile
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder; // ✅ Import ServletUriComponentsBuilder
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,25 +25,29 @@ import java.util.List;
 public class UserDetailService {
     private final UserRepository userRepository;
     private final UserDetailRepository userDetailRepository;
+    private final FileStorageService fileStorageService; // ✅ Inject FileStorageService
+
+    @Value("${file.static-url-prefix}") // ✅ Lấy prefix từ cấu hình (vd: /images)
+    private String staticUrlPrefix;
 
     @Autowired
-    public UserDetailService(UserRepository userRepository, UserDetailRepository userDetailRepository) {
+    public UserDetailService(UserRepository userRepository,
+                             UserDetailRepository userDetailRepository,
+                             FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.userDetailRepository = userDetailRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     /**
      * Lấy thông tin hồ sơ kết hợp từ cả 2 bảng User và UserDetail.
      */
-    // === SỬA LỖI 500 ===
-    // Đã xóa (readOnly = true) để cho phép .save() trong orElseGet()
     @Transactional
     public UserDetailResponseDTO getUserDetail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
         // Tự động tạo UserDetail nếu chưa có
-        // Logic này cần Transaction (không thể readOnly)
         UserDetail userDetail = userDetailRepository.findByUser(user)
                 .orElseGet(() -> {
                     UserDetail newUserDetail = new UserDetail();
@@ -50,12 +58,12 @@ public class UserDetailService {
         UserDetailResponseDTO responseDTO = new UserDetailResponseDTO();
 
         // Lấy từ User
-        responseDTO.setUserId(user.getUserId());
+        responseDTO.setUserId(user.getUserId()); // Thêm userId nếu DTO có trường này (tùy chọn)
         responseDTO.setEmail(user.getEmail());
         responseDTO.setFullName(user.getFullName());
         responseDTO.setPhoneNumber(user.getPhoneNumber());
 
-        // Lấy từ UserDetail (đã thêm dateOfBirth)
+        // Lấy từ UserDetail
         responseDTO.setUserdetailId(userDetail.getUserdetailId());
         responseDTO.setGender(userDetail.getGender());
         responseDTO.setDateOfBirth(userDetail.getDateOfBirth());
@@ -69,7 +77,6 @@ public class UserDetailService {
 
     /**
      * Cập nhật thông tin hồ sơ vào cả 2 bảng User và UserDetail.
-     * Trả về DTO đã được cập nhật.
      */
     @Transactional
     public UserDetailResponseDTO updateUserDetail(String email, UserDetailRequestDTO userDetailRequestDTO) {
@@ -81,67 +88,87 @@ public class UserDetailService {
         // Cập nhật các trường của User
         user.setFullName(userDetailRequestDTO.getFullName());
         user.setPhoneNumber(userDetailRequestDTO.getPhoneNumber());
-        userRepository.save(user); // Lưu thay đổi của User
+        userRepository.save(user);
 
-        // Cập nhật các trường của UserDetail (đã thêm dateOfBirth)
+        // Cập nhật các trường của UserDetail
         userDetail.setGender(userDetailRequestDTO.getGender());
         userDetail.setDateOfBirth(userDetailRequestDTO.getDateOfBirth());
-        userDetail.setProfilePhotoUrl(userDetailRequestDTO.getProfilePhotoUrl());
         userDetail.setAddress(userDetailRequestDTO.getAddress());
         userDetail.setCity(userDetailRequestDTO.getCity());
         userDetail.setCountry(userDetailRequestDTO.getCountry());
-        userDetailRepository.save(userDetail); // Lưu thay đổi của UserDetail
 
-        // Trả về DTO đã cập nhật (để sửa Lỗi 3 của ProfilePage)
+        // Lưu ý: Không cập nhật profilePhotoUrl ở đây, vì có API riêng
+
+        userDetailRepository.save(userDetail);
+
         return this.getUserDetail(email);
     }
 
     /**
-     * (Giai đoạn 2) Kiểm tra xem 4 trường bắt buộc đã hoàn tất hay chưa.
+     * ✅ HÀM MỚI: Upload ảnh đại diện
+     */
+    @Transactional
+    public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElseGet(() -> {
+                    UserDetail newUserDetail = new UserDetail();
+                    newUserDetail.setUser(user);
+                    return userDetailRepository.save(newUserDetail);
+                });
+
+        // 1. Lưu file vật lý vào thư mục con "userdetail"
+        // Kết quả trả về ví dụ: "userdetail/uuid-filename.jpg"
+        String fileName = fileStorageService.storeImageFile(file, "userdetail");
+
+        // 2. Tạo URL truy cập công khai (ví dụ: http://localhost:8080/images/userdetail/uuid-filename.jpg)
+        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path(staticUrlPrefix + "/")
+                .path(fileName)
+                .toUriString();
+
+        // 3. Cập nhật URL vào database
+        userDetail.setProfilePhotoUrl(fileDownloadUri);
+        userDetailRepository.save(userDetail);
+
+        // 4. Trả về thông tin mới nhất
+        return this.getUserDetail(user.getEmail());
+    }
+
+    /**
+     * Kiểm tra xem các trường bắt buộc đã hoàn tất hay chưa.
      */
     @Transactional(readOnly = true)
     public ProfileStatusResponse checkProfileCompleteness(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
         UserDetail userDetail = userDetailRepository.findByUser(user)
-                .orElse(null); // Có thể user chưa có UserDetail
+                .orElse(null);
 
-        List<String> missing = new ArrayList<>();
+        List<String> missingFields = new ArrayList<>();
 
-        // 1. Kiểm tra trường của User
-        if (!StringUtils.hasText(user.getFullName())) {
-            missing.add("Họ và Tên");
-        }
-        if (!StringUtils.hasText(user.getPhoneNumber())) {
-            missing.add("Số điện thoại");
-        }
+        if (!StringUtils.hasText(user.getFullName())) missingFields.add("Họ và Tên");
+        if (!StringUtils.hasText(user.getPhoneNumber())) missingFields.add("Số điện thoại");
 
-        // 2. Kiểm tra trường của UserDetail
         if (userDetail == null) {
-            missing.add("Giới tính");
-            missing.add("Ngày sinh");
+            missingFields.add("Giới tính");
+            missingFields.add("Ngày sinh");
         } else {
-            if (!StringUtils.hasText(userDetail.getGender())) {
-                missing.add("Giới tính");
-            }
-            if (userDetail.getDateOfBirth() == null) {
-                missing.add("Ngày sinh");
-            }
+            if (!StringUtils.hasText(userDetail.getGender())) missingFields.add("Giới tính");
+            if (userDetail.getDateOfBirth() == null) missingFields.add("Ngày sinh");
         }
 
-        // 3. Trả về DTO mới
-        boolean isComplete = missing.isEmpty();
-        return new ProfileStatusResponse(isComplete, missing);
+        boolean isComplete = missingFields.isEmpty();
+        return new ProfileStatusResponse(isComplete, isComplete ? null : missingFields);
     }
 
-    /**
-     * DTO nội bộ (Inner class) để trả về trạng thái hồ sơ
-     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ProfileStatusResponse {
         private boolean isProfileComplete;
-        private java.util.List<String> missingFields;
+        private List<String> missingFields;
     }
 }
