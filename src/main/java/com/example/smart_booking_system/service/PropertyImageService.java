@@ -21,7 +21,7 @@ public class PropertyImageService {
     private final PropertyImageRepository propertyImageRepository;
     private final FileStorageServiceImpl fileStorageService;
 
-    @Transactional // Nhớ thêm Transactional vì có update DB
+    @Transactional
     public void setCoverImage(int propertyId, int imageId) {
         // 1. Kiểm tra ảnh có tồn tại và thuộc về property không
         PropertyImage image = propertyImageRepository.findById(imageId)

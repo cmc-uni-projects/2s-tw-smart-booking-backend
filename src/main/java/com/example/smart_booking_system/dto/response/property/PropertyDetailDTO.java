@@ -5,6 +5,9 @@ import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.enums.PropertyType;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
+import com.example.smart_booking_system.dto.RoomResponseDTO;
+import com.example.smart_booking_system.dto.PropertyAmenityResponseDTO;
 
 import java.math.BigDecimal;
 
@@ -22,10 +25,15 @@ public class PropertyDetailDTO {
     private BigDecimal rating;
     private int reviewCount;
     private PropertyStatus propertyStatus;
-    private String coverImage; // Chỉ lưu URL ảnh (String)
-
+    private String coverImage;
     private String ownerId;
     private String ownerName;
+    private BigDecimal minPrice;
+    private BigDecimal maxPrice;
+
+    private List<String> images;
+    private List<PropertyAmenityResponseDTO> amenities;
+    private List<RoomResponseDTO> rooms;
 
     public PropertyDetailDTO(Property property) {
         this.propertyId = property.getPropertyId();

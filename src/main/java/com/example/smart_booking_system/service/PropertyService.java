@@ -13,7 +13,7 @@ public interface PropertyService {
 
     Property addProperty(Property property, String ownerId);
 
-    List<Property> searchProperties(String city, String keyword);
+    List<PropertyDetailDTO> searchProperties(String keyword, Integer guests);
 
     PropertyDetailDTO updateProperty(int id, Property updatedProperty);
 
@@ -22,6 +22,8 @@ public interface PropertyService {
     List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status);
 
     PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername);
+
+    PropertyDetailDTO getPropertyDetailById(Integer id);
 
     PropertyDetailDTO submitPropertyApplication(PropertyApplicationSubmitDTO dto, List<MultipartFile> images, String ownerId);
     List<PropertyDetailDTO> getOwnerProperties(String ownerId);

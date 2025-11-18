@@ -88,25 +88,11 @@ public class PropertyController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Property>> searchProperties(
-            @RequestParam(required = false) String city,
-            @RequestParam(required = false) String keyword,
-            Authentication authentication // <-- NHẬN VÀO ĐỐI TƯỢNG AUTHENTICATION
+    public ResponseEntity<List<PropertyDetailDTO>> searchProperties(
+                                                                     @RequestParam(required = false) String keyword,
+                                                                     @RequestParam(required = false, defaultValue = "1") Integer guests
     ) {
-
-        // 1. Xử lý lưu lịch sử tìm kiếm
-        if (authentication != null && authentication.isAuthenticated()) {
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            String userId = userDetails.getUserId();
-
-            String searchTerm = (keyword != null) ? keyword : city;
-
-            if (searchTerm != null && !searchTerm.isBlank()) {
-                searchHistoryService.saveSearchHistory(userId, searchTerm);
-            }
-        }
-
-        return ResponseEntity.ok(propertyService.searchProperties(city, keyword));
+        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests));
     }
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
@@ -161,6 +147,11 @@ public class PropertyController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PropertyDetailDTO> getPropertyDetail(@PathVariable Integer id) {
+        return ResponseEntity.ok(propertyService.getPropertyDetailById(id));
     }
 
 }

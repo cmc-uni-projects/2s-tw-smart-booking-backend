@@ -1,11 +1,13 @@
 package com.example.smart_booking_system.dto;
 
+import com.example.smart_booking_system.entity.Room; // ✅ Import Entity
 import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.enums.RoomStatus;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -24,4 +26,20 @@ public class RoomResponseDTO {
 
     private List<String> images;
     private List<String> amenities;
+
+    public RoomResponseDTO(Room room) {
+        this.roomId = room.getRoomId();
+        if (room.getPropertyId() != null) {
+            this.propertyId = room.getPropertyId().getPropertyId();
+        }
+        this.roomName = room.getRoomName();
+        this.roomCategory = room.getRoomCategory();
+        this.pricePerNight = room.getPricePerNight();
+        this.capacity = room.getCapacity();
+        this.description = room.getDescription();
+        this.roomStatus = room.getRoomStatus();
+        this.active = room.isActive();
+        this.images = new ArrayList<>();
+        this.amenities = new ArrayList<>();
+    }
 }

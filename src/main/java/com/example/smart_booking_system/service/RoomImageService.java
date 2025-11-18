@@ -64,7 +64,7 @@ public class RoomImageService {
 
         for (MultipartFile file : files) {
 
-            String savedPath = fileStorageService.storeImageFile(file, "room");
+            String savedPath = fileStorageService.storeImageFile(file, "rooms");
 
             RoomImage ri = new RoomImage();
             ri.setRoom(room);
