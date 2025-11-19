@@ -9,7 +9,7 @@ import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -25,10 +25,12 @@ public class BookingService {
     private final RoomRepository roomRepo;
     private final UserRepository userRepo;
     private final PropertyPoliciesRepository policiesRepo;
+    private final EmailService emailService;
 
     // ================================
     // CREATE BOOKING (chặt chẽ, capacity cho mọi loại)
     // ================================
+    @Transactional
     public BookingResponseDTO createBooking(BookingRequestDTO req) {
 
         // --- 1) basic existence checks ---
@@ -125,6 +127,18 @@ public class BookingService {
         booking.setStatus(BookingStatus.CONFIRMED);
 
         bookingRepo.save(booking);
+
+// ✅ 2. GỬI EMAIL THÔNG BÁO
+        try {
+            emailService.sendBookingConfirmationEmail(
+                    user.getEmail(),
+                    user.getFullName(),
+                    String.valueOf(booking.getBookingId())
+            );
+        } catch (Exception e) {
+            // Log lỗi nhưng không chặn luồng đặt phòng thành công
+            System.err.println("Lỗi gửi email xác nhận: " + e.getMessage());
+        }
 
         return convertToDTO(booking);
     }
