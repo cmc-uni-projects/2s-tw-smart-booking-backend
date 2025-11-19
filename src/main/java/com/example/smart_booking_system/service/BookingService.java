@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,6 +27,7 @@ public class BookingService {
     private final UserRepository userRepo;
     private final PropertyPoliciesRepository policiesRepo;
     private final EmailService emailService;
+    private final PaymentRepository paymentRepo;
 
     // ================================
     // CREATE BOOKING (chặt chẽ, capacity cho mọi loại)
@@ -124,20 +126,19 @@ public class BookingService {
         booking.setTotalPrice(total);
         booking.setPenaltyAmount(BigDecimal.ZERO);
         booking.setRefundAmount(total);
-        booking.setStatus(BookingStatus.CONFIRMED);
-
+        booking.setStatus(BookingStatus.PENDING_PAYMENT);
         bookingRepo.save(booking);
 
-// ✅ 2. GỬI EMAIL THÔNG BÁO
+
         try {
-            emailService.sendBookingConfirmationEmail(
+            emailService.sendPaymentReminderEmail(
                     user.getEmail(),
                     user.getFullName(),
-                    String.valueOf(booking.getBookingId())
+                    String.valueOf(booking.getBookingId()),
+                    booking.getTotalPrice().toString()
             );
         } catch (Exception e) {
-            // Log lỗi nhưng không chặn luồng đặt phòng thành công
-            System.err.println("Lỗi gửi email xác nhận: " + e.getMessage());
+            System.err.println("Lỗi gửi email nhắc thanh toán: " + e.getMessage());
         }
 
         return convertToDTO(booking);
@@ -171,18 +172,31 @@ public class BookingService {
             }
         }
 
+        BigDecimal refundAmount;
+
         if (allowFree) {
-            booking.setStatus(BookingStatus.CANCELLED);
             booking.setPenaltyAmount(BigDecimal.ZERO);
-            booking.setRefundAmount(booking.getTotalPrice());
+            refundAmount = booking.getTotalPrice();
         } else {
             BigDecimal penalty = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.20));
             booking.setPenaltyAmount(penalty);
-            booking.setRefundAmount(booking.getTotalPrice().subtract(penalty));
-            booking.setStatus(BookingStatus.CANCELLED);
+            refundAmount = booking.getTotalPrice().subtract(penalty);
         }
 
+        booking.setRefundAmount(refundAmount);
+        booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
+
+        // --- 2. Cập nhật thông tin hoàn tiền vào Payment ---
+        paymentRepo.findByBooking_BookingId(bookingId).ifPresent(payment -> {
+            payment.setAmount(refundAmount);
+
+            String oldNote = payment.getNote() != null ? payment.getNote() : "";
+            payment.setNote(oldNote + " | Đã hoàn " + refundAmount + " VND ngày " + LocalDateTime.now());
+
+            paymentRepo.save(payment);
+        });
+
         return convertToDTO(booking);
     }
 
