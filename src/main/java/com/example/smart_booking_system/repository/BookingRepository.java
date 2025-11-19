@@ -13,11 +13,15 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     // existing overlapping check
     @Query("""
-           SELECT b FROM Booking b
-           WHERE b.room.roomId = :roomId
-             AND b.status = com.example.smart_booking_system.enums.BookingStatus.CONFIRMED
-             AND NOT (b.checkOutDate <= :checkInDate OR b.checkInDate >= :checkOutDate)
-           """)
+       SELECT b FROM Booking b
+       WHERE b.room.roomId = :roomId
+         AND b.status IN (
+             com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+             com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT,
+             com.example.smart_booking_system.enums.BookingStatus.AWAITING_CONFIRMATION
+         )
+         AND NOT (b.checkOutDate <= :checkInDate OR b.checkInDate >= :checkOutDate)
+       """)
     List<Booking> findConfirmedOverlappingByRoomId(
             @Param("roomId") int roomId,
             @Param("checkInDate") LocalDate checkInDate,

@@ -189,7 +189,7 @@ public class BookingService {
 
         // --- 2. Cập nhật thông tin hoàn tiền vào Payment ---
         paymentRepo.findByBooking_BookingId(bookingId).ifPresent(payment -> {
-            payment.setAmount(refundAmount);
+            payment.setRefundedAmount(refundAmount);
 
             String oldNote = payment.getNote() != null ? payment.getNote() : "";
             payment.setNote(oldNote + " | Đã hoàn " + refundAmount + " VND ngày " + LocalDateTime.now());

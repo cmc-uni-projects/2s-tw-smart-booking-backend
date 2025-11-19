@@ -43,6 +43,9 @@ public class Payment {
 
     private LocalDateTime confirmedDate; // Ngày admin duyệt
 
+    @Column(columnDefinition = "decimal(10,2)")
+    private BigDecimal refundedAmount; // ✅ THÊM TRƯỜNG NÀY
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
