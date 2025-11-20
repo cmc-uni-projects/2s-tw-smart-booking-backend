@@ -28,5 +28,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // ✅ 2. Hỗ trợ đường dẫn cũ (/images/**) để ảnh Owner hiển thị được
         registry.addResourceHandler("/images/**")
                 .addResourceLocations(resourceLocation);
+
+        registry.addResourceHandler("/properties/**")
+                .addResourceLocations(resourceLocation + "properties/");
     }
 }
