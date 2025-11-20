@@ -71,4 +71,15 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Property> searchProperties(@Param("keyword") String keyword);
 
+    @Query(value = """
+        SELECT * FROM properties p 
+        WHERE p.is_active = true 
+        AND p.property_status = 'APPROVE' 
+        AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
+             sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
+        """, nativeQuery = true)
+    List<Property> findNearbyProperties(@Param("lat") double lat,
+                                        @Param("lng") double lng,
+                                        @Param("radius") double radius);
+
 }

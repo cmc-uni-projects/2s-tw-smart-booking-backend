@@ -154,4 +154,13 @@ public class PropertyController {
         return ResponseEntity.ok(propertyService.getPropertyDetailById(id));
     }
 
+    @GetMapping("/nearby")
+    public ResponseEntity<List<PropertyDetailDTO>> findNearby(
+            @RequestParam Double lat,
+            @RequestParam Double lng,
+            @RequestParam(required = false, defaultValue = "10") Double radius
+    ) {
+        return ResponseEntity.ok(propertyService.findNearbyProperties(lat, lng, radius));
+    }
+
 }

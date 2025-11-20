@@ -73,8 +73,8 @@ public class PropertyServiceImpl implements PropertyService {
 
         // Giá trị mặc định
         property.setPostalCode("70000");
-        property.setLatitude(BigDecimal.ZERO);
-        property.setLongitude(BigDecimal.ZERO);
+        property.setLatitude(dto.getLatitude() != null ? dto.getLatitude() : BigDecimal.ZERO);
+        property.setLongitude(dto.getLongitude() != null ? dto.getLongitude() : BigDecimal.ZERO);
         property.setPropertyStatus(PropertyStatus.PENDING);
         property.setActive(false);
         property.setCreatedAt(LocalDate.now());
@@ -363,5 +363,25 @@ public class PropertyServiceImpl implements PropertyService {
                 ? "Cơ sở được duyệt" : "Cơ sở bị từ chối";
 
         emailService.sendHtmlEmail(owner.getEmail(), subject, template, context);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius) {
+        if (lat == null || lng == null) {
+            return new ArrayList<>();
+        }
+
+        // Mặc định tìm trong 10km nếu không truyền radius
+        double searchRadius = (radius != null) ? radius : 10.0;
+
+        // Gọi Repository
+        List<Property> nearbyProperties = propertyRepository.findNearbyProperties(lat, lng, searchRadius);
+
+        // Convert sang DTO dùng hàm helper có sẵn trong class này
+        return nearbyProperties.stream()
+                .map(this::mapToPropertyDetailDTO) // Tái sử dụng logic map ảnh và giá
+                .collect(Collectors.toList());
     }
 }

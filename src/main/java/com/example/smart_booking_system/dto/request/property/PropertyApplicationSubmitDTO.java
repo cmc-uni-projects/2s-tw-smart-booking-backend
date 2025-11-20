@@ -44,4 +44,7 @@ public class PropertyApplicationSubmitDTO {
 
     @NotNull(message = "Bạn phải đồng ý với điều khoản")
     private Boolean terms;
+
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }
