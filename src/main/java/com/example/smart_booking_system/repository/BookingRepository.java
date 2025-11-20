@@ -17,8 +17,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
        WHERE b.room.roomId = :roomId
          AND b.status IN (
              com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
-             com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT,
-             com.example.smart_booking_system.enums.BookingStatus.AWAITING_CONFIRMATION
+             com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT
          )
          AND NOT (b.checkOutDate <= :checkInDate OR b.checkInDate >= :checkOutDate)
        """)
