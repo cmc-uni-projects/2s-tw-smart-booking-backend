@@ -67,14 +67,18 @@ public class PropertyServiceImpl implements PropertyService {
         property.setProvince(dto.getProvince());
         property.setCountry(dto.getCountry());
 
+        property.setWard(dto.getWard());
+        property.setProvinceCode(dto.getProvinceCode());
+        property.setDistrictCode(dto.getDistrictCode());
+
         // Contact info
         property.setPhoneContact(owner.getPhoneNumber());
         property.setEmailContact(owner.getEmail());
 
         // Giá trị mặc định
         property.setPostalCode("70000");
-        property.setLatitude(BigDecimal.ZERO);
-        property.setLongitude(BigDecimal.ZERO);
+        property.setLatitude(dto.getLatitude() != null ? dto.getLatitude() : BigDecimal.ZERO);
+        property.setLongitude(dto.getLongitude() != null ? dto.getLongitude() : BigDecimal.ZERO);
         property.setPropertyStatus(PropertyStatus.PENDING);
         property.setActive(false);
         property.setCreatedAt(LocalDate.now());
@@ -87,6 +91,8 @@ public class PropertyServiceImpl implements PropertyService {
         detail.setProperty(savedProperty);
         detail.setArea(dto.getArea());
         propertyDetailRepository.save(detail);
+
+        savedProperty.setPropertyDetail(detail);
 
         // 4. Xử lý Amenities
         if (dto.getAmenities() != null) {
@@ -248,10 +254,19 @@ public class PropertyServiceImpl implements PropertyService {
                 .orElseThrow(() -> new IllegalArgumentException("Property not found: " + id));
 
         if (updatedProperty.getPropertyName() != null) existingProperty.setPropertyName(updatedProperty.getPropertyName());
+
         if (updatedProperty.getAddress() != null) existingProperty.setAddress(updatedProperty.getAddress());
         if (updatedProperty.getCity() != null) existingProperty.setCity(updatedProperty.getCity());
-        if (updatedProperty.getCountry() != null) existingProperty.setCountry(updatedProperty.getCountry());
         if (updatedProperty.getProvince() != null) existingProperty.setProvince(updatedProperty.getProvince());
+        if (updatedProperty.getCountry() != null) existingProperty.setCountry(updatedProperty.getCountry());
+
+        if (updatedProperty.getWard() != null) existingProperty.setWard(updatedProperty.getWard());
+        if (updatedProperty.getProvinceCode() != null) existingProperty.setProvinceCode(updatedProperty.getProvinceCode());
+        if (updatedProperty.getDistrictCode() != null) existingProperty.setDistrictCode(updatedProperty.getDistrictCode());
+
+            if (updatedProperty.getLatitude() != null) existingProperty.setLatitude(updatedProperty.getLatitude());
+        if (updatedProperty.getLongitude() != null) existingProperty.setLongitude(updatedProperty.getLongitude());
+
         if (updatedProperty.getDescription() != null) existingProperty.setDescription(updatedProperty.getDescription());
 
         existingProperty.setUpdatedAt(LocalDate.now());
@@ -312,12 +327,29 @@ public class PropertyServiceImpl implements PropertyService {
 
         // 1. Logic lấy ảnh bìa (Cover Image)
         Optional<PropertyImage> coverImage = propertyImageRepository.findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId());
-
         if (coverImage.isPresent()) {
             dto.setCoverImage(coverImage.get().getImageUrl());
         } else {
             propertyImageRepository.findFirstByProperty_PropertyId(property.getPropertyId())
                     .ifPresent(img -> dto.setCoverImage(img.getImageUrl()));
+        }
+
+        // =================================================================
+        // [QUAN TRỌNG] THÊM ĐOẠN NÀY ĐỂ TRẢ VỀ DANH SÁCH ẢNH
+        // =================================================================
+        // Lấy danh sách tất cả URL ảnh của property này
+        if (property.getImages() != null && !property.getImages().isEmpty()) {
+            List<String> allImages = property.getImages().stream()
+                    .map(PropertyImage::getImageUrl)
+                    .collect(Collectors.toList());
+            dto.setImages(allImages);
+        } else {
+            // Fallback: Nếu entity property chưa fetch images, query trực tiếp từ repo
+            List<String> allImages = propertyImageRepository.findByProperty_PropertyId(property.getPropertyId())
+                    .stream()
+                    .map(PropertyImage::getImageUrl)
+                    .collect(Collectors.toList());
+            dto.setImages(allImages);
         }
 
         // 2. Logic tính khoảng giá (Min - Max)
@@ -363,5 +395,25 @@ public class PropertyServiceImpl implements PropertyService {
                 ? "Cơ sở được duyệt" : "Cơ sở bị từ chối";
 
         emailService.sendHtmlEmail(owner.getEmail(), subject, template, context);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius) {
+        if (lat == null || lng == null) {
+            return new ArrayList<>();
+        }
+
+        // Mặc định tìm trong 10km nếu không truyền radius
+        double searchRadius = (radius != null) ? radius : 10.0;
+
+        // Gọi Repository
+        List<Property> nearbyProperties = propertyRepository.findNearbyProperties(lat, lng, searchRadius);
+
+        // Convert sang DTO dùng hàm helper có sẵn trong class này
+        return nearbyProperties.stream()
+                .map(this::mapToPropertyDetailDTO) // Tái sử dụng logic map ảnh và giá
+                .collect(Collectors.toList());
     }
 }

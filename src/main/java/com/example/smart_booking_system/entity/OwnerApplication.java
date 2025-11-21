@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -57,6 +59,8 @@ public class OwnerApplication {
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
+    private LocalDate personalDob;
+    private String personalIdCard;
 
     @PrePersist
     protected void onCreate() {

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import java.math.BigDecimal; // Sử dụng BigDecimal cho diện tích
+import java.math.BigDecimal;
 import java.util.Map;
 
 @Data
@@ -23,7 +23,12 @@ public class PropertyApplicationSubmitDTO {
     private String province;
 
     @NotBlank(message = "Thành phố/Quận không được để trống")
-    private String city;
+    private String city; // Quận/Huyện
+
+    // ✅ [NEW] Thêm các trường code và ward
+    private String ward;         // Phường/Xã (Có thể null nếu FE không bắt buộc)
+    private String provinceCode;
+    private String districtCode;
 
     @NotBlank(message = "Địa chỉ không được để trống")
     private String address;
@@ -38,10 +43,13 @@ public class PropertyApplicationSubmitDTO {
 
     @NotNull(message = "Diện tích không được để trống")
     @Min(value = 1, message = "Diện tích phải lớn hơn 0")
-    private BigDecimal area; // Khớp với kiểu number của FE
+    private BigDecimal area;
 
     private Map<String, Boolean> amenities;
 
     @NotNull(message = "Bạn phải đồng ý với điều khoản")
     private Boolean terms;
+
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }

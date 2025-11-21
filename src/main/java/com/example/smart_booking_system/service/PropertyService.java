@@ -29,4 +29,6 @@ public interface PropertyService {
     List<PropertyDetailDTO> getOwnerProperties(String ownerId);
 
     List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId);
+
+    List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius);
 }
