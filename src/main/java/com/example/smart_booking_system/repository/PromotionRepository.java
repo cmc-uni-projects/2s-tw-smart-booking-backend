@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Promotion;
+import com.example.smart_booking_system.enums.PromotionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,15 +16,20 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     boolean existsByCode(String code);
 
-    List<Promotion> findByIsActiveTrue();
+    // Tìm tất cả mã theo trạng thái (VD: Chỉ lấy mã ACTIVE)
+    List<Promotion> findByStatus(PromotionStatus status);
 
+    // Query tìm mã hợp lệ để áp dụng khi Booking
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.code = :code
-        AND p.isActive = true
+        AND p.status = 'ACTIVE'  
         AND p.startDate <= :now
         AND p.endDate >= :now
         AND (p.usageLimit IS NULL OR p.usageCount < p.usageLimit)
     """)
     Optional<Promotion> findValidPromotion(@Param("code") String code, @Param("now") LocalDate now);
+
+    // Tìm các mã đang ACTIVE nhưng ngày kết thúc đã qua (endDate < hôm nay)
+    List<Promotion> findByStatusAndEndDateBefore(com.example.smart_booking_system.enums.PromotionStatus status, java.time.LocalDate date);
 }

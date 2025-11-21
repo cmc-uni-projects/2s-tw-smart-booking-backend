@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.entity;
 
+import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,9 +30,15 @@ public class Promotion {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // --- 1. Loại giảm giá (Logic tính tiền) ---
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PromotionStatus promotionStatus;
+    private DiscountType discountType;
+
+    // --- 2. Trạng thái (Logic hiển thị/quản lý) ---
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PromotionStatus status;
 
     @Column(nullable = false)
     private BigDecimal discountValue;
@@ -48,8 +55,6 @@ public class Promotion {
     private Integer usageLimit;
     private Integer usageCount = 0;
 
-    private boolean isActive = true;
-
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -58,10 +63,27 @@ public class Promotion {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (usageCount == null) usageCount = 0;
+
+        // Tự động set trạng thái khi tạo mới nếu chưa có
+        if (status == null) {
+            checkAndSetStatus();
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    // Helper: Tự động chuyển trạng thái dựa vào ngày
+    public void checkAndSetStatus() {
+        if (this.status == PromotionStatus.PAUSED) return; // Nếu đang Tạm dừng thì giữ nguyên
+
+        LocalDate now = LocalDate.now();
+        if (endDate != null && endDate.isBefore(now)) {
+            this.status = PromotionStatus.EXPIRED;
+        } else {
+            this.status = PromotionStatus.ACTIVE;
+        }
     }
 }

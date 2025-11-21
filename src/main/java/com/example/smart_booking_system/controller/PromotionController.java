@@ -58,7 +58,7 @@ public class PromotionController {
         );
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/detail/{id}")
     public ResponseEntity<?> getDetail(@PathVariable int id) {
         try {
             return ResponseEntity.ok(ApiResponse.success(promotionService.getById(id)));
