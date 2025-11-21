@@ -19,9 +19,9 @@ public class PromotionRequestDTO {
     private String description;
 
     @NotNull(message = "Loại giảm giá là bắt buộc")
-    private DiscountType discountType; // PERCENTAGE hoặc FIXED_AMOUNT
+    private DiscountType discountType;
 
-    // Cho phép Admin set trạng thái ngay lúc tạo/sửa (Optional)
+
     private PromotionStatus status;
 
     @NotNull(message = "Giá trị giảm là bắt buộc")

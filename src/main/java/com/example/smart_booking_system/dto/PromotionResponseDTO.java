@@ -19,7 +19,7 @@ public class PromotionResponseDTO {
     private String code;
     private String description;
 
-    private String discountDetail; // Chuỗi hiển thị (VD: 15%...)
+    private String discountDetail;
 
     private Integer usageLimit;
     private Integer usageCount;
@@ -40,8 +40,8 @@ public class PromotionResponseDTO {
         this.usageCount = p.getUsageCount();
         this.endDate = p.getEndDate();
 
-        this.status = p.getStatus();       // Lấy Status mới
-        this.discountType = p.getDiscountType(); // Lấy Type mới
+        this.status = p.getStatus();
+        this.discountType = p.getDiscountType();
 
         this.discountValue = p.getDiscountValue();
         this.maxDiscountAmount = p.getMaxDiscountAmount();

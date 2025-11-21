@@ -16,7 +16,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     boolean existsByCode(String code);
 
-    // Tìm tất cả mã theo trạng thái (VD: Chỉ lấy mã ACTIVE)
+    // Tìm tất cả mã theo trạng thái
     List<Promotion> findByStatus(PromotionStatus status);
 
     // Query tìm mã hợp lệ để áp dụng khi Booking

@@ -35,8 +35,7 @@ public class PromotionService {
         p.setCode(req.getCode().toUpperCase());
         p.setDescription(req.getDescription());
 
-        // Set các trường quan trọng
-        p.setDiscountType(req.getDiscountType()); // Loại giảm
+        p.setDiscountType(req.getDiscountType());
         p.setDiscountValue(req.getDiscountValue());
 
         p.setStartDate(req.getStartDate());
@@ -46,11 +45,10 @@ public class PromotionService {
         p.setUsageLimit(req.getUsageLimit());
         p.setUsageCount(0);
 
-        // Xử lý Status: Nếu Admin truyền lên thì lấy, không thì tự động tính
         if (req.getStatus() != null) {
             p.setStatus(req.getStatus());
         } else {
-            p.checkAndSetStatus(); // Tự động check ngày để set ACTIVE/EXPIRED
+            p.checkAndSetStatus();
         }
 
         return new PromotionResponseDTO(promotionRepository.save(p));
@@ -61,14 +59,11 @@ public class PromotionService {
         Promotion p = promotionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
 
-        // --- ✅ BỔ SUNG: LOGIC SỬA MÃ CODE ---
-        // Kiểm tra xem mã có thay đổi không
+
         if (!p.getCode().equalsIgnoreCase(req.getCode())) {
-            // Nếu đổi mã thì phải check trùng trong DB
             if (promotionRepository.existsByCode(req.getCode())) {
                 throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đã tồn tại, vui lòng chọn mã khác.");
             }
-            // Nếu hợp lệ thì cập nhật (Viết hoa)
             p.setCode(req.getCode().toUpperCase());
         }
         // -------------------------------------
@@ -86,38 +81,33 @@ public class PromotionService {
         p.setMaxDiscountAmount(req.getMaxDiscountAmount());
         p.setUsageLimit(req.getUsageLimit());
 
-        // Cập nhật Status
         if (req.getStatus() != null) {
             p.setStatus(req.getStatus());
         } else {
-            // Nếu sửa ngày, cần check lại xem có bị EXPIRED không
             p.checkAndSetStatus();
         }
 
         return new PromotionResponseDTO(promotionRepository.save(p));
     }
 
-    // 3. XÓA (Chuyển sang trạng thái PAUSED hoặc EXPIRED tùy nghiệp vụ, ở đây mình để PAUSED)
-    // Hoặc nếu muốn xóa cứng thì dùng deleteById.
+    // 3. XÓA
     public void deletePromotion(int id) {
         Promotion p = promotionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
 
-        // Soft delete: Chuyển sang tạm dừng
+
         p.setStatus(PromotionStatus.PAUSED);
         promotionRepository.save(p);
     }
 
-    // 4. LẤY DANH SÁCH (Code gọn hơn nhờ Scheduler)
+
     @Transactional(readOnly = true)
     public List<PromotionResponseDTO> getAllGlobalPromotions() {
-        // Chỉ cần lấy ra và map, việc update trạng thái đã có Scheduler lo
         return promotionRepository.findAll().stream()
                 .map(PromotionResponseDTO::new)
                 .collect(Collectors.toList());
     }
 
-    // 5. CHI TIẾT
     @Transactional(readOnly = true)
     public PromotionResponseDTO getById(int id) {
         Promotion p = promotionRepository.findById(id)
