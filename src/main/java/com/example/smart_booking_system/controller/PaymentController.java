@@ -19,7 +19,6 @@ public class PaymentController {
             @RequestParam(value = "note", required = false) String note
     ) {
         try {
-            // Gọi service mới (chỉ truyền 2 tham số)
             return ResponseEntity.ok(paymentService.submitPayment(bookingId, note));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
