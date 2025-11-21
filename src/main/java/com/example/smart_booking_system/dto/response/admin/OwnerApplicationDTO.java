@@ -3,6 +3,7 @@ package com.example.smart_booking_system.dto.response.admin;
 import com.example.smart_booking_system.enums.ApplicationStatus;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 public class OwnerApplicationDTO {
@@ -29,6 +30,8 @@ public class OwnerApplicationDTO {
     // ✅ THÊM 2 TRƯỜNG NÀY
     private String applicantPhoneNumber;
     private String applicantAvatar;
+    private LocalDate applicantDob;
+    private String personalIdCard;
 
     private String reviewedByAdminName;
 }

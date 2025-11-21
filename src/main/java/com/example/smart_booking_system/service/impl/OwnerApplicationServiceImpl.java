@@ -48,6 +48,8 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setCardBackImage(submitDTO.getCardBackImage());
         application.setBusinessLicenseImage(submitDTO.getBusinessLicenseImage());
         application.setBusinessLicenseNumber(submitDTO.getBusinessLicenseNumber());
+        application.setPersonalDob(submitDTO.getPersonalDob());
+        application.setPersonalIdCard(submitDTO.getPersonalIdCard());
 
         OwnerApplication savedApp = applicationRepository.save(application);
 
@@ -138,6 +140,8 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         dto.setCardBackImage(app.getCardBackImage());
         dto.setBusinessLicenseImage(app.getBusinessLicenseImage());
         dto.setBusinessLicenseNumber(app.getBusinessLicenseNumber());
+        dto.setApplicantDob(app.getPersonalDob());
+        dto.setPersonalIdCard(app.getPersonalIdCard());
         dto.setCreatedAt(app.getCreatedAt());
         dto.setReviewedAt(app.getReviewedAt());
         dto.setAdminReason(app.getAdminReason());
