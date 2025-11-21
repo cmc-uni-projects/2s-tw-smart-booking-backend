@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vui lòng thanh toán - TravelMate</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e3eef3; }
+    .header { background: #ffc107; color: #333; padding: 20px; text-align: center; } /* Màu vàng cảnh báo */
+    .content { padding: 20px; }
+    .bank-info { background: #f8f9fa; padding: 15px; border: 1px dashed #333; margin: 15px 0; }
+    .total-price { color: #d9534f; font-size: 18px; font-weight: bold; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>⚠️ Đơn đặt phòng đang chờ thanh toán</h2>
+  </div>
+  <div class="content">
+    <p>Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
+    <p>Cảm ơn bạn đã đặt phòng tại <strong>TravelMate</strong>. Đơn của bạn <strong>(#<span th:text="${bookingId}"></span>)</strong> đang ở trạng thái chờ.</p>
+
+    <p>Vui lòng hoàn tất chuyển khoản để chúng tôi giữ phòng cho bạn:</p>
+
+    <div class="bank-info">
+      <h3>Thông tin chuyển khoản:</h3>
+      <p>🏦 <strong>Ngân hàng:</strong> MB Bank (Quân Đội)</p>
+      <p>💳 <strong>Số tài khoản:</strong> 9999.8888.6666</p>
+      <p>👤 <strong>Chủ tài khoản:</strong> TRAVELMATE COMPANY</p>
+      <p>💰 <strong>Số tiền:</strong> <span class="total-price" th:text="${totalPrice}">0</span> VND</p>
+      <p>📝 <strong>Nội dung CK:</strong> <span style="color:blue;">BOOKING <span th:text="${bookingId}"></span></span></p>
+    </div>
+
+    <p>Sau khi chuyển khoản, vui lòng chụp ảnh màn hình và tải lên tại mục <strong>Lịch sử đặt phòng</strong>.</p>
+
+    <p>Trân trọng,<br>TravelMate Team</p>
+  </div>
+</div>
+</body>
+</html>

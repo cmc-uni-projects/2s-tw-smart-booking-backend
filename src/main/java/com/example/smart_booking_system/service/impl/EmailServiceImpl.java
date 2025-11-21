@@ -177,4 +177,22 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("⚠️ Lỗi khi gửi email async: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendPaymentReminderEmail(String toEmail, String fullName, String bookingId, String totalPrice) {
+        try {
+            String subject = "Vui lòng thanh toán cho đơn đặt phòng #" + bookingId;
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("totalPrice", totalPrice);
+
+            String htmlContent = templateEngine.process("email/booking-pending", context);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            throw new RuntimeException("❌ Failed to send payment reminder email", e);
+        }
+    }
 }
