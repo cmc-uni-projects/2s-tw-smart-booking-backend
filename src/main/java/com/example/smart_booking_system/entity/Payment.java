@@ -24,27 +24,27 @@ public class Payment {
     private Booking booking;
 
     @Column(nullable = false)
-    private String paymentMethod; // Ví dụ: "BANK_TRANSFER"
+    private String paymentMethod;
 
     @Column(nullable = false)
     private BigDecimal amount;
 
     @Column(length = 512)
-    private String paymentEvidenceUrl; // ✅ URL ảnh chụp màn hình chuyển khoản
+    private String paymentEvidenceUrl;
 
     @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus; // ✅ Trạng thái thanh toán (PENDING, APPROVED, REJECTED)
+    private PaymentStatus paymentStatus;
 
     @Lob
-    private String note; // Ghi chú của Admin (lý do reject...)
+    private String note;
 
     @Column(nullable = false)
-    private LocalDateTime paymentDate; // Ngày khách submit
+    private LocalDateTime paymentDate;
 
-    private LocalDateTime confirmedDate; // Ngày admin duyệt
+    private LocalDateTime confirmedDate;
 
     @Column(columnDefinition = "decimal(10,2)")
-    private BigDecimal refundedAmount; // ✅ THÊM TRƯỜNG NÀY
+    private BigDecimal refundedAmount;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;

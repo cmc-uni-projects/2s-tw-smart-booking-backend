@@ -9,7 +9,5 @@ import java.util.Optional;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
-    // Tìm thông tin thanh toán dựa vào bookingId
-    // Spring Data JPA sẽ tự động generate query: SELECT * FROM payment WHERE booking_id = ?
     Optional<Payment> findByBooking_BookingId(int bookingId);
 }
