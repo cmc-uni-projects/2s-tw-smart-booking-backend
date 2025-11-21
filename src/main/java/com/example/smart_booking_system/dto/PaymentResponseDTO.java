@@ -25,7 +25,6 @@ public class PaymentResponseDTO {
     public PaymentResponseDTO(Payment payment) {
         this.paymentId = payment.getPaymentId();
 
-        // Quan trọng: Chỉ lấy ID để tránh lỗi Lazy Loading
         if (payment.getBooking() != null) {
             this.bookingId = payment.getBooking().getBookingId();
 
