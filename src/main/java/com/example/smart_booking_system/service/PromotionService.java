@@ -96,8 +96,7 @@ public class PromotionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
 
 
-        p.setStatus(PromotionStatus.PAUSED);
-        promotionRepository.save(p);
+        promotionRepository.delete(p);
     }
 
 
