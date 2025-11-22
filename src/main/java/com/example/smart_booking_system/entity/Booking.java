@@ -40,6 +40,7 @@ public class Booking {
     private BigDecimal refundAmount;  // tiền hoàn lại cho khách
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 50)
     private BookingStatus status = BookingStatus.CONFIRMED;
 
     private LocalDate createdAt = LocalDate.now();
