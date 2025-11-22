@@ -15,6 +15,10 @@ import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.service.PropertyService;
 import com.example.smart_booking_system.repository.RoomImageRepository; // ✅ Import Repository
 import jakarta.persistence.EntityNotFoundException;
+import lombok.Data;
+import java.util.List;
+import java.util.stream.Collectors;
+import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -400,20 +404,28 @@ public class PropertyServiceImpl implements PropertyService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius) {
-        if (lat == null || lng == null) {
-            return new ArrayList<>();
-        }
+    public List<PropertyMapDTO> findNearbyProperties(Double lat, Double lng, Double radius) { // Đổi kiểu trả về
+        if (lat == null || lng == null) return new ArrayList<>();
 
-        // Mặc định tìm trong 10km nếu không truyền radius
         double searchRadius = (radius != null) ? radius : 10.0;
-
-        // Gọi Repository
         List<Property> nearbyProperties = propertyRepository.findNearbyProperties(lat, lng, searchRadius);
 
-        // Convert sang DTO dùng hàm helper có sẵn trong class này
-        return nearbyProperties.stream()
-                .map(this::mapToPropertyDetailDTO) // Tái sử dụng logic map ảnh và giá
-                .collect(Collectors.toList());
+        return nearbyProperties.stream().map(property -> {
+            // 1. Lấy ảnh bìa nhanh gọn
+            String cover = propertyImageRepository.findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId())
+                    .map(img -> img.getImageUrl())
+                    .orElse(null);
+
+            // 2. Tính giá thấp nhất (Min Price)
+            BigDecimal minPrice = BigDecimal.ZERO;
+            if (property.getRooms() != null && !property.getRooms().isEmpty()) {
+                minPrice = property.getRooms().stream()
+                        .map(Room::getPricePerNight)
+                        .min(BigDecimal::compareTo)
+                        .orElse(BigDecimal.ZERO);
+            }
+
+            return new PropertyMapDTO(property, cover, minPrice);
+        }).collect(Collectors.toList());
     }
 }

@@ -1,7 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.dto.PaymentResponseDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
-import com.example.smart_booking_system.dto.response.PaymentResponseDTO;
 import com.example.smart_booking_system.entity.Booking;
 import com.example.smart_booking_system.entity.Payment;
 import com.example.smart_booking_system.enums.BookingStatus;

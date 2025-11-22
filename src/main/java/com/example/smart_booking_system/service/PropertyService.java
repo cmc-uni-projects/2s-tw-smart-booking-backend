@@ -3,6 +3,7 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
+import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,5 +31,4 @@ public interface PropertyService {
 
     List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId);
 
-    List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius);
-}
+    List<PropertyMapDTO> findNearbyProperties(Double lat, Double lng, Double radius);}
