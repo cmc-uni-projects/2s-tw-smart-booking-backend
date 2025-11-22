@@ -293,30 +293,39 @@ public class PropertyServiceImpl implements PropertyService {
 
     @Override
     public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
+        // 1. Lấy admin
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
+        // 2. Lấy property
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
+        // 3. Kiểm tra trạng thái hiện tại
         if (property.getPropertyStatus() != PropertyStatus.PENDING) {
             throw new IllegalStateException("Property already reviewed");
         }
 
-        PropertyStatus newStatus = PropertyStatus.valueOf(reviewDTO.getStatus().toUpperCase());
+        // 4. Kiểm tra trạng thái hợp lệ
+        if (!reviewDTO.isValidForReview()) {
+            throw new IllegalArgumentException("Chỉ được phép APPROVE hoặc REJECTED.");
+        }
+
+        // 5. Cập nhật trạng thái property
+        PropertyStatus newStatus = reviewDTO.getStatus();
         property.setPropertyStatus(newStatus);
         property.setUpdatedAt(LocalDate.now());
         property.setActive(newStatus == PropertyStatus.APPROVE);
 
         Property savedProperty = propertyRepository.save(property);
 
+        // 6. Gửi email thông báo cho owner
         if (property.getOwner() != null) {
             sendPropertyReviewEmail(property.getOwner(), savedProperty, reviewDTO.getReason());
         }
 
         return mapToPropertyDetailDTO(savedProperty);
     }
-
     // ==================================================================
     // 3. HELPER METHODS (QUAN TRỌNG)
     // ==================================================================

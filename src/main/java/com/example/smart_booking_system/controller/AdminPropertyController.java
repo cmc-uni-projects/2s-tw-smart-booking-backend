@@ -60,7 +60,7 @@ public class AdminPropertyController {
 
             PropertyDetailDTO reviewedProperty = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
 
-            String message = "APPROVE".equalsIgnoreCase(reviewDTO.getStatus())
+            String message = (reviewDTO.getStatus() == PropertyStatus.APPROVE)
                     ? "Duyệt cơ sở thành công"
                     : "Từ chối cơ sở thành công";
 
@@ -73,6 +73,4 @@ public class AdminPropertyController {
                     .body(ApiResponse.error("Lỗi server: " + e.getMessage()));
         }
     }
-
-    // (Bạn có thể xóa hàm /pending cũ vì hàm /status?status=PENDING đã thay thế nó)
 }
