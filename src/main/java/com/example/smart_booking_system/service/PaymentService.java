@@ -25,47 +25,40 @@ public class PaymentService {
 
     private final EmailService emailService;
 
-    // ==========================================================================
-    // 1. KHÁCH HÀNG BẤM THANH TOÁN -> AUTO THÀNH CÔNG LUÔN
-    // ==========================================================================
     @Transactional
     public ApiResponse<?> submitPayment(int bookingId, String note) {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-        // Chỉ cho phép thanh toán khi đơn đang PENDING hoặc đã CANCEL (muốn thanh toán lại)
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT &&
                 booking.getStatus() != BookingStatus.CANCELLED) {
             return ApiResponse.error("Không thể thanh toán cho trạng thái: " + booking.getStatus());
         }
 
-        // 1. Tạo/Update Payment -> SET LUÔN LÀ APPROVED
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(new Payment());
         payment.setBooking(booking);
-        payment.setPaymentMethod("AUTO_PAYMENT"); // Đánh dấu là thanh toán tự động
+        payment.setPaymentMethod("AUTO_PAYMENT");
         payment.setAmount(booking.getTotalPrice());
 
-        // Không cần ảnh
+
         payment.setPaymentEvidenceUrl(null);
 
-        // 🔥 QUAN TRỌNG: Auto duyệt ngay lập tức
         payment.setPaymentStatus(PaymentStatus.APPROVED);
         payment.setConfirmedDate(LocalDateTime.now());
         payment.setNote(note + " | Auto Confirmed (Instant Payment)");
         payment.setPaymentDate(LocalDateTime.now());
 
-        // Khởi tạo tiền hoàn = 0 (để logic Cancel sau này cộng trừ đúng)
+
         if (payment.getRefundedAmount() == null) {
             payment.setRefundedAmount(BigDecimal.ZERO);
         }
 
         paymentRepo.save(payment);
 
-        // 2. Update Booking -> SET LUÔN LÀ CONFIRMED
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepo.save(booking);
 
-        // 3. Gửi Email VÉ ĐIỆN TỬ (Booking Confirmation) NGAY LẬP TỨC
+
         try {
             Context context = new Context();
             String bookingUrl = "http://localhost:5173/bookings/" + booking.getBookingId();
@@ -86,9 +79,7 @@ public class PaymentService {
             System.err.println("Lỗi gửi mail confirmation: " + e.getMessage());
         }
 
-        // Trả về DTO (đã tạo ở bước trước) để tránh lỗi Lazy Loading
         return ApiResponse.success("Thanh toán thành công! Đơn đặt phòng đã được xác nhận.", new PaymentResponseDTO(payment));
     }
 
-    // ❌ Đã xóa hàm reviewPayment (Admin duyệt) vì không còn cần thiết
 }
