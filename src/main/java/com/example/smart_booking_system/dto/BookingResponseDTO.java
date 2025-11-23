@@ -32,6 +32,7 @@ public class BookingResponseDTO {
     private BigDecimal refundAmount;
 
     private BookingStatus status;
+    private String paymentStatus;
 
     private UserSummaryDto user;
 

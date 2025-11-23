@@ -226,6 +226,10 @@ public class BookingService {
     // ================================
     private BookingResponseDTO convertToDTO(Booking b) {
         BookingResponseDTO dto = new BookingResponseDTO();
+        Payment payment = paymentRepo.findByBooking_BookingId(b.getBookingId()).orElse(null);
+        if (payment != null) {
+            dto.setPaymentStatus(payment.getPaymentStatus().name());
+        }
 
         // 1. Basic Info
         dto.setBookingId(b.getBookingId());

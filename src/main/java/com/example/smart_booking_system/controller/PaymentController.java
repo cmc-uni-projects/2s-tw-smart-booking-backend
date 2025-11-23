@@ -30,4 +30,25 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getUserTransactionHistory(userId));
     }
 
+    @PostMapping("/refund/{bookingId}")
+    public ResponseEntity<?> refundPayment(@PathVariable int bookingId) {
+        try {
+            return ResponseEntity.ok(paymentService.processRefund(bookingId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/request-refund/{bookingId}")
+    public ResponseEntity<?> requestRefund(
+            @PathVariable int bookingId,
+            @RequestParam("reason") String reason // ✅ Thêm tham số này
+    ) {
+        try {
+            return ResponseEntity.ok(paymentService.requestRefundByUser(bookingId, reason));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
 }
