@@ -72,12 +72,15 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     List<Property> searchProperties(@Param("keyword") String keyword);
 
     @Query(value = """
-        SELECT * FROM properties p 
-        WHERE p.is_active = true 
-        AND p.property_status = 'APPROVE' 
-        AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
-             sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
-        """, nativeQuery = true)
+    SELECT * FROM properties p 
+    WHERE p.isActive = true 
+    AND p.propertyStatus = 'APPROVE' 
+    AND p.latitude BETWEEN :lat - 0.15 AND :lat + 0.15
+    AND p.longitude BETWEEN :lng - 0.15 AND :lng + 0.15
+    -- Sau đó mới tính chính xác khoảng cách
+    AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
+         sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
+    """, nativeQuery = true)
     List<Property> findNearbyProperties(@Param("lat") double lat,
                                         @Param("lng") double lng,
                                         @Param("radius") double radius);

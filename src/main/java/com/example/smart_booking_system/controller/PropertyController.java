@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -155,10 +156,10 @@ public class PropertyController {
     }
 
     @GetMapping("/nearby")
-    public ResponseEntity<List<PropertyDetailDTO>> findNearby(
-            @RequestParam Double lat,
-            @RequestParam Double lng,
-            @RequestParam(required = false, defaultValue = "10") Double radius
+    public ResponseEntity<List<PropertyMapDTO>> findNearby(
+                                                            @RequestParam Double lat,
+                                                            @RequestParam Double lng,
+                                                            @RequestParam(required = false, defaultValue = "10") Double radius
     ) {
         return ResponseEntity.ok(propertyService.findNearbyProperties(lat, lng, radius));
     }
