@@ -226,9 +226,13 @@ public class BookingService {
     // ================================
     private BookingResponseDTO convertToDTO(Booking b) {
         BookingResponseDTO dto = new BookingResponseDTO();
+
+        // 1. Basic Info
         dto.setBookingId(b.getBookingId());
         dto.setPropertyId(b.getProperty().getPropertyId());
         dto.setRoomId(b.getRoom() != null ? b.getRoom().getRoomId() : null);
+
+        // 2. Date & Money
         dto.setCheckInDate(b.getCheckInDate());
         dto.setCheckOutDate(b.getCheckOutDate());
         dto.setGuestCount(b.getGuestCount());
@@ -236,6 +240,46 @@ public class BookingService {
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
         dto.setStatus(b.getStatus());
+
+        if (b.getProperty() != null) {
+            dto.setPropertyName(b.getProperty().getPropertyName());
+            dto.setPropertyAddress(b.getProperty().getAddress() + ", " + b.getProperty().getCity());
+
+            // --- LOGIC LẤY ẢNH BÌA ---
+            String coverUrl = null;
+            if (b.getProperty().getImages() != null && !b.getProperty().getImages().isEmpty()) {
+                // Tìm ảnh có isCover = true
+                coverUrl = b.getProperty().getImages().stream()
+                        .filter(img -> img.isCover())
+                        .findFirst()
+                        .map(img -> img.getImageUrl())
+                        .orElse(null);
+
+                // Nếu không set ảnh nào là cover thì lấy ảnh đầu tiên làm mặc định
+                if (coverUrl == null) {
+                    coverUrl = b.getProperty().getImages().get(0).getImageUrl();
+                }
+            }
+            dto.setPropertyImage(coverUrl);
+        }
+
+
+        // ✅ 4. Map Room Info (Tên phòng)
+        if (b.getRoom() != null) {
+            dto.setRoomName(b.getRoom().getRoomName());
+        }
+
+        // ✅ 5. Map User Info (Quan trọng cho phần Liên hệ)
+        if (b.getUser() != null) {
+            BookingResponseDTO.UserSummaryDto userDto = new BookingResponseDTO.UserSummaryDto(
+                    b.getUser().getUserId(),
+                    b.getUser().getFullName(),
+                    b.getUser().getEmail(),
+                    b.getUser().getPhoneNumber()
+            );
+            dto.setUser(userDto);
+        }
+
         return dto;
     }
 }
