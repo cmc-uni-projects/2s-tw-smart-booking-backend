@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Data
@@ -23,7 +23,7 @@ public class PromotionResponseDTO {
 
     private Integer usageLimit;
     private Integer usageCount;
-    private LocalDate endDate;
+    private LocalDateTime endDate;
 
     private PromotionStatus status; // ACTIVE, EXPIRED, PAUSED
     private DiscountType discountType; // PERCENTAGE, FIXED_AMOUNT
@@ -38,7 +38,7 @@ public class PromotionResponseDTO {
         this.description = p.getDescription();
         this.usageLimit = p.getUsageLimit();
         this.usageCount = p.getUsageCount();
-        this.endDate = p.getEndDate();
+        this.endDate = LocalDateTime.from(p.getEndDate());
 
         this.status = p.getStatus();
         this.discountType = p.getDiscountType();

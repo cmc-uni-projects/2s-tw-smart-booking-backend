@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,10 +44,10 @@ public class Promotion {
     private BigDecimal discountValue;
 
     @Column(nullable = false)
-    private LocalDate startDate;
+    private LocalDateTime startDate;
 
     @Column(nullable = false)
-    private LocalDate endDate;
+    private LocalDateTime endDate;
 
     private BigDecimal minBookingAmount;
     private BigDecimal maxDiscountAmount;
@@ -79,7 +79,7 @@ public class Promotion {
     public void checkAndSetStatus() {
         if (this.status == PromotionStatus.PAUSED) return; // Nếu đang Tạm dừng thì giữ nguyên
 
-        LocalDate now = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
         if (endDate != null && endDate.isBefore(now)) {
             this.status = PromotionStatus.EXPIRED;
         } else {

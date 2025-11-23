@@ -9,6 +9,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class PromotionRequestDTO {
@@ -28,11 +29,11 @@ public class PromotionRequestDTO {
     @Min(value = 0)
     private BigDecimal discountValue;
 
-    @NotNull(message = "Ngày bắt đầu là bắt buộc")
-    private LocalDate startDate;
+    @NotNull(message = "Ngày bắt đầu là bắt buộc, không được là ngày trong quá khứ")
+    private LocalDateTime startDate;
 
-    @NotNull(message = "Ngày kết thúc là bắt buộc")
-    private LocalDate endDate;
+    @NotNull(message = "Ngày kết thúc là bắt buộc, không được nhỏ hơn ngày hiện tại")
+    private LocalDateTime endDate;
 
     @Min(value = 0)
     private BigDecimal minBookingAmount;
