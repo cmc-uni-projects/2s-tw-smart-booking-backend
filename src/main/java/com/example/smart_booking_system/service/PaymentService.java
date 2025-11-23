@@ -1,6 +1,6 @@
 package com.example.smart_booking_system.service;
 
-import com.example.smart_booking_system.dto.PaymentResponseDTO;
+import com.example.smart_booking_system.dto.response.PaymentResponseDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.entity.Booking;
 import com.example.smart_booking_system.entity.Payment;
@@ -15,6 +15,8 @@ import org.thymeleaf.context.Context;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -80,6 +82,12 @@ public class PaymentService {
         }
 
         return ApiResponse.success("Thanh toán thành công! Đơn đặt phòng đã được xác nhận.", new PaymentResponseDTO(payment));
+    }
+    public List<PaymentResponseDTO> getUserTransactionHistory(String userId) {
+        List<Payment> payments = paymentRepo.findByBooking_User_UserIdOrderByPaymentDateDesc(userId);
+        return payments.stream()
+                .map(PaymentResponseDTO::new)
+                .collect(Collectors.toList());
     }
 
 }

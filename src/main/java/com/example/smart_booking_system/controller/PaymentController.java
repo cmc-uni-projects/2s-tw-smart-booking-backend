@@ -25,4 +25,9 @@ public class PaymentController {
         }
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<?> getUserHistory(@PathVariable String userId) {
+        return ResponseEntity.ok(paymentService.getUserTransactionHistory(userId));
+    }
+
 }

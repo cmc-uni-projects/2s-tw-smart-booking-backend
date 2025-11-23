@@ -1,4 +1,4 @@
-package com.example.smart_booking_system.dto;
+package com.example.smart_booking_system.dto.response;
 
 import com.example.smart_booking_system.entity.Payment;
 import com.example.smart_booking_system.enums.PaymentStatus;
@@ -11,35 +11,25 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 public class PaymentResponseDTO {
-    private String userName;
-    private Integer paymentId;
+    private int paymentId;
     private int bookingId;
-    private String paymentMethod;
+    private String propertyName;
     private BigDecimal amount;
-    private String paymentEvidenceUrl;
+    private BigDecimal refundedAmount;
+    private String paymentMethod;
     private PaymentStatus paymentStatus;
-    private String note;
     private LocalDateTime paymentDate;
-    private LocalDateTime confirmedDate;
+    private String note;
 
-    public PaymentResponseDTO(Payment payment) {
-        this.paymentId = payment.getPaymentId();
-
-        if (payment.getBooking() != null) {
-            this.bookingId = payment.getBooking().getBookingId();
-
-            if (payment.getBooking().getUser() != null) {
-                this.userName = payment.getBooking().getUser().getFullName();
-            }
-        }
-
-        this.paymentMethod = payment.getPaymentMethod();
-        this.amount = payment.getAmount();
-        this.paymentEvidenceUrl = payment.getPaymentEvidenceUrl();
-        this.paymentStatus = payment.getPaymentStatus();
-        this.note = payment.getNote();
-        this.paymentDate = payment.getPaymentDate();
-        this.confirmedDate = payment.getConfirmedDate();
-
+    public PaymentResponseDTO(Payment p) {
+        this.paymentId = p.getPaymentId();
+        this.bookingId = p.getBooking().getBookingId();
+        this.propertyName = p.getBooking().getProperty().getPropertyName();
+        this.amount = p.getAmount();
+        this.refundedAmount = p.getRefundedAmount();
+        this.paymentMethod = p.getPaymentMethod();
+        this.paymentStatus = p.getPaymentStatus();
+        this.paymentDate = p.getPaymentDate();
+        this.note = p.getNote();
     }
 }
