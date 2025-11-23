@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,16 +18,20 @@ public class PromotionScheduler {
     private final PromotionRepository promotionRepository;
 
     /**
-     * Chạy định kỳ mỗi ngày vào lúc 00:00:00
-     * Nhiệm vụ: Quét toàn bộ mã đang ACTIVE, nếu hết hạn thì chuyển sang EXPIRED
+     * ✅ ĐÃ SỬA: Chạy định kỳ MỖI PHÚT (vào giây thứ 0)
+     * Cron: "0 * * * * ?" nghĩa là chạy mỗi phút một lần.
+     * Như vậy nếu mã hết hạn lúc 14:02, thì chậm nhất 14:03 hệ thống sẽ quét thấy và update.
      */
-    @Scheduled(cron = "0 0 0 * * ?") // Cron expression: Giây Phút Giờ Ngày Tháng Thứ
+    @Scheduled(cron = "0 * * * * ?")
     @Transactional
     public void autoExpirePromotions() {
-        LocalDate today = LocalDate.now();
+        LocalDateTime now = LocalDateTime.now();
 
-        // 1. Tìm các mã đang ACTIVE mà ngày kết thúc < hôm nay
-        List<Promotion> expiredPromotions = promotionRepository.findByStatusAndEndDateBefore(PromotionStatus.ACTIVE, LocalDateTime.from(today));
+        // 1. Tìm các mã đang ACTIVE mà thời gian kết thúc < thời gian hiện tại (so sánh cả giờ phút giây)
+        List<Promotion> expiredPromotions = promotionRepository.findByStatusAndEndDateBefore(
+                PromotionStatus.ACTIVE,
+                now
+        );
 
         if (!expiredPromotions.isEmpty()) {
             // 2. Cập nhật trạng thái sang EXPIRED
@@ -39,7 +42,7 @@ public class PromotionScheduler {
             // 3. Lưu lại vào DB
             promotionRepository.saveAll(expiredPromotions);
 
-            System.out.println("CreateJob: Đã cập nhật trạng thái EXPIRED cho " + expiredPromotions.size() + " mã khuyến mãi.");
+            System.out.println("PromotionScheduler: Đã hết hạn " + expiredPromotions.size() + " mã tại thời điểm " + now);
         }
     }
 }
