@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.request.RefundSubmitDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -43,13 +44,9 @@ public class PaymentController {
     @PostMapping("/request-refund/{bookingId}")
     public ResponseEntity<?> requestRefund(
             @PathVariable int bookingId,
-            @RequestParam("reason") String reason // ✅ Thêm tham số này
+            @RequestBody RefundSubmitDTO req
     ) {
-        try {
-            return ResponseEntity.ok(paymentService.requestRefundByUser(bookingId, reason));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(paymentService.requestRefundByUser(bookingId, req));
     }
 
     @GetMapping("/all")

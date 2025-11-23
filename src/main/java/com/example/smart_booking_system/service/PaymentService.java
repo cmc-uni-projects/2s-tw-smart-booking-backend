@@ -1,18 +1,20 @@
 package com.example.smart_booking_system.service;
 
-import com.example.smart_booking_system.dto.response.PaymentResponseDTO;
+import com.example.smart_booking_system.dto.request.RefundSubmitDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.example.smart_booking_system.dto.response.PaymentResponseDTO;
 import com.example.smart_booking_system.entity.Booking;
 import com.example.smart_booking_system.entity.Payment;
+import com.example.smart_booking_system.entity.RefundRequest;
 import com.example.smart_booking_system.enums.BookingStatus;
 import com.example.smart_booking_system.enums.PaymentStatus;
 import com.example.smart_booking_system.repository.BookingRepository;
 import com.example.smart_booking_system.repository.PaymentRepository;
+import com.example.smart_booking_system.repository.RefundRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.context.Context;
-import com.example.smart_booking_system.enums.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,9 +27,10 @@ public class PaymentService {
 
     private final BookingRepository bookingRepo;
     private final PaymentRepository paymentRepo;
-
+    private final RefundRequestRepository refundRepo;
     private final EmailService emailService;
 
+    // 1. SUBMIT PAYMENT (Khách thanh toán)
     @Transactional
     public ApiResponse<?> submitPayment(int bookingId, String note) {
         Booking booking = bookingRepo.findById(bookingId)
@@ -42,15 +45,11 @@ public class PaymentService {
         payment.setBooking(booking);
         payment.setPaymentMethod("AUTO_PAYMENT");
         payment.setAmount(booking.getTotalPrice());
-
-
         payment.setPaymentEvidenceUrl(null);
-
         payment.setPaymentStatus(PaymentStatus.APPROVED);
         payment.setConfirmedDate(LocalDateTime.now());
         payment.setNote(note + " | Auto Confirmed (Instant Payment)");
         payment.setPaymentDate(LocalDateTime.now());
-
 
         if (payment.getRefundedAmount() == null) {
             payment.setRefundedAmount(BigDecimal.ZERO);
@@ -61,9 +60,10 @@ public class PaymentService {
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepo.save(booking);
 
-
+        // ✅ KHÔI PHỤC LOGIC GỬI EMAIL
         try {
             Context context = new Context();
+            // Bạn có thể thay đổi URL này thành URL frontend thực tế của bạn
             String bookingUrl = "http://localhost:5173/bookings/" + booking.getBookingId();
 
             context.setVariable("username", booking.getUser().getFullName());
@@ -82,81 +82,82 @@ public class PaymentService {
             System.err.println("Lỗi gửi mail confirmation: " + e.getMessage());
         }
 
-        return ApiResponse.success("Thanh toán thành công! Đơn đặt phòng đã được xác nhận.", new PaymentResponseDTO(payment));
+        return ApiResponse.success("Thanh toán thành công!", new PaymentResponseDTO(payment));
     }
+
+    // 2. GET USER HISTORY (Lấy lịch sử giao dịch của User)
     public List<PaymentResponseDTO> getUserTransactionHistory(String userId) {
         List<Payment> payments = paymentRepo.findByBooking_User_UserIdOrderByPaymentDateDesc(userId);
         return payments.stream()
-                .map(PaymentResponseDTO::new)
+                .map(p -> {
+                    // Tìm Refund Request nếu có để hiển thị chi tiết
+                    RefundRequest rr = refundRepo.findByPayment_PaymentId(p.getPaymentId()).orElse(null);
+                    return new PaymentResponseDTO(p, rr);
+                })
                 .collect(Collectors.toList());
     }
 
+    // 3. REQUEST REFUND (Khách gửi yêu cầu hoàn tiền)
+    @Transactional
+    public ApiResponse<?> requestRefundByUser(int bookingId, RefundSubmitDTO req) {
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        if (payment.getPaymentStatus() != PaymentStatus.APPROVED) {
+            return ApiResponse.error("Chỉ được hoàn tiền khi đã thanh toán thành công.");
+        }
+
+        // Tạo bản ghi RefundRequest mới
+        RefundRequest refund = new RefundRequest();
+        refund.setPayment(payment);
+        refund.setBankName(req.getBankName());
+        refund.setAccountNumber(req.getAccountNumber());
+        refund.setAccountHolder(req.getAccountHolder());
+        refund.setReason(req.getReason());
+
+        refundRepo.save(refund);
+
+        // Update Payment Status -> REFUND_REQUESTED
+        payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
+        paymentRepo.save(payment);
+
+        return ApiResponse.success("Gửi yêu cầu thành công", null);
+    }
+
+    // 4. ADMIN PROCESS REFUND (Admin xác nhận hoàn tiền)
     @Transactional
     public ApiResponse<?> processRefund(int bookingId) {
-        // 1. Tìm Payment
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin thanh toán cho Booking ID: " + bookingId));
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        // 2. Validate
-        if (payment.getBooking().getStatus() != BookingStatus.CANCELLED) {
-            return ApiResponse.error("Chỉ có thể hoàn tiền cho đơn đã hủy (CANCELLED).");
-        }
-        if (payment.getPaymentStatus() == PaymentStatus.REFUNDED) {
-            return ApiResponse.error("Đơn này đã được hoàn tiền trước đó.");
-        }
-        if (payment.getRefundedAmount() == null || payment.getRefundedAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            return ApiResponse.error("Không có số tiền cần hoàn (Refund Amount = 0).");
-        }
+        // Tìm Refund Request tương ứng
+        RefundRequest refund = refundRepo.findByPayment_PaymentId(payment.getPaymentId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn tiền"));
 
-        // 3. Cập nhật trạng thái
+        // Update Payment
         payment.setPaymentStatus(PaymentStatus.REFUNDED);
-        payment.setNote(payment.getNote() + " | [Admin] Đã xác nhận hoàn tiền: " + payment.getRefundedAmount() + " VND");
+        String oldNote = payment.getNote() != null ? payment.getNote() : "";
+        payment.setNote(oldNote + " | Admin đã hoàn tiền vào " + LocalDateTime.now());
+
+        // Update RefundRequest Status
+        refund.setStatus(PaymentStatus.REFUNDED);
+        refund.setProcessDate(LocalDateTime.now());
 
         paymentRepo.save(payment);
+        refundRepo.save(refund);
 
-        // 4. Gửi Email thông báo hoàn tiền (Optional)
-        try {
-            Context context = new Context();
-            context.setVariable("username", payment.getBooking().getUser().getFullName());
-            context.setVariable("bookingId", bookingId);
-            context.setVariable("refundAmount", payment.getRefundedAmount());
-
-            // Gửi mail (giả sử bạn có template email-refund-success.html)
-            // emailService.sendHtmlEmail(payment.getBooking().getUser().getEmail(), "💰 Thông báo hoàn tiền thành công", "email/refund-success", context);
-        } catch (Exception e) {
-            System.err.println("Lỗi gửi mail hoàn tiền: " + e.getMessage());
-        }
-
-        return ApiResponse.success("Đã xác nhận hoàn tiền thành công.", new PaymentResponseDTO(payment));
-    }
-    @Transactional
-    public ApiResponse<?> requestRefundByUser(int bookingId, String reason) { // ✅ Thêm tham số String reason
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin thanh toán."));
-
-        // Validate: Chỉ được yêu cầu khi Booking đã HỦY và Payment đã APPROVED
-        if (payment.getBooking().getStatus() != BookingStatus.CANCELLED) {
-            return ApiResponse.error("Bạn phải hủy phòng trước khi yêu cầu hoàn tiền.");
-        }
-        if (payment.getPaymentStatus() != PaymentStatus.APPROVED) {
-            return ApiResponse.error("Trạng thái thanh toán không hợp lệ để hoàn tiền (Phải là APPROVED).");
-        }
-
-        // Cập nhật trạng thái
-        payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
-
-        String log = " | Khách yêu cầu hoàn tiền (" + LocalDateTime.now() + "): " + reason;
-        payment.setNote(payment.getNote() + log); // ✅ Ghi lý do vào note
-
-        paymentRepo.save(payment);
-
-        return ApiResponse.success("Đã gửi yêu cầu hoàn tiền. Vui lòng chờ Admin xử lý.", new PaymentResponseDTO(payment));
+        return ApiResponse.success("Hoàn tiền thành công", null);
     }
 
+    // 5. GET ALL TRANSACTIONS (Cho Admin)
     public List<PaymentResponseDTO> getAllTransactions() {
         return paymentRepo.findAllByOrderByPaymentDateDesc().stream()
-                .map(PaymentResponseDTO::new)
+                .map(p -> {
+                    // Tìm Refund Request tương ứng nếu có
+                    RefundRequest rr = refundRepo.findByPayment_PaymentId(p.getPaymentId()).orElse(null);
+                    // Gọi constructor mới để map cả thông tin refund
+                    return new PaymentResponseDTO(p, rr);
+                })
                 .collect(Collectors.toList());
     }
-
 }

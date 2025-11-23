@@ -192,7 +192,7 @@ public class BookingService {
             payment.setRefundedAmount(refundAmount);
 
             String oldNote = payment.getNote() != null ? payment.getNote() : "";
-            payment.setNote(oldNote + " | Đã hoàn " + refundAmount + " VND ngày " + LocalDateTime.now());
+            payment.setNote(oldNote + " | Hệ thống ghi nhận hủy phòng. Chờ hoàn tiền: " + refundAmount);
 
             paymentRepo.save(payment);
         });
