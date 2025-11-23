@@ -3,7 +3,6 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.*;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.repository.UserRepository;
-import com.example.smart_booking_system.service.AiService;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
