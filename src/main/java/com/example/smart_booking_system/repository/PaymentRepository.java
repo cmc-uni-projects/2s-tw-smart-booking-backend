@@ -12,4 +12,5 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
     Optional<Payment> findByBooking_BookingId(int bookingId);
     List<Payment> findByBooking_User_UserIdOrderByPaymentDateDesc(String userId);
+    List<Payment> findAllByOrderByPaymentDateDesc();
 }

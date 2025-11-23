@@ -153,4 +153,10 @@ public class PaymentService {
         return ApiResponse.success("Đã gửi yêu cầu hoàn tiền. Vui lòng chờ Admin xử lý.", new PaymentResponseDTO(payment));
     }
 
+    public List<PaymentResponseDTO> getAllTransactions() {
+        return paymentRepo.findAllByOrderByPaymentDateDesc().stream()
+                .map(PaymentResponseDTO::new)
+                .collect(Collectors.toList());
+    }
+
 }
