@@ -25,8 +25,8 @@ public class PromotionResponseDTO {
     private Integer usageCount;
     private LocalDateTime endDate;
 
-    private PromotionStatus status; // ACTIVE, EXPIRED, PAUSED
-    private DiscountType discountType; // PERCENTAGE, FIXED_AMOUNT
+    private PromotionStatus status;
+    private DiscountType discountType;
 
     private BigDecimal discountValue;
     private BigDecimal maxDiscountAmount;

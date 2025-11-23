@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -27,7 +28,7 @@ public class PromotionScheduler {
         LocalDate today = LocalDate.now();
 
         // 1. Tìm các mã đang ACTIVE mà ngày kết thúc < hôm nay
-        List<Promotion> expiredPromotions = promotionRepository.findByStatusAndEndDateBefore(PromotionStatus.ACTIVE, today);
+        List<Promotion> expiredPromotions = promotionRepository.findByStatusAndEndDateBefore(PromotionStatus.ACTIVE, LocalDateTime.from(today));
 
         if (!expiredPromotions.isEmpty()) {
             // 2. Cập nhật trạng thái sang EXPIRED

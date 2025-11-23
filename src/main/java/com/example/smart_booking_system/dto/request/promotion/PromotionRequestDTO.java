@@ -25,6 +25,7 @@ public class PromotionRequestDTO {
 
     private PromotionStatus status;
 
+
     @NotNull(message = "Giá trị giảm là bắt buộc")
     @Min(value = 0)
     private BigDecimal discountValue;

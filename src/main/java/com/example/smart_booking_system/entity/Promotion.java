@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,15 +29,15 @@ public class Promotion {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // --- 1. Loại giảm giá (Logic tính tiền) ---
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DiscountType discountType;
 
-    // --- 2. Trạng thái (Logic hiển thị/quản lý) ---
+    // Quản lý toàn bộ trạng thái tại đây: ACTIVE, PAUSED, EXPIRED, DELETED
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PromotionStatus status;
+
 
     @Column(nullable = false)
     private BigDecimal discountValue;
@@ -64,7 +63,7 @@ public class Promotion {
         updatedAt = LocalDateTime.now();
         if (usageCount == null) usageCount = 0;
 
-        // Tự động set trạng thái khi tạo mới nếu chưa có
+        // Mặc định khi tạo mới sẽ check ngày để set ACTIVE
         if (status == null) {
             checkAndSetStatus();
         }
@@ -75,9 +74,12 @@ public class Promotion {
         updatedAt = LocalDateTime.now();
     }
 
-    // Helper: Tự động chuyển trạng thái dựa vào ngày
+    // Helper: Tự động set status theo ngày (chỉ dùng khi đang ACTIVE/PAUSED)
     public void checkAndSetStatus() {
-        if (this.status == PromotionStatus.PAUSED) return; // Nếu đang Tạm dừng thì giữ nguyên
+        // Nếu đã xóa hoặc tạm dừng thì không tự động đổi status
+        if (this.status == PromotionStatus.DELETED || this.status == PromotionStatus.PAUSED) {
+            return;
+        }
 
         LocalDateTime now = LocalDateTime.now();
         if (endDate != null && endDate.isBefore(now)) {

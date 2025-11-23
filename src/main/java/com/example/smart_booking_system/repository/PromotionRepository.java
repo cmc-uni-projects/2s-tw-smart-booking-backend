@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime; // ✅ Dùng LocalDateTime
 import java.util.List;
 import java.util.Optional;
 
@@ -16,20 +16,20 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     boolean existsByCode(String code);
 
-    // Tìm tất cả mã theo trạng thái
+    // Tìm theo trạng thái
     List<Promotion> findByStatus(PromotionStatus status);
 
-    // Query tìm mã hợp lệ để áp dụng khi Booking
+    // ✅ ĐÃ SỬA: Xóa "AND p.isActive = true" và dùng LocalDateTime
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.code = :code
-        AND p.status = 'ACTIVE'  
+        AND p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
         AND p.startDate <= :now
         AND p.endDate >= :now
         AND (p.usageLimit IS NULL OR p.usageCount < p.usageLimit)
     """)
-    Optional<Promotion> findValidPromotion(@Param("code") String code, @Param("now") LocalDate now);
+    Optional<Promotion> findValidPromotion(@Param("code") String code, @Param("now") LocalDateTime now);
 
-    // Tìm các mã đang ACTIVE nhưng ngày kết thúc đã qua (endDate < hôm nay)
-    List<Promotion> findByStatusAndEndDateBefore(com.example.smart_booking_system.enums.PromotionStatus status, java.time.LocalDate date);
+    // Hàm cho Scheduler (cũng phải dùng LocalDateTime)
+    List<Promotion> findByStatusAndEndDateBefore(PromotionStatus status, LocalDateTime date);
 }

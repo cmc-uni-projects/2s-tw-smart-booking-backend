@@ -40,12 +40,26 @@ public class PromotionController {
         }
     }
 
+    // DELETE: Xóa mềm (Chuyển sang DELETED)
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable int id) {
         try {
             promotionService.deletePromotion(id);
-            return ResponseEntity.ok(ApiResponse.success("Xóa mã thành công"));
+            return ResponseEntity.ok(ApiResponse.success("Đã xóa mã khuyến mãi (Chuyển sang thùng rác)"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // TOGGLE: Bật/Tắt (ACTIVE <-> PAUSED)
+    @PutMapping("/toggle/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> toggle(@PathVariable int id) {
+        try {
+            return ResponseEntity.ok(
+                    ApiResponse.success("Thay đổi trạng thái Bật/Tắt thành công", promotionService.toggleStatus(id))
+            );
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
