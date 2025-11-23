@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.thymeleaf.context.Context;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -415,5 +416,27 @@ public class PropertyServiceImpl implements PropertyService {
         return nearbyProperties.stream()
                 .map(this::mapToPropertyDetailDTO) // Tái sử dụng logic map ảnh và giá
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PropertyDetailDTO> getTop40ForAI() {
+        // 1. Lấy 40 property active, rating cao nhất
+        List<Property> properties = propertyRepository.findTopProperties(PageRequest.of(0, 40));
+
+        // 2. Map sang DTO và LẤY THÊM ROOMS
+        return properties.stream().map(property -> {
+            PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
+
+            // Lấy danh sách phòng Active
+            if (property.getRooms() != null) {
+                List<RoomResponseDTO> roomDTOs = property.getRooms().stream()
+                        .filter(Room::isActive)
+                        .map(RoomResponseDTO::new) // Map Entity Room -> DTO
+                        .collect(Collectors.toList());
+                dto.setRooms(roomDTOs);
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 }

@@ -31,4 +31,6 @@ public interface PropertyService {
     List<PropertyDetailDTO> getOwnerActiveProperties(String ownerId);
 
     List<PropertyDetailDTO> findNearbyProperties(Double lat, Double lng, Double radius);
+
+    List<PropertyDetailDTO> getTop40ForAI();
 }

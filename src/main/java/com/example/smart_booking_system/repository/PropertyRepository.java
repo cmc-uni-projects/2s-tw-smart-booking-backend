@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 @Repository
@@ -82,4 +83,12 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
                                         @Param("lng") double lng,
                                         @Param("radius") double radius);
 
+
+    @Query("""
+        SELECT p FROM Property p
+        WHERE p.isActive = true 
+        AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
+        ORDER BY p.rating DESC
+    """)
+    List<Property> findTopProperties(Pageable pageable);
 }
