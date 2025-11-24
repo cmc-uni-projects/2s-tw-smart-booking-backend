@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Data
 @NoArgsConstructor
@@ -19,8 +22,9 @@ public class PromotionResponseDTO {
     private String code;
     private String description;
 
-    private String discountDetail;
 
+
+    private String discountDetail;
     private Integer usageLimit;
     private Integer usageCount;
     private LocalDateTime endDate;
@@ -31,6 +35,7 @@ public class PromotionResponseDTO {
     private BigDecimal discountValue;
     private BigDecimal maxDiscountAmount;
     private BigDecimal minBookingAmount;
+    private String bannerUrl;
 
     public PromotionResponseDTO(Promotion p) {
         this.promotionId = p.getPromotionId();
@@ -48,8 +53,10 @@ public class PromotionResponseDTO {
         this.minBookingAmount = p.getMinBookingAmount();
 
         this.discountDetail = formatDiscountDetail(p);
+        this.bannerUrl = p.getBannerUrl();
     }
 
+    // --- HELPER METHODS ---
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) return "0đ";
         Locale localeVN = new Locale("vi", "VN");

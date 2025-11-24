@@ -10,8 +10,8 @@ import com.example.smart_booking_system.repository.PromotionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime; // Sử dụng LocalDateTime
+import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class PromotionService {
 
     private final PromotionRepository promotionRepository;
+    private final FileStorageService fileStorageService;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
@@ -149,5 +150,27 @@ public class PromotionService {
         Promotion p = promotionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
         return new PromotionResponseDTO(p);
+    }
+
+    // ============================================================
+    // ✅ HÀM MỚI: UPLOAD BANNER (Logic 1 ảnh duy nhất)
+    // ============================================================
+    public PromotionResponseDTO uploadBanner(int promotionId, MultipartFile file) {
+        // 1. Tìm khuyến mãi
+        Promotion p = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
+
+        // 2. Nếu đang có banner cũ -> Xóa file vật lý đi để dọn rác
+        if (p.getBannerUrl() != null && !p.getBannerUrl().isEmpty()) {
+            fileStorageService.deleteFile(p.getBannerUrl());
+        }
+
+        // 3. Lưu file mới
+        String newBannerPath = fileStorageService.storeImageFile(file, "promotions");
+
+        // 4. Cập nhật đường dẫn vào DB
+        p.setBannerUrl(newBannerPath);
+
+        return new PromotionResponseDTO(promotionRepository.save(p));
     }
 }

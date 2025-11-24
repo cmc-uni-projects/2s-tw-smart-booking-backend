@@ -33,7 +33,7 @@ public class Promotion {
     @Column(nullable = false)
     private DiscountType discountType;
 
-    // Quản lý toàn bộ trạng thái tại đây: ACTIVE, PAUSED, EXPIRED, DELETED
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PromotionStatus status;
@@ -53,6 +53,9 @@ public class Promotion {
 
     private Integer usageLimit;
     private Integer usageCount = 0;
+
+    @Column(length = 512)
+    private String bannerUrl;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
