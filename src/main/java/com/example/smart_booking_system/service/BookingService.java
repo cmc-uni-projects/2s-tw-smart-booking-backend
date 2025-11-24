@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.example.smart_booking_system.enums.PaymentStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -129,6 +130,14 @@ public class BookingService {
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
         bookingRepo.save(booking);
 
+        Payment payment = new Payment();
+        payment.setBooking(booking);
+        payment.setTotalAmount(booking.getTotalPrice());
+        payment.setPaymentMethod(null);
+        payment.setPaymentStatus(PaymentStatus.PENDING);
+        payment.setCreatedAt(LocalDateTime.now());
+        paymentRepo.save(payment);
+
 
         try {
             emailService.sendPaymentReminderEmail(
@@ -190,14 +199,6 @@ public class BookingService {
         booking.setStatus(BookingStatus.CANCELLED); // Đã hủy booking
         bookingRepo.save(booking);
 
-        // --- 2. Cập nhật Payment (Ghi chú chờ hoàn tiền) ---
-        paymentRepo.findByBooking_BookingId(bookingId).ifPresent(payment -> {
-            payment.setRefundedAmount(refundAmount);
-            String oldNote = payment.getNote() != null ? payment.getNote() : "";
-            // Ghi chú để Admin biết cần hoàn bao nhiêu
-            payment.setNote(oldNote + " | Khách yêu cầu hủy, CHỜ HOÀN: " + refundAmount + " VND");
-            paymentRepo.save(payment);
-        });
 
         // --- 3. Gửi Email 1: Thông báo đã nhận yêu cầu hủy ---
         try {
@@ -255,6 +256,29 @@ public class BookingService {
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail success refund: " + e.getMessage());
         }
+    }
+
+    // 3. CHECK-IN (Vận hành)
+    @Transactional
+    public void checkInBooking(int bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Chỉ được Check-in đơn ĐÃ XÁC NHẬN");
+        }
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        bookingRepo.save(booking);
+    }
+
+    // 4. CHECK-OUT (Hoàn tất)
+    @Transactional
+    public void checkOutBooking(int bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+        // Cho phép checkout nếu đang ở hoặc đã confirm (quên checkin)
+        if (booking.getStatus() != BookingStatus.CHECKED_IN && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Trạng thái không hợp lệ để Check-out");
+        }
+        booking.setStatus(BookingStatus.COMPLETED);
+        bookingRepo.save(booking);
     }
 
     // ================================

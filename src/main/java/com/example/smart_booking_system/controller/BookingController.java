@@ -5,6 +5,7 @@ import com.example.smart_booking_system.dto.request.BookingRequestDTO;
 import com.example.smart_booking_system.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,12 +35,7 @@ public class BookingController {
     // ==========================================
     @PutMapping("/cancel/{bookingId}")
     public ResponseEntity<?> cancelBooking(@PathVariable int bookingId) {
-        try {
-            BookingResponseDTO result = bookingService.cancelBooking(bookingId);
-            return ResponseEntity.ok(result);
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Cancel booking failed: " + ex.getMessage());
-        }
+        return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 
     // ==========================================
@@ -98,11 +94,27 @@ public class BookingController {
     // GET ALL BOOKINGS (ADMIN)
     // ==========================================
     @GetMapping("")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllBookings() {
         try {
             return ResponseEntity.ok(bookingService.getAllBookings());
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body("Get all bookings failed: " + ex.getMessage());
         }
+    }
+
+    @PutMapping("/{bookingId}/check-in")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> checkIn(@PathVariable int bookingId) {
+        bookingService.checkInBooking(bookingId);
+        return ResponseEntity.ok("Check-in thành công");
+    }
+
+    // Check-out (Mới - Thay thế logic checkout cũ)
+    @PutMapping("/{bookingId}/check-out")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<?> checkOut(@PathVariable int bookingId) {
+        bookingService.checkOutBooking(bookingId);
+        return ResponseEntity.ok("Check-out thành công");
     }
 }
