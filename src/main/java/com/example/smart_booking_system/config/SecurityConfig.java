@@ -81,6 +81,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/properties/search").permitAll()
                         .requestMatchers("/api/v1/properties/featured").permitAll()
                         .requestMatchers("/api/v1/properties/{id}").permitAll()
+                        .requestMatchers("/api/v1/reviews/properties/**").permitAll()
 
                         // === BẮT ĐẦU SỬA LỖI ===
                         // ===== 2. GENERAL AUTHENTICATED ROUTES =====
