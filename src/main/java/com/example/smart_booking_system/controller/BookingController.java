@@ -111,10 +111,14 @@ public class BookingController {
     }
 
     // Check-out (Mới - Thay thế logic checkout cũ)
-    @PutMapping("/{bookingId}/check-out")
-    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    @PutMapping("/checkout/{bookingId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> checkOut(@PathVariable int bookingId) {
-        bookingService.checkOutBooking(bookingId);
-        return ResponseEntity.ok("Check-out thành công");
+        try {
+            bookingService.checkOutBooking(bookingId);
+            return ResponseEntity.ok("Check-out thành công!");
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body("Check-out thất bại: " + ex.getMessage());
+        }
     }
 }
