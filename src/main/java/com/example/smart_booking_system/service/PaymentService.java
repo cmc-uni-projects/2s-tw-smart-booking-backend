@@ -105,7 +105,7 @@ public class PaymentService {
         payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
         paymentRepo.save(payment);
 
-        return ApiResponse.success("Gửi yêu cầu hoàn tiền thành công. Admin sẽ sớm xử lý.", null);
+        return ApiResponse.success("Gửi yêu cầu thành công", new PaymentResponseDTO(payment, refund));
     }
 
     // =================================================================
