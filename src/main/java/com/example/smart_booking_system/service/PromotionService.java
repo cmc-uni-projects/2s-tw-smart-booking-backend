@@ -166,7 +166,7 @@ public class PromotionService {
         }
 
         // 3. Lưu file mới
-        String newBannerPath = fileStorageService.storeImageFile(file, "promotions");
+        String newBannerPath = fileStorageService.storeImageFile(file, "campaign-images");
 
         // 4. Cập nhật đường dẫn vào DB
         p.setBannerUrl(newBannerPath);
