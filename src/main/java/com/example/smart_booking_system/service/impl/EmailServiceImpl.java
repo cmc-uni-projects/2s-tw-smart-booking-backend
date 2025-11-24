@@ -195,4 +195,34 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("❌ Failed to send payment reminder email", e);
         }
     }
+
+    @Override
+    public void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId) {
+        try {
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+
+            String htmlContent = templateEngine.process("email/cancellation-request", context);
+            sendHtmlEmailInternal(toEmail, "TravelMate - Đã nhận yêu cầu hủy phòng #" + bookingId, htmlContent);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi mail cancellation-request: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount) {
+        try {
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("refundAmount", refundAmount);
+            context.setVariable("penaltyAmount", penaltyAmount);
+
+            String htmlContent = templateEngine.process("email/cancellation-success", context);
+            sendHtmlEmailInternal(toEmail, "TravelMate - Hủy phòng thành công #" + bookingId, htmlContent);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi mail cancellation-success: " + e.getMessage());
+        }
+    }
 }

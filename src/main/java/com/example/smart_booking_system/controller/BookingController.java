@@ -43,6 +43,20 @@ public class BookingController {
     }
 
     // ==========================================
+    // ADMIN APPROVE REFUND (Duyệt hoàn tiền)
+    // ==========================================
+    @PutMapping("/approve-refund/{bookingId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> approveRefund(@PathVariable int bookingId) {
+        try {
+            bookingService.approveRefund(bookingId);
+            return ResponseEntity.ok("Đã duyệt hoàn tiền và gửi mail thành công!");
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body("Approve refund failed: " + ex.getMessage());
+        }
+    }
+
+    // ==========================================
     // GET BOOKING BY ID
     // ==========================================
     @GetMapping("/{bookingId}")

@@ -2,19 +2,28 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Xác nhận nộp đơn - TravelMate</title>
+    <title>Hủy phòng thành công - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
+
         /* HEADER CHUẨN MỚI */
         .header { background-color: #ffffff; border-bottom: 3px solid #00a8e8; text-align: center; padding: 45px 45px; line-height: 0; font-size: 0; }
         .header img { width: 300px; max-width: 100%; height: auto; display: block; margin: 0 auto; border: 0; }
+
         /* CONTENT */
         .content { padding: 35px 30px; line-height: 1.7; font-size: 15px; }
-        .content h2 { color: #006494; margin-bottom: 10px; margin-top: 0; font-size: 24px; }
+        .content h2 { color: #dc3545; margin-bottom: 10px; margin-top: 0; font-size: 24px; } /* Màu đỏ tiêu đề cho việc Hủy */
         .content p { margin-bottom: 20px; font-size: 15px; color: #444; }
+
         .info-box { font-size: 14px; color: #333; background: #f1faff; padding: 20px; border-radius: 8px; border: 1px solid #d1ecf1; line-height: 1.8; }
+
+        /* Highlight amounts */
+        .text-success { color: #28a745; font-weight: bold; }
+        .text-danger { color: #dc3545; font-weight: bold; }
+
         .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; line-height: 1.5; }
+
         @media (max-width: 600px) { .content { padding: 25px 20px; } }
     </style>
 </head>
@@ -24,14 +33,21 @@
         <a href="#"><img src="https://media.discordapp.net/attachments/1438876431189938352/1442361962075000893/Untitled.png?ex=692527c1&is=6923d641&hm=0f6fa1d40e3820d45b09841c06e18362d573390aa88fc9c2578edf60bcf42827&=&format=webp&quality=lossless" alt="logo-travelmate" border="0"></a>
     </div>
     <div class="content">
-        <h2>Xin chào <strong th:text="${applicantName}">Bạn</strong>,</h2>
-        <p>Chúng tôi xác nhận đã nhận được đơn đăng ký trở thành chủ khách sạn của bạn tại hệ thống <strong>TravelMate</strong>.</p>
-        <p>Đơn của bạn hiện đang ở trạng thái <strong>Chờ xử lý (PENDING)</strong>. Chúng tôi sẽ xem xét hồ sơ và phản hồi qua email trong thời gian sớm nhất.</p>
+        <h2>Hủy phòng thành công</h2>
+        <p>Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
+        <p>Yêu cầu hủy phòng cho đơn <strong>#<span th:text="${bookingId}"></span></strong> của bạn đã được Admin xử lý thành công.</p>
+
         <div class="info-box">
-            <strong style="color: #006494;">Chi tiết đơn:</strong><br>
-            <strong>Số đơn:</strong> <span th:text="${applicationId}">[ID Đơn]</span><br>
-            <strong>Ngày nộp:</strong> <span th:text="${submittedAt}">[Ngày nộp]</span>
+            <strong style="color: #006494; font-size: 16px;">Chi tiết hoàn tiền:</strong>
+            <hr style="border: 0; border-top: 1px dashed #d1ecf1; margin: 10px 0;">
+
+            <strong>Trạng thái:</strong> <span class="text-danger">❌ Đã hủy</span><br>
+            <strong>Phí phạt hủy phòng:</strong> <span class="text-danger" th:text="${penaltyAmount}">0</span> VND<br>
+            <strong>Số tiền hoàn lại:</strong> <span class="text-success" th:text="${refundAmount}">0</span> VND
         </div>
+
+        <p style="margin-top: 20px;">Số tiền hoàn lại (nếu có) sẽ được chuyển vào tài khoản thanh toán của bạn trong khoảng thời gian tối đa 10 ngày.</p>
+        <p style="font-size: 13px; color: #888;">Cảm ơn bạn đã sử dụng dịch vụ của TravelMate.</p>
     </div>
     <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
