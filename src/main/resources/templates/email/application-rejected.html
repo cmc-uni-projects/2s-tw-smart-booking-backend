@@ -2,67 +2,37 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Đơn đã bị từ chối - TravelMate</title>
     <style>
-        /* (CSS giữ nguyên như cũ) */
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f9fb; margin: 0; padding: 0; color: #333;
-        }
-        .container {
-            max-width: 600px; margin: 40px auto; background-color: #ffffff;
-            border-radius: 12px; overflow: hidden;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3;
-        }
-        .header {
-            background: linear-gradient(135deg, #00a8e8, #006494);
-            color: #ffffff; text-align: center; padding: 30px 20px;
-        }
-        .header img { width: 100px; margin-bottom: 10px; }
-        .content { padding: 35px 30px; line-height: 1.7; }
-        .content h2 {
-            color: #dc3545; /* Đỏ */
-            margin-bottom: 10px;
-        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
+        /* HEADER CHUẨN MỚI */
+        .header { background-color: #ffffff; border-bottom: 3px solid #00a8e8; text-align: center; padding: 45px 45px; line-height: 0; font-size: 0; }
+        .header img { width: 300px; max-width: 100%; height: auto; display: block; margin: 0 auto; border: 0; }
+        /* CONTENT */
+        .content { padding: 35px 30px; line-height: 1.7; font-size: 15px; }
+        .content h2 { color: #dc3545; /* Đỏ */ margin-bottom: 10px; margin-top: 0; font-size: 24px; }
         .content p { margin-bottom: 20px; font-size: 15px; color: #444; }
-        .reason-box {
-            font-size: 14px; color: #333; background: #fcf1f1;
-            padding: 20px; border-radius: 8px; border: 1px solid #f5c6cb;
-            line-height: 1.8;
-        }
-        .footer {
-            background-color: #f7f9fa; text-align: center; padding: 20px;
-            font-size: 12px; color: #888; border-top: 1px solid #e0e8ec;
-        }
+        .reason-box { font-size: 14px; color: #333; background: #fcf1f1; padding: 20px; border-radius: 8px; border: 1px solid #f5c6cb; line-height: 1.8; }
+        .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; line-height: 1.5; }
         @media (max-width: 600px) { .content { padding: 25px 20px; } }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <a href="#"><img src="https://i.ibb.co/Kx15sHvZ/logo-travelmate-xoafont.png" alt="logo-travelmate" border="0" style="width: 100px; margin-bottom: 10px;"></a>
+        <a href="#"><img src="https://media.discordapp.net/attachments/1438876431189938352/1442094693231104060/z7254338972068_61b118de8e5e763a9da948f638e27371.png?ex=6924d797&is=69238617&hm=cc7f93af942f489ed9223dc35f3b767869251f5ae8d836f4bbacd84899605f53&=&format=webp&quality=lossless" alt="logo-travelmate" border="0"></a>
     </div>
-
     <div class="content">
-        <h2 style="color: #dc3545;">❌ Xin chào <strong th:text="${applicantName}">Bạn</strong>, Đơn đã bị TỪ CHỐI.</h2>
-
-        <p>
-            Chúng tôi rất tiếc phải thông báo, đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã bị <strong>TỪ CHỐI</strong>.
-        </p>
-        <p>
-            Bạn có thể nộp lại đơn đăng ký mới (sử dụng chức năng "Nộp đơn" trên hệ thống) với thông tin chính xác hơn.
-        </p>
-
+        <h2>❌ Xin chào <strong th:text="${applicantName}">Bạn</strong>, Đơn đã bị TỪ CHỐI.</h2>
+        <p>Chúng tôi rất tiếc phải thông báo, đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã bị <strong>TỪ CHỐI</strong>.</p>
+        <p>Bạn có thể nộp lại đơn đăng ký mới (sử dụng chức năng "Nộp đơn" trên hệ thống) với thông tin chính xác hơn.</p>
         <div class="reason-box">
             <strong style="color: #dc3545;">Lý do từ chối:</strong>
             <p style="margin: 5px 0 0 0; color: #555;" th:text="${reason}">Thông tin cung cấp chưa rõ ràng.</p>
         </div>
     </div>
-
-    <div class="footer">
-        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
-    </div>
+    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>

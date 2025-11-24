@@ -22,12 +22,12 @@ public class OwnerApplicationDTO {
     private LocalDateTime reviewedAt;
     private String adminReason;
 
-    // --- Thông tin người nộp (User) ---
+
     private String applicantId;
     private String applicantFullName;
     private String applicantEmail;
 
-    // ✅ THÊM 2 TRƯỜNG NÀY
+
     private String applicantPhoneNumber;
     private String applicantAvatar;
     private LocalDate applicantDob;

@@ -39,7 +39,6 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         OwnerApplication application = new OwnerApplication();
 
-        // Code của bạn CHÍNH XÁC
         application.setUserId(applicant);
 
         application.setPermanentAddress(submitDTO.getPermanentAddress());
@@ -74,14 +73,12 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         return convertToDTO(savedApp);
     }
 
-    // ===== HÀM BỊ THIẾU MÀ ADMIN CONTROLLER CẦN =====
     @Override
     @Transactional(readOnly = true)
     public List<OwnerApplicationDTO> getPendingOwnerApplications() {
         // Hàm này chỉ cần gọi hàm getApplicationsByStatus của bạn
         return this.getApplicationsByStatus(ApplicationStatus.PENDING);
     }
-    // ===============================================
 
     @Override
     @Transactional(readOnly = true)
@@ -101,18 +98,25 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         if (application.getStatus() != ApplicationStatus.PENDING) {
             throw new IllegalStateException("Đơn này đã được xử lý rồi.");
         }
-        ApplicationStatus newStatus = ApplicationStatus.valueOf(reviewDTO.getStatus().toUpperCase());
+
+        ApplicationStatus newStatus = reviewDTO.getStatus();
+        if (newStatus == null) {
+            throw new IllegalArgumentException("Trạng thái mới không được để trống.");
+        }
+
+        if (newStatus != ApplicationStatus.APPROVED && newStatus != ApplicationStatus.REJECTED) {
+            throw new IllegalArgumentException("Chỉ được phép cập nhật trạng thái thành APPROVED hoặc REJECTED.");
+        }
+
         application.setAdminReason(reviewDTO.getReason());
         application.setStatus(newStatus);
         application.setReviewedAt(LocalDateTime.now());
         application.setReviewedBy(admin);
 
-        // Code của bạn CHÍNH XÁC
         User applicant = application.getUserId();
 
         if (newStatus == ApplicationStatus.APPROVED) {
             if (applicant == null) throw new EntityNotFoundException("Không tìm thấy người nộp đơn.");
-
 
             Role ownerRole = roleRepository.findByRoleName("OWNER")
                     .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy ROLE_OWNER"));
@@ -146,7 +150,6 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         dto.setReviewedAt(app.getReviewedAt());
         dto.setAdminReason(app.getAdminReason());
 
-        // --- MAPPING THÔNG TIN NGƯỜI DÙNG ---
         if (app.getUserId() != null) {
             User applicant = app.getUserId();
             dto.setApplicantId(applicant.getUserId());

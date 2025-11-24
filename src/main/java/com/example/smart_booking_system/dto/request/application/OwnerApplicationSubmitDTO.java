@@ -11,7 +11,7 @@ import java.time.LocalDate;
 @Data
 public class OwnerApplicationSubmitDTO {
 
-    // --- CÁC TRƯỜNG BỔ SUNG TỪ FRONTEND ---
+
     @NotBlank(message = "Họ tên không được để trống")
     private String personalFullName;
 
@@ -25,14 +25,14 @@ public class OwnerApplicationSubmitDTO {
     @NotBlank(message = "Số CCCD/Passport không được để trống")
     private String personalIdCard;
 
-    private LocalDate personalDob; // Backend sẽ tự parse từ ISO String "yyyy-MM-dd"
+    private LocalDate personalDob;
 
-    // --- CÁC TRƯỜNG ĐÃ CÓ (Đổi tên cho khớp) ---
+
     @NotBlank(message = "Địa chỉ thường trú không được để trống")
-    private String permanentAddress; // Frontend đang gửi 'personalAddress'
+    private String permanentAddress;
 
     @NotBlank(message = "Quê quán không được để trống")
-    private String hometownAddress; // Frontend đang gửi 'personalHometown'
+    private String hometownAddress;
 
     @NotBlank(message = "Ảnh mặt trước CCCD không được để trống")
     @URL(message = "URL ảnh mặt trước không hợp lệ")

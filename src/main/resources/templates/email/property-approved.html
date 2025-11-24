@@ -4,39 +4,34 @@
     <meta charset="UTF-8" />
     <title>Cơ sở được duyệt - TravelMate</title>
     <style>
-        /* (CSS giống như các email template khác) */
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
-        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.08); border: 1px solid #e3eef3; }
-        .header { background: linear-gradient(135deg, #00a8e8, #006494); color: #ffffff; text-align: center; padding: 30px 20px; }
-        .header img { width: 100px; margin-bottom: 10px; }
-        .content { padding: 35px 30px; line-height: 1.7; }
-        .content h2 { color: #28a745; margin-bottom: 10px; } /* Xanh lá */
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
+        /* HEADER CHUẨN MỚI */
+        .header { background-color: #ffffff; border-bottom: 3px solid #00a8e8; text-align: center; padding: 45px 45px; line-height: 0; font-size: 0; }
+        .header img { width: 300px; max-width: 100%; height: auto; display: block; margin: 0 auto; border: 0; }
+        /* CONTENT */
+        .content { padding: 35px 30px; line-height: 1.7; font-size: 15px; }
+        .content h2 { color: #28a745; /* Xanh lá */ margin-bottom: 10px; margin-top: 0; font-size: 24px; }
         .content p { margin-bottom: 20px; font-size: 15px; color: #444; }
         .reason-box { font-size: 14px; background: #f1faf1; padding: 20px; border-radius: 8px; border: 1px solid #c8e6c9; line-height: 1.8; }
-        .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; }
+        .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; line-height: 1.5; }
+        @media (max-width: 600px) { .content { padding: 25px 20px; } }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <a href="#"><img src="https://i.ibb.co/Kx15sHvZ/logo-travelmate-xoafont.png" alt="logo-travelmate" border="0" style="width: 100px; margin-bottom: 10px;"></a>
+        <a href="#"><img src="https://media.discordapp.net/attachments/1438876431189938352/1442094693231104060/z7254338972068_61b118de8e5e763a9da948f638e27371.png?ex=6924d797&is=69238617&hm=cc7f93af942f489ed9223dc35f3b767869251f5ae8d836f4bbacd84899605f53&=&format=webp&quality=lossless" alt="logo-travelmate" border="0"></a>
     </div>
     <div class="content">
-        <h2 style="color: #28a745;">
-            ✅ Chúc mừng <strong th:text="${ownerName}">Chủ cơ sở</strong>!
-        </h2>
-        <p>
-            Cơ sở lưu trú của bạn, <strong><span th:text="${propertyName}">[Tên cơ sở]</span></strong>, đã được <strong>DUYỆT</strong> và hiện đã
-            chính thức hiển thị trên hệ thống <strong>TravelMate</strong>.
-        </p>
+        <h2>✅ Chúc mừng <strong th:text="${ownerName}">Chủ cơ sở</strong>!</h2>
+        <p>Cơ sở lưu trú của bạn, <strong><span th:text="${propertyName}">[Tên cơ sở]</span></strong>, đã được <strong>DUYỆT</strong> và hiện đã chính thức hiển thị trên hệ thống <strong>TravelMate</strong>.</p>
         <div class="reason-box">
             <strong style="color: #28a745;">Ghi chú từ Admin:</strong>
             <p style="margin: 5px 0 0 0; color: #555;" th:text="${reason}">Thông tin cơ sở đầy đủ và hợp lệ.</p>
         </div>
     </div>
-    <div class="footer">
-        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
-    </div>
+    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>

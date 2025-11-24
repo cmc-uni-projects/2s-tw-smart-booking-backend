@@ -1,15 +1,19 @@
 package com.example.smart_booking_system.dto.request.admin;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import com.example.smart_booking_system.enums.ApplicationStatus;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class OwnerApplicationReviewDTO {
 
-    @NotBlank(message = "Trạng thái không được để trống")
-    @Pattern(regexp = "APPROVED|REJECTED", message = "Trạng thái phải là APPROVED hoặc REJECTED")
-    private String status;
+    @NotNull(message = "Trạng thái không được để trống")
+    private ApplicationStatus status;
 
     private String reason;
+
+    public boolean isValidForReview() {
+        return this.status == ApplicationStatus.APPROVED
+                || this.status == ApplicationStatus.REJECTED;
+    }
 }
