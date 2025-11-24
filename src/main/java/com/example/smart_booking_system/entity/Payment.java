@@ -33,6 +33,7 @@ public class Payment {
     private String paymentEvidenceUrl;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 50)
     private PaymentStatus paymentStatus;
 
     @Lob
