@@ -145,8 +145,9 @@ public class BookingService {
     }
 
     // ================================
-    // CANCEL BOOKING (chặt chẽ + safe)
+    // CANCEL BOOKING (User thực hiện)
     // ================================
+    @Transactional
     public BookingResponseDTO cancelBooking(int bookingId) {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
@@ -155,6 +156,7 @@ public class BookingService {
             throw new RuntimeException("Booking already cancelled");
         }
 
+        // --- 1. Logic tính toán hoàn tiền (Lấy từ code gốc của bạn) ---
         PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
 
@@ -166,7 +168,7 @@ public class BookingService {
             if (freeDays < 0) freeDays = 0;
 
             LocalDate deadline = booking.getCheckInDate().minusDays(freeDays);
-            // allow free if today is on or before the deadline (inclusive)
+            // Cho phép hủy miễn phí nếu hôm nay <= deadline
             if (!today.isAfter(deadline)) {
                 allowFree = true;
             }
@@ -178,26 +180,81 @@ public class BookingService {
             booking.setPenaltyAmount(BigDecimal.ZERO);
             refundAmount = booking.getTotalPrice();
         } else {
+            // Phạt 20% nếu hủy muộn
             BigDecimal penalty = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.20));
             booking.setPenaltyAmount(penalty);
             refundAmount = booking.getTotalPrice().subtract(penalty);
         }
 
         booking.setRefundAmount(refundAmount);
-        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setStatus(BookingStatus.CANCELLED); // Đã hủy booking
         bookingRepo.save(booking);
 
-        // --- 2. Cập nhật thông tin hoàn tiền vào Payment ---
+        // --- 2. Cập nhật Payment (Ghi chú chờ hoàn tiền) ---
         paymentRepo.findByBooking_BookingId(bookingId).ifPresent(payment -> {
             payment.setRefundedAmount(refundAmount);
-
             String oldNote = payment.getNote() != null ? payment.getNote() : "";
-            payment.setNote(oldNote + " | Đã hoàn " + refundAmount + " VND ngày " + LocalDateTime.now());
-
+            // Ghi chú để Admin biết cần hoàn bao nhiêu
+            payment.setNote(oldNote + " | Khách yêu cầu hủy, CHỜ HOÀN: " + refundAmount + " VND");
             paymentRepo.save(payment);
         });
 
+        // --- 3. Gửi Email 1: Thông báo đã nhận yêu cầu hủy ---
+        try {
+            if (booking.getUser() != null) {
+                emailService.sendCancellationRequestReceivedEmail(
+                        booking.getUser().getEmail(),
+                        booking.getUser().getFullName(),
+                        String.valueOf(booking.getBookingId())
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi mail request cancel: " + e.getMessage());
+        }
+
         return convertToDTO(booking);
+    }
+
+    // ================================
+    // APPROVE REFUND (Admin thực hiện)
+    // ================================
+    @Transactional
+    public void approveRefund(int bookingId) {
+        // 1. Tìm Booking
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
+
+        // 2. Tìm Payment liên quan
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
+                .orElseThrow(() -> new RuntimeException("Payment info not found for booking: " + bookingId));
+
+        // 3. Kiểm tra logic (chỉ duyệt nếu Booking đã hủy)
+        if (booking.getStatus() != BookingStatus.CANCELLED) {
+            throw new RuntimeException("Chỉ có thể hoàn tiền cho đơn đã Hủy (CANCELLED)");
+        }
+
+        // 4. Cập nhật trạng thái Payment thành REFUNDED
+        // (Nhớ import com.example.smart_booking_system.enums.PaymentStatus)
+        payment.setPaymentStatus(com.example.smart_booking_system.enums.PaymentStatus.REFUNDED);
+        payment.setConfirmedDate(LocalDateTime.now()); // Cập nhật ngày thực hiện hoàn tiền
+        payment.setNote(payment.getNote() + " | Admin đã duyệt hoàn tiền ngày " + LocalDateTime.now());
+
+        paymentRepo.save(payment);
+
+        // ✅ [BƯỚC 2 - THÊM MỚI] Gửi Email 2: Xác nhận hoàn tiền thành công
+        try {
+            if (booking.getUser() != null) {
+                emailService.sendCancellationSuccessEmail(
+                        booking.getUser().getEmail(),
+                        booking.getUser().getFullName(),
+                        String.valueOf(booking.getBookingId()),
+                        String.format("%,.0f", booking.getRefundAmount()), // Số tiền hoàn
+                        String.format("%,.0f", booking.getPenaltyAmount()) // Phí phạt
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi mail success refund: " + e.getMessage());
+        }
     }
 
     // ================================

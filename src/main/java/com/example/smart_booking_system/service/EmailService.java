@@ -16,4 +16,8 @@ public interface EmailService {
     void sendHtmlEmail(String to, String subject, String templateName, Context context);
 
     void sendPaymentReminderEmail(String toEmail, String fullName, String bookingId, String totalPrice);
+
+    void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId);
+
+    void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount);
 }
