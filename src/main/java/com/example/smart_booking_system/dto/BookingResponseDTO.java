@@ -33,6 +33,8 @@ public class BookingResponseDTO {
 
     private BookingStatus status;
     private String paymentStatus;
+    private String paymentMethod;
+    private String specialRequest;
 
     private UserSummaryDto user;
 

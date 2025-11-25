@@ -48,11 +48,16 @@ public class Booking {
     @Column(length = 50)
     private BookingStatus status;
 
-    // Sửa thành LocalDateTime
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    //Các trường tự nhập tay
+    private String customerName;  // Tên người nhận phòng
+    private String customerPhone; // SĐT liên hệ
+    private String customerEmail; // Email nhận vé
+    private String specialRequest; // Yêu cầu đặc biệt
 
     @PrePersist
     protected void onCreate() {
