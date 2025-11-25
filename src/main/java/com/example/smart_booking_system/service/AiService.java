@@ -169,8 +169,6 @@ public class AiService {
         return "";
     }
 
-    // Helper: Tạo văn bản mô tả kết quả
-    // Helper: Tạo văn bản mô tả kết quả
     // Helper: Tạo văn bản mô tả kết quả (FORMAT ĐẸP & TỰ NHIÊN)
     private String buildDataContext(List<Property> properties, String city, int capacity, LocalDate in, LocalDate out) {
         // Trường hợp 1: Không tìm thấy
