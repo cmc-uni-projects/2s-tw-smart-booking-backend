@@ -170,35 +170,47 @@ public class AiService {
     }
 
     // Helper: Tạo văn bản mô tả kết quả
-// Helper: Tạo văn bản mô tả kết quả
+    // Helper: Tạo văn bản mô tả kết quả
+    // Helper: Tạo văn bản mô tả kết quả (FORMAT ĐẸP & TỰ NHIÊN)
     private String buildDataContext(List<Property> properties, String city, int capacity, LocalDate in, LocalDate out) {
+        // Trường hợp 1: Không tìm thấy
         if (properties.isEmpty()) {
-            return "Hệ thống: Không còn phòng trống tại " + city + " từ " + in + " đến " + out + ". Hãy gợi ý khách đổi ngày hoặc địa điểm.";
+            return "HỆ THỐNG: Đã tìm kiếm nhưng KHÔNG CÓ phòng nào trống tại " + city +
+                    " cho " + capacity + " người từ ngày " + in + " đến " + out + ".\n" +
+                    "YÊU CẦU: Hãy báo lại cho khách tin buồn này một cách khéo léo, và gợi ý khách thử đổi ngày hoặc tìm địa điểm lân cận.";
         }
-        StringBuilder sb = new StringBuilder();
-        sb.append("🔴 MỆNH LỆNH TỐI CAO TỪ HỆ THỐNG (SYSTEM OVERRIDE):\n");
-        sb.append("1. TÔI ĐÃ TÌM THẤY ").append(properties.size()).append(" KẾT QUẢ. BẠN PHẢI HIỂN THỊ CHÚNG NGAY LẬP TỨC.\n");
-        sb.append("2. KHÔNG ĐƯỢC HỎI LẠI KHÁCH là 'có muốn xem không'.\n");
-        sb.append("3. KHÔNG ĐƯỢC TÓM TẮT (Ví dụ: 'tôi tìm thấy vài nơi...'). PHẢI LIỆT KÊ CHI TIẾT.\n");
-        sb.append("4. TRÌNH BÀY ĐẸP (Dùng HTML <b>, <br>, <ul>).\n");
-        sb.append("--------------------------------------------------\n");
-        sb.append("DANH SÁCH DỮ LIỆU CẦN HIỂN THỊ:\n\n");
 
+        // Trường hợp 2: Có dữ liệu -> Format đẹp
+        StringBuilder sb = new StringBuilder();
+
+        // Câu lệnh "thôi miên" AI để nó không nói linh tinh
+        sb.append("HỆ THỐNG: Đã tìm thấy ").append(properties.size()).append(" kết quả tốt nhất. ");
+        sb.append("NHIỆM VỤ CỦA BẠN: Hãy trả lời khách hàng bằng giọng điệu niềm nở, và hiển thị danh sách bên dưới Y HỆT format này (dùng HTML để in đậm):\n\n");
+
+        int index = 1;
         for (Property p : properties.subList(0, Math.min(properties.size(), 5))) {
-            sb.append("1. Tên: ").append(p.getPropertyName()).append(" (").append(p.getRating()).append(" sao)\n");
+            // Dòng 1: Tên + Rating
+            sb.append(index++).append(". <b>").append(p.getPropertyName()).append("</b> (").append(p.getRating()).append(" sao)\n");
+
+            // Dòng 2: Đánh giá chi tiết
             sb.append("   - Đánh giá: ").append(p.getRating()).append(" ⭐ (").append(p.getReviewCount()).append(" review)\n");
+
+            // Dòng 3: Địa chỉ
             sb.append("   - Địa chỉ: ").append(p.getAddress()).append("\n");
 
-            // Lấy danh sách phòng
+            // Dòng 4: Các phòng trống (Dùng stream để nối chuỗi)
             sb.append("   - Các phòng trống: ");
-            p.getRooms().forEach(r -> {
-                if (r.isActive() && r.getCapacity() >= capacity) {
-                    sb.append(r.getRoomName()).append(" (Giá: ").append(r.getPricePerNight()).append(" VNĐ), ");
-                }
-            });
-            sb.append("\n(KHÁCH KHÔNG BIẾT DỮ LIỆU HÃY CHO KHÁCH XEM)");
-            sb.append("\n(HÃY TRẢ LỜI KHÁCH NGAY BẰNG DANH SÁCH TRÊN. KHÔNG NÓI NHIỀU)");
+            List<String> roomInfos = p.getRooms().stream()
+                    .filter(r -> r.isActive() && r.getCapacity() >= capacity) // Lọc phòng phù hợp
+                    .map(r -> String.format("%s (Giá: %,.0f VNĐ)", r.getRoomName(), r.getPricePerNight())) // Format số tiền có dấu phẩy
+                    .toList();
+
+            sb.append(String.join(", ", roomInfos)); // Nối các phòng bằng dấu phẩy
+            sb.append(".\n\n"); // Xuống dòng cách đoạn
         }
+
+        sb.append("(Cuối cùng, hãy hỏi khách: 'Anh/chị ưng ý chỗ nào để em hỗ trợ đặt phòng luôn ạ?')");
+
         return sb.toString();
     }
 
