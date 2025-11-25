@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Payment")
+@Table(name = "payment")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,39 +20,53 @@ public class Payment {
     private Integer paymentId;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bookingId", referencedColumnName = "bookingId", unique = true)
+    @JoinColumn(name = "booking_id", referencedColumnName = "bookingId", unique = true)
     private Booking booking;
 
-    @Column(nullable = false)
-    private String paymentMethod;
+    @Column(length = 100)
+    private String transactionReference; // Mã giao dịch VNPay/Momo
 
-    @Column(nullable = false)
-    private BigDecimal amount;
+    @Column(length = 50)
+    private String paymentMethod; // Nullable khi mới tạo
+
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal totalAmount;
 
     @Column(length = 512)
     private String paymentEvidenceUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 50)
+    @Column(length = 50, nullable = false)
     private PaymentStatus paymentStatus;
 
     @Lob
+    @Column(columnDefinition = "TEXT")
     private String note;
 
-    @Column(nullable = false)
     private LocalDateTime paymentDate;
 
     private LocalDateTime confirmedDate;
 
-    @Column(columnDefinition = "decimal(10,2)")
+    @Column(precision = 15, scale = 2)
     private BigDecimal refundedAmount;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(insertable = false)
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (paymentStatus == null) paymentStatus = PaymentStatus.APPROVED;
+        this.createdAt = LocalDateTime.now();
+        // Mặc định là PENDING (Chờ khách trả tiền)
+        if (this.paymentStatus == null) {
+            this.paymentStatus = PaymentStatus.PENDING;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

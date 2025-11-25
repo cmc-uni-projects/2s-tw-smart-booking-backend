@@ -21,6 +21,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         System.out.println("=== CONFIGURING STATIC RESOURCES ===");
         System.out.println("Storage Path: " + resourceLocation);
 
+        if (!resourceLocation.endsWith("/")) {
+            resourceLocation += "/";
+        }
+
         // ✅ 1. Hỗ trợ đường dẫn chuẩn mới (/uploads/**)
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(resourceLocation);

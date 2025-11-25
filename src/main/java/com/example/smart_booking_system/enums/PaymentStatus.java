@@ -1,9 +1,9 @@
 package com.example.smart_booking_system.enums;
 
 public enum PaymentStatus {
-    PENDING,            // Chờ thanh toán
-    APPROVED,           // Đã thanh toán thành công
-    REJECTED,           // Thanh toán thất bại
-    REFUND_REQUESTED,   // Khách đã gửi yêu cầu hoàn tiền
-    REFUNDED            // Admin đã hoàn tiền xong
+    PENDING,            // 0: Chờ thanh toán
+    APPROVED,           // 1: Đã thanh toán (Tiền đã về Admin)
+    REJECTED,           // 2: Thanh toán lỗi/thất bại
+    REFUND_REQUESTED,   // 3: Khách đang yêu cầu hoàn tiền (Tiền bị treo)
+    REFUNDED            // 4: Admin đã hoàn tiền xong
 }
