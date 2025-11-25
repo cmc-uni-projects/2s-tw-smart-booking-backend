@@ -1,61 +1,63 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.request.RefundSubmitDTO;
-import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/payment")
+@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @PostMapping("/submit")
+    // 1. Khách thanh toán (Gọi sau khi Gateway trả về success hoặc nút "Thanh toán ngay")
+    @PostMapping("/{bookingId}/pay")
     public ResponseEntity<?> submitPayment(
-            @RequestParam("bookingId") int bookingId,
-            @RequestParam(value = "note", required = false) String note
+            @PathVariable int bookingId,
+            @RequestParam(defaultValue = "Online Banking") String method,
+            @RequestParam(required = false) String note
     ) {
-        try {
-            return ResponseEntity.ok(paymentService.submitPayment(bookingId, note));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(paymentService.submitPayment(bookingId, note, method));
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getUserHistory(@PathVariable String userId) {
+    // 2. Lịch sử giao dịch của User đang login
+    @GetMapping("/my-history")
+    public ResponseEntity<?> getMyHistory() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        // Giả sử principal trả về userId hoặc username
+        String userId = auth.getName();
+        // Nếu bạn dùng CustomUserDetails thì ép kiểu: ((CustomUserDetails) auth.getPrincipal()).getUserId()
+
         return ResponseEntity.ok(paymentService.getUserTransactionHistory(userId));
     }
 
-    @PostMapping("/refund/{bookingId}")
-    public ResponseEntity<?> refundPayment(@PathVariable int bookingId) {
-        try {
-            return ResponseEntity.ok(paymentService.processRefund(bookingId));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
-    }
-
-    @PostMapping("/request-refund/{bookingId}")
-    public ResponseEntity<?> requestRefund(
-            @PathVariable int bookingId,
-            @RequestBody RefundSubmitDTO req
-    ) {
+    // 3. Gửi yêu cầu hoàn tiền (User)
+    @PostMapping("/{bookingId}/refund-request")
+    public ResponseEntity<?> requestRefund(@PathVariable int bookingId, @RequestBody RefundSubmitDTO req) {
         return ResponseEntity.ok(paymentService.requestRefundByUser(bookingId, req));
     }
 
-    @GetMapping("/all")
-    public ResponseEntity<?> getAllTransactions() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu thành công", paymentService.getAllTransactions()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+    // 4. Admin xử lý hoàn tiền
+    @PutMapping("/refund-process/{requestId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> processRefund(
+            @PathVariable int requestId,
+            @RequestParam boolean approve,
+            @RequestParam(required = false) String note
+    ) {
+        return ResponseEntity.ok(paymentService.processRefund(requestId, approve, note));
     }
 
+    // 5. Admin xem tất cả giao dịch
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllTransactions() {
+        return ResponseEntity.ok(paymentService.getAllTransactions());
+    }
 }

@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.example.smart_booking_system.enums.PaymentStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -35,89 +36,69 @@ public class BookingService {
     @Transactional
     public BookingResponseDTO createBooking(BookingRequestDTO req) {
 
-        // --- 1) basic existence checks ---
+        // --- 1) Kiểm tra tồn tại cơ bản ---
         User user = userRepo.findById(req.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found: " + req.getUserId()));
 
         Property property = propertyRepo.findById(req.getPropertyId())
                 .orElseThrow(() -> new RuntimeException("Property not found: " + req.getPropertyId()));
 
+        // Logic chọn Room (Giữ nguyên)
         boolean requiresWholeRoom =
                 property.getPropertyType() == PropertyType.VILLA ||
                         property.getPropertyType() == PropertyType.HOMESTAY;
 
         Room room;
-
-        // --- 2) choose room depending on property type ---
         if (requiresWholeRoom) {
-            // FE must not send roomId for Villa/Homestay
             if (req.getRoomId() != null) {
                 throw new RuntimeException("Do not send roomId for Villa/Homestay. Booking is always the WHOLE room.");
             }
-
             room = roomRepo.findByPropertyIdAndCategory(req.getPropertyId(), RoomCategory.WHOLE)
-                    .orElseThrow(() -> new RuntimeException("Whole room (category=WHOLE) not found for property " + req.getPropertyId()));
+                    .orElseThrow(() -> new RuntimeException("Whole room not found for property " + req.getPropertyId()));
         } else {
-            // HOTEL / RESORT: require roomId and membership to property
             if (req.getRoomId() == null) {
                 throw new RuntimeException("roomId is required for HOTEL/RESORT booking");
             }
-
             room = roomRepo.findById(req.getRoomId())
                     .orElseThrow(() -> new RuntimeException("Room not found: " + req.getRoomId()));
 
             if (room.getPropertyId() == null || room.getPropertyId().getPropertyId() != req.getPropertyId()) {
-                throw new RuntimeException("Room does not belong to the given property (roomId=" + req.getRoomId() + ", propertyId=" + req.getPropertyId() + ")");
+                throw new RuntimeException("Room does not belong to the given property");
             }
         }
 
-        // --- 3) guestCount validation (required for all types now) ---
-        if (req.getGuestCount() == null) {
-            throw new RuntimeException("guestCount is required for booking");
-        }
-        if (req.getGuestCount() <= 0) {
+        // --- 3) Validate Guest (Giữ nguyên) ---
+        if (req.getGuestCount() == null || req.getGuestCount() <= 0) {
             throw new RuntimeException("guestCount must be greater than 0");
         }
-
-        Integer capacity = room.getCapacity();
-        if (capacity == null) {
-            throw new RuntimeException("Room capacity is not set for roomId: " + room.getRoomId());
-        }
-        if (req.getGuestCount() > capacity) {
-            throw new RuntimeException("guestCount exceeds room capacity (guestCount=" + req.getGuestCount() + ", capacity=" + capacity + ")");
+        if (req.getGuestCount() > room.getCapacity()) {
+            throw new RuntimeException("guestCount exceeds room capacity");
         }
 
-        // --- 4) date validation ---
+        // --- 4) Validate Date (Giữ nguyên) ---
         if (req.getCheckInDate() == null || req.getCheckOutDate() == null) {
-            throw new RuntimeException("Check-in and check-out dates are required");
+            throw new RuntimeException("Dates are required");
         }
         if (!req.getCheckInDate().isBefore(req.getCheckOutDate())) {
             throw new RuntimeException("checkInDate must be before checkOutDate");
         }
 
-        // --- 5) overlapping bookings check (only CONFIRMED) ---
+        // --- 5) Check Overlapping (Giữ nguyên) ---
         List<Booking> overlapping = bookingRepo.findConfirmedOverlappingByRoomId(
-                room.getRoomId(),
-                req.getCheckInDate(),
-                req.getCheckOutDate()
+                room.getRoomId(), req.getCheckInDate(), req.getCheckOutDate()
         );
         if (!overlapping.isEmpty()) {
             throw new RuntimeException("Room is already booked in the selected dates");
         }
 
-        // --- 6) price calculation ---
+        // --- 6) Tính tiền (Giữ nguyên) ---
         long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
         if (nights <= 0) nights = 1;
+        BigDecimal total = room.getPricePerNight().multiply(BigDecimal.valueOf(nights));
 
-        BigDecimal pricePerNight = room.getPricePerNight();
-        if (pricePerNight == null) {
-            throw new RuntimeException("Room pricePerNight is not set for roomId: " + room.getRoomId());
-        }
-        BigDecimal total = pricePerNight.multiply(BigDecimal.valueOf(nights));
-
-        // --- 7) create booking ---
+        // --- 7) TẠO BOOKING & LƯU THÔNG TIN KHÁCH ---
         Booking booking = new Booking();
-        booking.setUser(user);
+        booking.setUser(user);          // Tài khoản đặt
         booking.setProperty(property);
         booking.setRoom(room);
         booking.setCheckInDate(req.getCheckInDate());
@@ -125,20 +106,47 @@ public class BookingService {
         booking.setGuestCount(req.getGuestCount());
         booking.setTotalPrice(total);
         booking.setPenaltyAmount(BigDecimal.ZERO);
-        booking.setRefundAmount(total);
+        booking.setRefundAmount(BigDecimal.ZERO); // Init bằng 0 thay vì total
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
+
+        // 🔥 [LOGIC MỚI] Xử lý thông tin người ở
+        if (req.isBookingForSelf()) {
+            // Nếu đặt cho mình: Lấy thông tin từ User Detail trong DB (đảm bảo chính xác)
+            booking.setCustomerName(user.getFullName());
+            booking.setCustomerPhone(user.getPhoneNumber());
+            booking.setCustomerEmail(user.getEmail());
+        } else {
+            // Nếu đặt hộ: Lấy thông tin người dùng nhập từ Form
+            if (req.getContactName() == null || req.getContactPhone() == null) {
+                throw new RuntimeException("Contact info is required when booking for others");
+            }
+            booking.setCustomerName(req.getContactName());
+            booking.setCustomerPhone(req.getContactPhone());
+            booking.setCustomerEmail(req.getContactEmail());
+        }
+        booking.setSpecialRequest(req.getSpecialRequest());
+
         bookingRepo.save(booking);
 
+        // --- 8) Tạo Payment PENDING (Giữ nguyên) ---
+        Payment payment = new Payment();
+        payment.setBooking(booking);
+        payment.setTotalAmount(total);
+        payment.setPaymentMethod(null);
+        payment.setPaymentStatus(PaymentStatus.PENDING);
+        payment.setCreatedAt(LocalDateTime.now());
+        paymentRepo.save(payment);
 
+        // Gửi email xác nhận đã nhận yêu cầu (Pending Payment)
         try {
             emailService.sendPaymentReminderEmail(
-                    user.getEmail(),
-                    user.getFullName(),
+                    booking.getCustomerEmail(), // Gửi vào email người ở (hoặc user.getEmail() tuỳ logic)
+                    booking.getCustomerName(),
                     String.valueOf(booking.getBookingId()),
                     booking.getTotalPrice().toString()
             );
         } catch (Exception e) {
-            System.err.println("Lỗi gửi email nhắc thanh toán: " + e.getMessage());
+            System.err.println("Lỗi gửi email: " + e.getMessage());
         }
 
         return convertToDTO(booking);
@@ -190,14 +198,6 @@ public class BookingService {
         booking.setStatus(BookingStatus.CANCELLED); // Đã hủy booking
         bookingRepo.save(booking);
 
-        // --- 2. Cập nhật Payment (Ghi chú chờ hoàn tiền) ---
-        paymentRepo.findByBooking_BookingId(bookingId).ifPresent(payment -> {
-            payment.setRefundedAmount(refundAmount);
-            String oldNote = payment.getNote() != null ? payment.getNote() : "";
-            // Ghi chú để Admin biết cần hoàn bao nhiêu
-            payment.setNote(oldNote + " | Khách yêu cầu hủy, CHỜ HOÀN: " + refundAmount + " VND");
-            paymentRepo.save(payment);
-        });
 
         // --- 3. Gửi Email 1: Thông báo đã nhận yêu cầu hủy ---
         try {
@@ -257,6 +257,29 @@ public class BookingService {
         }
     }
 
+    // 3. CHECK-IN (Vận hành)
+    @Transactional
+    public void checkInBooking(int bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Chỉ được Check-in đơn ĐÃ XÁC NHẬN");
+        }
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        bookingRepo.save(booking);
+    }
+
+    // 4. CHECK-OUT (Hoàn tất)
+    @Transactional
+    public void checkOutBooking(int bookingId) {
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+        // Cho phép checkout nếu đang ở hoặc đã confirm (quên checkin)
+        if (booking.getStatus() != BookingStatus.CHECKED_IN && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Trạng thái không hợp lệ để Check-out");
+        }
+        booking.setStatus(BookingStatus.COMPLETED);
+        bookingRepo.save(booking);
+    }
+
     // ================================
     // GET APIs
     // ================================
@@ -283,17 +306,21 @@ public class BookingService {
     // ================================
     private BookingResponseDTO convertToDTO(Booking b) {
         BookingResponseDTO dto = new BookingResponseDTO();
+
+        // 1. Payment Info (Lấy từ bảng Payment)
         Payment payment = paymentRepo.findByBooking_BookingId(b.getBookingId()).orElse(null);
         if (payment != null) {
             dto.setPaymentStatus(payment.getPaymentStatus().name());
+            // ✅ Map thêm Payment Method (Ví dụ: Momo, VNPay...)
+            dto.setPaymentMethod(payment.getPaymentMethod());
         }
 
-        // 1. Basic Info
+        // 2. Basic Info
         dto.setBookingId(b.getBookingId());
         dto.setPropertyId(b.getProperty().getPropertyId());
         dto.setRoomId(b.getRoom() != null ? b.getRoom().getRoomId() : null);
 
-        // 2. Date & Money
+        // 3. Date & Money
         dto.setCheckInDate(b.getCheckInDate());
         dto.setCheckOutDate(b.getCheckOutDate());
         dto.setGuestCount(b.getGuestCount());
@@ -302,21 +329,22 @@ public class BookingService {
         dto.setRefundAmount(b.getRefundAmount());
         dto.setStatus(b.getStatus());
 
+        // ✅ Map thêm Special Request
+        dto.setSpecialRequest(b.getSpecialRequest());
+
+        // 4. Map Property Info (Ảnh bìa, địa chỉ...)
         if (b.getProperty() != null) {
             dto.setPropertyName(b.getProperty().getPropertyName());
             dto.setPropertyAddress(b.getProperty().getAddress() + ", " + b.getProperty().getCity());
 
-            // --- LOGIC LẤY ẢNH BÌA ---
             String coverUrl = null;
             if (b.getProperty().getImages() != null && !b.getProperty().getImages().isEmpty()) {
-                // Tìm ảnh có isCover = true
                 coverUrl = b.getProperty().getImages().stream()
-                        .filter(img -> img.isCover())
+                        .filter(PropertyImage::isCover)
                         .findFirst()
-                        .map(img -> img.getImageUrl())
+                        .map(PropertyImage::getImageUrl)
                         .orElse(null);
 
-                // Nếu không set ảnh nào là cover thì lấy ảnh đầu tiên làm mặc định
                 if (coverUrl == null) {
                     coverUrl = b.getProperty().getImages().get(0).getImageUrl();
                 }
@@ -324,22 +352,33 @@ public class BookingService {
             dto.setPropertyImage(coverUrl);
         }
 
-
-        // ✅ 4. Map Room Info (Tên phòng)
+        // 5. Map Room Info
         if (b.getRoom() != null) {
             dto.setRoomName(b.getRoom().getRoomName());
         }
 
-        // ✅ 5. Map User Info (Quan trọng cho phần Liên hệ)
+        // ✅ 6. MAP USER INFO (QUAN TRỌNG NHẤT)
+        // Logic: Ưu tiên lấy thông tin "Customer" lưu trong Booking (người ở thực tế).
+        // Nếu Booking cũ chưa có, mới lấy từ User Account.
+
+        String finalName = b.getCustomerName();
+        String finalEmail = b.getCustomerEmail();
+        String finalPhone = b.getCustomerPhone();
+
+        // Fallback: Nếu trong Booking null thì lấy từ User gốc
         if (b.getUser() != null) {
-            BookingResponseDTO.UserSummaryDto userDto = new BookingResponseDTO.UserSummaryDto(
-                    b.getUser().getUserId(),
-                    b.getUser().getFullName(),
-                    b.getUser().getEmail(),
-                    b.getUser().getPhoneNumber()
-            );
-            dto.setUser(userDto);
+            if (finalName == null) finalName = b.getUser().getFullName();
+            if (finalEmail == null) finalEmail = b.getUser().getEmail();
+            if (finalPhone == null) finalPhone = b.getUser().getPhoneNumber();
         }
+
+        BookingResponseDTO.UserSummaryDto userDto = new BookingResponseDTO.UserSummaryDto(
+                b.getUser() != null ? b.getUser().getUserId() : null,
+                finalName,  // Tên người ở
+                finalEmail, // Email người ở
+                finalPhone  // SĐT người ở
+        );
+        dto.setUser(userDto);
 
         return dto;
     }
