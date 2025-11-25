@@ -7,35 +7,50 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
 public interface PropertyRepository extends JpaRepository<Property, Integer> {
 
     // ============================================================
-    // 1. TÌM KIẾM NÂNG CAO (City + Keyword)
+    // 1. TÌM KIẾM NÂNG CAO (Keyword + Guest + Date)
     // ============================================================
-    // Cập nhật: Thêm JOIN Room để đảm bảo có phòng mới hiện
     @Query("""
         SELECT DISTINCT p FROM Property p
         JOIN Room r ON r.propertyId = p
-        WHERE 
-        p.isActive = true 
+        WHERE p.isActive = true
         AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
         AND r.isActive = true
-        AND (:city IS NULL OR :city = '' OR LOWER(p.city) LIKE LOWER(CONCAT('%', :city, '%')))
         AND (:keyword IS NULL OR :keyword = '' OR (
-            LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(CAST(p.propertyType AS string)) LIKE LOWER(CONCAT('%', :keyword, '%'))
+             LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+             LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+             LOWER(p.country) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+             LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))
         ))
+        AND (:guestCount IS NULL OR r.capacity >= :guestCount)
+        AND (
+            :checkInDate IS NULL OR :checkOutDate IS NULL OR
+            r.roomId NOT IN (
+                SELECT b.room.roomId FROM Booking b
+                WHERE b.status IN (
+                    com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+                    com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT
+                )
+                AND (b.checkInDate < :checkOutDate AND b.checkOutDate > :checkInDate)
+            )
+        )
     """)
-    List<Property> searchProperties(@Param("city") String city, @Param("keyword") String keyword);
+    List<Property> searchProperties(
+            @Param("keyword") String keyword,
+            @Param("guestCount") Integer guestCount,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate
+    );
 
     // ============================================================
-    // 2. DANH SÁCH NỔI BẬT (Native Query)
+    // 2. DANH SÁCH NỔI BẬT
     // ============================================================
-    // Đã cập nhật: Chỉ lấy KS đã Active và Approved
     @Query(
             value = "SELECT * FROM properties WHERE is_active = TRUE AND property_status = 'APPROVE' ORDER BY rating DESC LIMIT 10",
             nativeQuery = true
@@ -52,23 +67,8 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
 
     List<Property> findByOwner_UserIdAndPropertyStatus(String ownerId, PropertyStatus status);
 
-    // ============================================================
-    // 4. TÌM KIẾM CHÍNH (HeroSection dùng hàm này)
-    // ============================================================
-    // ✅ Đã sửa lại theo yêu cầu:
-    // - Dùng INNER JOIN (JOIN) thay vì LEFT JOIN: Bắt buộc KS phải có ít nhất 1 phòng.
-    // - Thêm điều kiện `r.isActive = true`: Phòng đó phải đang hoạt động.
-    // - Kết quả: Nếu KS không có phòng hoặc toàn bộ phòng đang ẩn -> Không hiển thị.
-    @Query("SELECT DISTINCT p FROM Property p " +
-            "JOIN Room r ON r.propertyId = p " +
-            "WHERE p.isActive = true " +
-            "AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE " +
-            "AND r.isActive = true " +
-            "AND (:keyword IS NULL OR :keyword = '' OR " +
-            "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "     LOWER(p.country) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    // Query search cũ (có thể bỏ hoặc giữ làm backup, nhưng controller sẽ dùng cái mới)
+    @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.propertyId = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.isActive = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Property> searchProperties(@Param("keyword") String keyword);
 
     @Query(value = """
@@ -77,12 +77,10 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     AND p.propertyStatus = 'APPROVE' 
     AND p.latitude BETWEEN :lat - 0.15 AND :lat + 0.15
     AND p.longitude BETWEEN :lng - 0.15 AND :lng + 0.15
-    -- Sau đó mới tính chính xác khoảng cách
     AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
          sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
     """, nativeQuery = true)
     List<Property> findNearbyProperties(@Param("lat") double lat,
                                         @Param("lng") double lng,
                                         @Param("radius") double radius);
-
 }

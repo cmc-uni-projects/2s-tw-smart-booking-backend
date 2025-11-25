@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 // --- Kết thúc Imports ---
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -90,10 +91,13 @@ public class PropertyController {
 
     @GetMapping("/search")
     public ResponseEntity<List<PropertyDetailDTO>> searchProperties(
-                                                                     @RequestParam(required = false) String keyword,
-                                                                     @RequestParam(required = false, defaultValue = "1") Integer guests
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "1") Integer guests,
+            @RequestParam(required = false) LocalDate checkIn,
+            @RequestParam(required = false) LocalDate checkOut
     ) {
-        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests));
+        // Gọi hàm service mới
+        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests, checkIn, checkOut));
     }
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
@@ -151,8 +155,12 @@ public class PropertyController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PropertyDetailDTO> getPropertyDetail(@PathVariable Integer id) {
-        return ResponseEntity.ok(propertyService.getPropertyDetailById(id));
+    public ResponseEntity<PropertyDetailDTO> getPropertyDetail(
+            @PathVariable Integer id,
+            @RequestParam(required = false) LocalDate checkIn,
+            @RequestParam(required = false) LocalDate checkOut
+    ) {
+        return ResponseEntity.ok(propertyService.getPropertyDetailById(id, checkIn, checkOut));
     }
 
     @GetMapping("/nearby")
