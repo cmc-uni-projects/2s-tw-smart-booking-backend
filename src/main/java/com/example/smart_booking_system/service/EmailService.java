@@ -20,4 +20,5 @@ public interface EmailService {
     void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId);
 
     void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount);
+    void sendRefundProcessedEmail(String toEmail, String fullName, String bookingId, boolean isApproved, String refundAmount, String reason);
 }
