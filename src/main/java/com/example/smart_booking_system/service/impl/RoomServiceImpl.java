@@ -126,6 +126,16 @@ public class RoomServiceImpl implements RoomService {
         roomRepository.save(room);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public RoomResponseDTO getRoomById(int roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with ID: " + roomId));
+
+        // Hàm này đã bao gồm logic lấy images và amenities
+        return mapToRoomDTO(room);
+    }
+
     // ✅ HÀM HELPER QUAN TRỌNG: Chuyển đổi Entity -> DTO
     private RoomResponseDTO mapToRoomDTO(Room room) {
         RoomResponseDTO dto = new RoomResponseDTO();

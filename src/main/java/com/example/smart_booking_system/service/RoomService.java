@@ -17,4 +17,5 @@ public interface RoomService {
     RoomResponseDTO updateRoom(int roomId, RoomRequestDTO dto, List<MultipartFile> newImages);
 
     void deleteRoom(int roomId);
+    RoomResponseDTO getRoomById(int roomId);
 }
