@@ -39,6 +39,12 @@ public class Booking {
     private BigDecimal totalPrice;
 
     @Column(precision = 15, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(length = 50)
+    private String promotionCode;
+
+    @Column(precision = 15, scale = 2)
     private BigDecimal penaltyAmount;
 
     @Column(precision = 15, scale = 2)
