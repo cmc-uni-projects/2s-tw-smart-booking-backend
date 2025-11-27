@@ -67,17 +67,14 @@ public class PropertyPoliciesService {
         }
         policies.setChildrenAllowed(req.isChildrenAllowed());
 
-        if (req.getCheckInFrom() != null) {
-            policies.setCheckInFrom(req.getCheckInFrom());
+        // ✅ SỬA: Update Check-in Time (Single)
+        if (req.getCheckInTime() != null) {
+            policies.setCheckInTime(req.getCheckInTime());
         }
-        if (req.getCheckInTo() != null) {
-            policies.setCheckInTo(req.getCheckInTo());
-        }
-        if (req.getCheckOutFrom() != null) {
-            policies.setCheckOutFrom(req.getCheckOutFrom());
-        }
-        if (req.getCheckOutTo() != null) {
-            policies.setCheckOutTo(req.getCheckOutTo());
+
+        // ✅ SỬA: Update Check-out Time (Single)
+        if (req.getCheckOutTime() != null) {
+            policies.setCheckOutTime(req.getCheckOutTime());
         }
 
         if (req.getQuietHours() != null) {
@@ -120,8 +117,6 @@ public class PropertyPoliciesService {
         return convertToDTO(policies);
     }
 
-
-
     // ==========================
     // 3) GET POLICY
     // ==========================
@@ -150,10 +145,9 @@ public class PropertyPoliciesService {
         policies.setChildrenAllowed(req.isChildrenAllowed());
         policies.setChildrenPolicyDescription(req.getChildrenPolicyDescription());
 
-        policies.setCheckInFrom(req.getCheckInFrom());
-        policies.setCheckInTo(req.getCheckInTo());
-        policies.setCheckOutFrom(req.getCheckOutFrom());
-        policies.setCheckOutTo(req.getCheckOutTo());
+        // ✅ SỬA: Map Check-in/out Time
+        policies.setCheckInTime(req.getCheckInTime());
+        policies.setCheckOutTime(req.getCheckOutTime());
 
         policies.setQuietHours(req.getQuietHours());
 
@@ -190,10 +184,9 @@ public class PropertyPoliciesService {
         dto.setChildrenAllowed(p.isChildrenAllowed());
         dto.setChildrenPolicyDescription(p.getChildrenPolicyDescription());
 
-        dto.setCheckInFrom(p.getCheckInFrom());
-        dto.setCheckInTo(p.getCheckInTo());
-        dto.setCheckOutFrom(p.getCheckOutFrom());
-        dto.setCheckOutTo(p.getCheckOutTo());
+        // ✅ SỬA: Convert Check-in/out Time
+        dto.setCheckInTime(p.getCheckInTime());
+        dto.setCheckOutTime(p.getCheckOutTime());
 
         dto.setQuietHours(p.getQuietHours());
 

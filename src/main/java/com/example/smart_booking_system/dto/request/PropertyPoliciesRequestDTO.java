@@ -18,10 +18,8 @@ public class PropertyPoliciesRequestDTO {
     private boolean childrenAllowed;
     private String childrenPolicyDescription;
 
-    private LocalTime checkInFrom;
-    private LocalTime checkInTo;
-    private LocalTime checkOutFrom;
-    private LocalTime checkOutTo;
+    private LocalTime checkInTime;
+    private LocalTime checkOutTime;
 
     private String quietHours;
 

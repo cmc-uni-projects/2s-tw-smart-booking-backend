@@ -37,10 +37,9 @@ public class PropertyPolicies {
     private String childrenPolicyDescription;
 
     // --- CHECK-IN / CHECK-OUT POLICY ---
-    private LocalTime checkInFrom;
-    private LocalTime checkInTo;
-    private LocalTime checkOutFrom;
-    private LocalTime checkOutTo;
+    private LocalTime checkInTime;
+    private LocalTime checkOutTime;
+
 
     // --- QUIET HOURS ---
     private String quietHours;
