@@ -28,7 +28,7 @@ public class PromotionResponseDTO {
     private Integer usageLimit;
     private Integer usageCount;
     private LocalDateTime endDate;
-
+    private LocalDateTime startDate;
     private PromotionStatus status;
     private DiscountType discountType;
 
@@ -44,7 +44,7 @@ public class PromotionResponseDTO {
         this.usageLimit = p.getUsageLimit();
         this.usageCount = p.getUsageCount();
         this.endDate = LocalDateTime.from(p.getEndDate());
-
+        this.startDate = LocalDateTime.from(p.getStartDate());
         this.status = p.getStatus();
         this.discountType = p.getDiscountType();
 

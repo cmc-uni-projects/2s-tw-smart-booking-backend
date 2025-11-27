@@ -2,6 +2,7 @@ package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.request.BookingRequestDTO;
+import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -119,6 +120,20 @@ public class BookingController {
             return ResponseEntity.ok("Check-out thành công!");
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body("Check-out thất bại: " + ex.getMessage());
+        }
+    }
+
+    @PutMapping("/{bookingId}/apply-promotion")
+    @PreAuthorize("hasRole('CUSTOMER')") // Chỉ khách hàng mới đc nhập
+    public ResponseEntity<?> applyPromotion(
+            @PathVariable int bookingId,
+            @RequestParam String code
+    ) {
+        try {
+            BookingResponseDTO result = bookingService.applyPromotion(bookingId, code);
+            return ResponseEntity.ok(ApiResponse.success("Áp dụng mã giảm giá thành công", result));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
         }
     }
 }
