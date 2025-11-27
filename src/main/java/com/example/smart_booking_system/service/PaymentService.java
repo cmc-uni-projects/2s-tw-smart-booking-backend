@@ -151,6 +151,20 @@ public class PaymentService {
         refundRepo.save(refund);
         paymentRepo.save(payment);
 
+        try {
+            String formattedAmount = String.format("%,.0f VNĐ", refund.getAmount());
+            emailService.sendRefundProcessedEmail(
+                    booking.getUser().getEmail(),
+                    booking.getUser().getFullName(),
+                    String.valueOf(booking.getBookingId()),
+                    isApproved,
+                    formattedAmount,
+                    adminNote
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi email hoàn tiền: " + e.getMessage());
+        }
+
         return ApiResponse.success(isApproved ? "Đã duyệt hoàn tiền" : "Đã từ chối hoàn tiền", null);
     }
 

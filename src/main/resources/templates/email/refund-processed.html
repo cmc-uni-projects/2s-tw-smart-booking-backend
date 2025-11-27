@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông báo xử lý hoàn tiền</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; color: #333; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
+
+        /* HEADER CHUẨN MỚI (Theo yêu cầu) */
+        .header { background-color: #ffffff; border-bottom: 3px solid #00a8e8; text-align: center; padding: 45px 45px; line-height: 0; font-size: 0; }
+        .header img { width: 300px; max-width: 100%; height: auto; display: block; margin: 0 auto; border: 0; }
+
+        .content { padding: 35px 30px; line-height: 1.7; font-size: 15px; }
+        .greeting { font-size: 18px; font-weight: 600; margin-bottom: 15px; color: #2d3748; }
+
+        .status-box { text-align: center; padding: 15px; border-radius: 8px; margin: 25px 0; font-weight: bold; font-size: 16px; }
+        /* Class động cho trạng thái */
+        .status-approved { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .status-rejected { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+        .details-table td { padding: 12px 0; border-bottom: 1px solid #eee; vertical-align: top; }
+        .details-table td.label { color: #718096; width: 140px; font-weight: 500; }
+        .details-table td.value { color: #1a202c; font-weight: 600; text-align: right; }
+
+        .note-box { background-color: #f8fafc; border-left: 4px solid #00a8e8; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; color: #4a5568; }
+
+        .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; line-height: 1.5; }
+        .button { display: inline-block; background-color: #00a8e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 25px; transition: background-color 0.3s; }
+        .button:hover { background-color: #008bb5; }
+        .highlight { color: #00a8e8; font-weight: bold; }
+
+        @media (max-width: 600px) { .content { padding: 25px 20px; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="https://ibb.co/bgSCCvxQ">
+            <img src="https://i.ibb.co/WWbMMzQG/logo-travelmate-xoafont.png" alt="TravelMate Logo">
+        </a>
+    </div>
+
+    <div class="content">
+        <div class="greeting">Xin chào <span th:text="${fullName}">Khách hàng</span>,</div>
+
+        <p>Chúng tôi gửi email này để thông báo về kết quả xử lý yêu cầu hoàn tiền cho mã đặt phòng <strong th:text="'#' + ${bookingId}">#12345</strong> của bạn.</p>
+
+        <div th:class="'status-box ' + (${status == 'ĐÃ ĐƯỢC CHẤP NHẬN'} ? 'status-approved' : 'status-rejected')">
+            KẾT QUẢ: <span th:text="${status}">TRẠNG THÁI</span>
+        </div>
+
+        <p th:text="${message}">Nội dung thông báo chi tiết...</p>
+
+        <table class="details-table">
+            <tr>
+                <td class="label">Mã đặt phòng:</td>
+                <td class="value" th:text="${bookingId}">12345</td>
+            </tr>
+            <tr>
+                <td class="label">Số tiền yêu cầu:</td>
+                <td class="value highlight" th:text="${refundAmount}">0 VNĐ</td>
+            </tr>
+            <tr>
+                <td class="label">Thời gian xử lý:</td>
+                <td class="value" th:text="${#dates.format(#dates.createNow(), 'dd/MM/yyyy HH:mm')}">01/01/2024</td>
+            </tr>
+        </table>
+
+        <div class="note-box">
+            <strong>Ghi chú từ Quản trị viên:</strong><br/>
+            <span th:text="${reason}">Không có ghi chú.</span>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="http://localhost:5173/customer/my-bookings" class="button">Xem chi tiết đơn hàng</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
+        <p>Đây là email tự động, vui lòng không trả lời email này.</p>
+        <p>Nếu cần hỗ trợ, vui lòng liên hệ <a href="mailto:support@travelmate.com" style="color: #00a8e8;">support@travelmate.com</a></p>
+    </div>
+</div>
+</body>
+</html>

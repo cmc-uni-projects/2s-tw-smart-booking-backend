@@ -48,6 +48,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyImageRepository propertyImageRepository;
     private final FileStorageService fileStorageService;
     private final RoomImageRepository roomImageRepository;
+    private final BookingRepository bookingRepository;
+    private final RoomAmenityRepository roomAmenityRepository;
 
     // ==================================================================
     // 1. LOGIC NỘP ĐƠN ĐĂNG KÝ
@@ -148,20 +150,20 @@ public class PropertyServiceImpl implements PropertyService {
     // ✅ HÀM MỚI: Lấy chi tiết Property kèm theo Amenities và Rooms
     @Override
     @Transactional(readOnly = true)
-    public PropertyDetailDTO getPropertyDetailById(Integer id) {
+    public PropertyDetailDTO getPropertyDetailById(Integer id, LocalDate checkIn, LocalDate checkOut) {
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
         PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
 
-        // 1. Lấy ảnh PROPERTY (Header)
+        // 1. Lấy ảnh Property (Giữ nguyên)
         List<String> propertyImages = propertyImageRepository.findByProperty_PropertyId(id)
                 .stream()
                 .map(PropertyImage::getImageUrl)
                 .collect(Collectors.toList());
         dto.setImages(propertyImages);
 
-        // 2. Lấy Amenities
+        // 2. Lấy Amenities (Giữ nguyên)
         if (property.getPropertyAmenities() != null) {
             List<PropertyAmenityResponseDTO> amenities = property.getPropertyAmenities().stream()
                     .filter(PropertyAmenity::isActive)
@@ -170,22 +172,42 @@ public class PropertyServiceImpl implements PropertyService {
             dto.setAmenities(amenities);
         }
 
-        // 3. Lấy danh sách ROOMS & ẢNH ROOM (Fix lỗi không hiện ảnh bên dưới)
+        // 3. Lấy danh sách ROOMS & LỌC PHÒNG ĐÃ ĐẶT
         if (property.getRooms() != null) {
             List<RoomResponseDTO> roomDTOs = new ArrayList<>();
 
             for (Room room : property.getRooms()) {
+                // Chỉ lấy phòng đang hoạt động
                 if (room.isActive()) {
+
+                    // ✅ LOGIC MỚI: Kiểm tra lịch trống nếu có ngày check-in/out
+                    if (checkIn != null && checkOut != null) {
+                        List<Booking> overlaps = bookingRepository.findConfirmedOverlappingByRoomId(
+                                room.getRoomId(), checkIn, checkOut);
+
+                        // Nếu có booking trùng -> Bỏ qua phòng này (không add vào list)
+                        if (!overlaps.isEmpty()) {
+                            continue;
+                        }
+                    }
+
+                    // Map Room Entity -> DTO
                     RoomResponseDTO roomDTO = new RoomResponseDTO(room);
 
-                    // ✅ FETCH ẢNH PHÒNG TỪ DB
-                    // Giả sử RoomImageRepository có hàm findByRoom_RoomId
+                    // Lấy ảnh phòng
                     List<String> roomImageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
                             .stream()
                             .map(RoomImage::getImageUrl)
                             .collect(Collectors.toList());
-
                     roomDTO.setImages(roomImageUrls);
+
+                    // Lấy tiện nghi phòng
+                    List<String> roomAmenities = roomAmenityRepository.findByRoom_RoomId(room.getRoomId())
+                            .stream()
+                            .filter(RoomAmenity::isActive)
+                            .map(ra -> ra.getAmenity().getAmenityName())
+                            .collect(Collectors.toList());
+                    roomDTO.setAmenities(roomAmenities);
 
                     roomDTOs.add(roomDTO);
                 }
@@ -239,17 +261,57 @@ public class PropertyServiceImpl implements PropertyService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PropertyDetailDTO> searchProperties(String keyword, Integer guests) {
+    public List<PropertyDetailDTO> searchProperties(String keyword, Integer guests, LocalDate checkIn, LocalDate checkOut) {
         if (keyword != null && keyword.trim().isEmpty()) {
             keyword = null;
         }
-        // Lấy list entity
-        List<Property> properties = propertyRepository.searchProperties(keyword);
 
-        // Chuyển sang DTO
+        // 1. Tìm các Property có ít nhất 1 phòng thỏa mãn điều kiện (Query DB)
+        List<Property> properties = propertyRepository.searchProperties(keyword, guests, checkIn, checkOut);
+
+        // 2. Map sang DTO đồng thời lọc bỏ các phòng đã đặt bên trong DTO
         return properties.stream()
-                .map(this::mapToPropertyDetailDTO)
+                .map(p -> mapToPropertyDetailDTOWithFilter(p, guests, checkIn, checkOut))
                 .collect(Collectors.toList());
+    }
+
+    private PropertyDetailDTO mapToPropertyDetailDTOWithFilter(Property property, Integer guests, LocalDate checkIn, LocalDate checkOut) {
+        // Gọi hàm map cơ bản có sẵn
+        PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
+
+        // Lọc danh sách phòng bên trong DTO
+        if (dto.getRooms() != null) {
+            List<RoomResponseDTO> filteredRooms = dto.getRooms().stream()
+                    .filter(roomDTO -> {
+                        // 1. Lọc theo sức chứa
+                        if (guests != null && roomDTO.getCapacity() < guests) return false;
+
+                        // 2. Lọc theo ngày trống (Check booking trùng)
+                        if (checkIn != null && checkOut != null) {
+                            List<Booking> overlaps = bookingRepository.findConfirmedOverlappingByRoomId(
+                                    roomDTO.getRoomId(), checkIn, checkOut);
+                            // Nếu có booking trùng -> loại bỏ phòng này
+                            if (!overlaps.isEmpty()) return false;
+                        }
+                        return true;
+                    })
+                    .collect(Collectors.toList());
+
+            dto.setRooms(filteredRooms);
+
+            // Tính lại giá Min/Max dựa trên các phòng còn trống
+            if (!filteredRooms.isEmpty()) {
+                BigDecimal min = filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).min(Comparator.naturalOrder()).orElse(BigDecimal.ZERO);
+                BigDecimal max = filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).max(Comparator.naturalOrder()).orElse(BigDecimal.ZERO);
+                dto.setMinPrice(min);
+                dto.setMaxPrice(max);
+            } else {
+                // Trường hợp hãn hữu: Query DB bảo có phòng, nhưng check lại thì hết (race condition hoặc logic vênh)
+                dto.setMinPrice(BigDecimal.ZERO);
+                dto.setMaxPrice(BigDecimal.ZERO);
+            }
+        }
+        return dto;
     }
 
     @Override

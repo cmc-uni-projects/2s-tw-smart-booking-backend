@@ -225,4 +225,26 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("Lỗi gửi mail cancellation-success: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendRefundProcessedEmail(String toEmail, String fullName, String bookingId, boolean isApproved, String refundAmount, String reason) {
+        Context context = new Context();
+        context.setVariable("fullName", fullName);
+        context.setVariable("bookingId", bookingId);
+        context.setVariable("status", isApproved ? "ĐÃ ĐƯỢC CHẤP NHẬN" : "ĐÃ BỊ TỪ CHỐI");
+        context.setVariable("refundAmount", refundAmount);
+        context.setVariable("reason", reason != null ? reason : "Không có ghi chú thêm.");
+
+        // Tùy biến lời nhắn
+        String message = isApproved
+                ? "Khoản tiền hoàn lại sẽ được chuyển vào tài khoản của bạn trong vòng 3-5 ngày làm việc."
+                : "Rất tiếc, yêu cầu hoàn tiền của bạn không đáp ứng đủ điều kiện chính sách của chúng tôi.";
+        context.setVariable("message", message);
+
+        // Template: src/main/resources/templates/email/refund-processed.html
+        String subject = isApproved ? "Thông báo: Yêu cầu hoàn tiền được chấp nhận" : "Thông báo: Yêu cầu hoàn tiền bị từ chối";
+
+        // Gửi email (dùng template chung hoặc tạo mới)
+        sendHtmlEmail(toEmail, subject, "email/refund-processed", context);
+    }
 }
