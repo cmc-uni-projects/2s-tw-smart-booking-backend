@@ -178,14 +178,6 @@ public class RatingService {
 
         Collections.shuffle(mixed);
 
-        int pageSize = 10;
-        int start = page * pageSize;
-        int end = Math.min(start + pageSize, mixed.size());
-
-        List<Rating> pageContent = mixed.subList(start, end);
-
-        return new PageImpl<>(pageContent, PageRequest.of(page, pageSize), mixed.size());
-
-
+        return paginate(mixed, page);
     }
 }
