@@ -3,9 +3,7 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.request.BookingRequestDTO;
 import com.example.smart_booking_system.entity.*;
-import com.example.smart_booking_system.enums.BookingStatus;
-import com.example.smart_booking_system.enums.PropertyType;
-import com.example.smart_booking_system.enums.RoomCategory;
+import com.example.smart_booking_system.enums.*;
 import com.example.smart_booking_system.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,7 +14,6 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.example.smart_booking_system.enums.PaymentStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +26,7 @@ public class BookingService {
     private final PropertyPoliciesRepository policiesRepo;
     private final EmailService emailService;
     private final PaymentRepository paymentRepo;
+    private final PromotionRepository promotionRepo;
 
     // ================================
     // CREATE BOOKING (chặt chẽ, capacity cho mọi loại)
@@ -327,6 +325,9 @@ public class BookingService {
         dto.setTotalPrice(b.getTotalPrice());
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
+        // ✅ Map thêm thông tin giảm giá
+        dto.setDiscountAmount(b.getDiscountAmount() != null ? b.getDiscountAmount() : BigDecimal.ZERO);
+        dto.setPromotionCode(b.getPromotionCode());
         dto.setStatus(b.getStatus());
 
         // ✅ Map thêm Special Request
@@ -381,5 +382,76 @@ public class BookingService {
         dto.setUser(userDto);
 
         return dto;
+    }
+
+    // =====================================================
+    // ÁP DỤNG MÃ GIẢM GIÁ
+    // =====================================================
+    @Transactional
+    public BookingResponseDTO applyPromotion(int bookingId, String code) {
+        // 1. Tìm Booking
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new RuntimeException("Chỉ có thể áp dụng mã cho đơn hàng chưa thanh toán.");
+        }
+
+        // 2. Tính lại GIÁ GỐC (Original Price) để tránh lỗi áp dụng chồng mã
+        // Giá gốc = Giá hiện tại + Giá đã giảm trước đó (nếu có)
+        BigDecimal currentTotal = booking.getTotalPrice();
+        BigDecimal currentDiscount = booking.getDiscountAmount() == null ? BigDecimal.ZERO : booking.getDiscountAmount();
+        BigDecimal originalPrice = currentTotal.add(currentDiscount);
+
+        // 3. Tìm và Validate Promotion
+        // Hàm findValidPromotion đã có sẵn trong PromotionRepository (kiểm tra ngày, status, limit)
+        Promotion promotion = promotionRepo.findValidPromotion(code, LocalDateTime.now())
+                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ, đã hết hạn hoặc hết lượt sử dụng."));
+
+        // 4. Validate điều kiện: Giá trị đơn tối thiểu
+        if (promotion.getMinBookingAmount() != null
+                && originalPrice.compareTo(promotion.getMinBookingAmount()) < 0) {
+            throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu để dùng mã này ("
+                    + String.format("%,.0f", promotion.getMinBookingAmount()) + " VND)");
+        }
+
+        // 5. Tính toán Discount
+        BigDecimal discount = BigDecimal.ZERO;
+
+        if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            // Giảm tiền mặt
+            discount = promotion.getDiscountValue();
+        } else {
+            // Giảm theo %
+            discount = originalPrice.multiply(promotion.getDiscountValue()).divide(BigDecimal.valueOf(100));
+
+            // Kiểm tra số tiền giảm tối đa (Max Discount)
+            if (promotion.getMaxDiscountAmount() != null
+                    && discount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
+                discount = promotion.getMaxDiscountAmount();
+            }
+        }
+
+        // Đảm bảo không giảm quá giá trị đơn (không âm tiền)
+        if (discount.compareTo(originalPrice) > 0) {
+            discount = originalPrice;
+        }
+
+        // 6. Cập nhật Booking
+        BigDecimal newTotal = originalPrice.subtract(discount);
+
+        booking.setPromotionCode(code);
+        booking.setDiscountAmount(discount);
+        booking.setTotalPrice(newTotal);
+
+        // Cập nhật cả bảng Payment (vì Payment lưu totalAmount)
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+        if (payment != null) {
+            payment.setTotalAmount(newTotal);
+            paymentRepo.save(payment);
+        }
+
+        Booking saved = bookingRepo.save(booking);
+        return convertToDTO(saved);
     }
 }

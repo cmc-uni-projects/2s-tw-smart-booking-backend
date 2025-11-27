@@ -16,7 +16,8 @@ public class BookingResponseDTO {
     private int bookingId;
     private int propertyId;
     private Integer roomId;
-
+    private BigDecimal discountAmount;
+    private String promotionCode;
     private String propertyName;
     private String propertyAddress;
     private String propertyImage;

@@ -24,6 +24,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepo;
     private final RefundRequestRepository refundRepo;
     private final EmailService emailService;
+    private final PromotionRepository promotionRepo;
 
     // =================================================================
     // 1. SUBMIT PAYMENT (Khách thanh toán thành công -> Chốt đơn)
@@ -35,7 +36,19 @@ public class PaymentService {
 
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
                 .orElseThrow(() -> new RuntimeException("Payment info not found"));
+        if (booking.getPromotionCode() != null) {
+            // Tìm khuyến mãi để tăng count
+            promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now())
+                    .ifPresent(promo -> {
+                        promo.setUsageCount(promo.getUsageCount() + 1);
 
+                        // Nếu đạt limit thì có thể tự động chuyển status (Optional)
+                        if (promo.getUsageLimit() != null && promo.getUsageCount() >= promo.getUsageLimit()) {
+                            // promo.setStatus(PromotionStatus.EXPIRED); // Tuỳ logic business
+                        }
+                        promotionRepo.save(promo);
+                    });
+        }
         // Validate: Chỉ thanh toán được khi đơn đang CHỜ
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
             return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
