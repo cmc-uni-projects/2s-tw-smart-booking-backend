@@ -36,6 +36,7 @@ public class BookingController {
     // ==========================================
     @PutMapping("/cancel/{bookingId}")
     public ResponseEntity<?> cancelBooking(@PathVariable int bookingId) {
+        // Logic mới: Hủy và tự động tạo RefundRequest bên trong Service
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 

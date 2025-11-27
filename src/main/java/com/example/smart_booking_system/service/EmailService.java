@@ -1,6 +1,9 @@
 package com.example.smart_booking_system.service;
 
 import org.thymeleaf.context.Context;
+
+import java.math.BigDecimal;
+
 public interface EmailService {
 
     void sendVerificationEmail(String toEmail, String fullName, String verificationToken);
@@ -17,8 +20,9 @@ public interface EmailService {
 
     void sendPaymentReminderEmail(String toEmail, String fullName, String bookingId, String totalPrice);
 
-    void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId);
+    // Sửa dòng này
+    void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId, BigDecimal totalPrice, BigDecimal penalty, BigDecimal refund);
 
     void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount);
-    void sendRefundProcessedEmail(String toEmail, String fullName, String bookingId, boolean isApproved, String refundAmount, String reason);
+
 }
