@@ -76,4 +76,10 @@ public class RoomController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi cập nhật: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/{roomId}")
+    public ResponseEntity<?> getRoomDetail(@PathVariable int roomId) {
+        RoomResponseDTO room = roomService.getRoomById(roomId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết phòng thành công", room));
+    }
 }
