@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.example.smart_booking_system.enums.MembershipRank;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -57,6 +58,12 @@ public class User {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    //membership - rank
+    private int points = 0;
+    @Enumerated(EnumType.STRING)
+    private MembershipRank membershipRank = MembershipRank.BRONZE; // Mặc định là hạng Đồng
+
 
     // Many-to-Many with Role
     @ManyToMany(fetch = FetchType.EAGER)

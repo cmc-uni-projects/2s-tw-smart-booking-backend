@@ -269,13 +269,54 @@ public class BookingService {
     // 4. CHECK-OUT (Hoàn tất)
     @Transactional
     public void checkOutBooking(int bookingId) {
-        Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
         // Cho phép checkout nếu đang ở hoặc đã confirm (quên checkin)
         if (booking.getStatus() != BookingStatus.CHECKED_IN && booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new RuntimeException("Trạng thái không hợp lệ để Check-out");
         }
+
+        // 1. Cập nhật trạng thái Booking
         booking.setStatus(BookingStatus.COMPLETED);
+
+        // 2. 🔥 [LOGIC MỚI] TÍCH ĐIỂM & THĂNG HẠNG
+        if (booking.getTotalPrice() != null) {
+            User user = booking.getUser();
+
+            // Tính điểm: 1000 VND = 1 điểm (Lấy phần nguyên)
+            int earnedPoints = booking.getTotalPrice().divide(BigDecimal.valueOf(1000)).intValue();
+
+            if (earnedPoints > 0) {
+                // Cộng điểm vào tổng điểm hiện tại
+                int currentPoints = user.getPoints(); // Đảm bảo User entity đã có field này (mặc định 0)
+                int newTotalPoints = currentPoints + earnedPoints;
+                user.setPoints(newTotalPoints);
+
+                // Cập nhật hạng thành viên dựa trên điểm mới
+                updateUserRank(user, newTotalPoints);
+
+                // Lưu thông tin User mới
+                userRepo.save(user);
+            }
+        }
+
         bookingRepo.save(booking);
+    }
+
+    // ================================
+    // HELPER: CẬP NHẬT HẠNG THÀNH VIÊN
+    // ================================
+    private void updateUserRank(User user, int points) {
+        if (points >= 10000) {
+            user.setMembershipRank(MembershipRank.DIAMOND);
+        } else if (points >= 5000) {
+            user.setMembershipRank(MembershipRank.GOLD);
+        } else if (points >= 1000) {
+            user.setMembershipRank(MembershipRank.SILVER);
+        } else {
+            user.setMembershipRank(MembershipRank.BRONZE);
+        }
     }
 
     // ================================

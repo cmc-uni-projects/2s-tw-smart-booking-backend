@@ -63,6 +63,9 @@ public class UserDetailService {
         responseDTO.setFullName(user.getFullName());
         responseDTO.setPhoneNumber(user.getPhoneNumber());
 
+        responseDTO.setPoints(user.getPoints());
+        responseDTO.setMembershipRank(user.getMembershipRank());
+
         // Lấy từ UserDetail
         responseDTO.setUserdetailId(userDetail.getUserdetailId());
         responseDTO.setGender(userDetail.getGender());
