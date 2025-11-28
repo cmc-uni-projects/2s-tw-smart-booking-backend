@@ -7,10 +7,12 @@ import jakarta.validation.constraints.Null;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Entity
 @Getter
 @Setter
-@Table(name = "Rating")
+@Table(name = "rating")
 public class Rating {
 
     @Id
@@ -35,5 +37,8 @@ public class Rating {
 
     @Column(name = "isHidden")
     private boolean isHidden;
+
+    @OneToMany(mappedBy = "rating", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RatingImage> images;
 
 }

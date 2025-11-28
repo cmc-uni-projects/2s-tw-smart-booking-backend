@@ -13,19 +13,16 @@ public class RatingController {
 
     private final RatingService ratingService;
 
-    // ===================== CREATE =====================
     @PostMapping("/create")
     public Rating createRating(@RequestBody Rating rating) {
         return ratingService.createRating(rating);
     }
 
-    // ===================== GET ONE =====================
     @GetMapping("/{id}")
     public Rating getRatingById(@PathVariable int id) {
         return ratingService.getRatingById(id);
     }
 
-    // ===================== GET BY BOOKING =====================
     @GetMapping("/booking/{bookingId}")
     public Page<Rating> getByBooking(
             @PathVariable int bookingId,
@@ -34,7 +31,6 @@ public class RatingController {
         return ratingService.getRatingByBooking(bookingId, page);
     }
 
-    // ===================== GET BY USER =====================
     @GetMapping("/user/{userId}")
     public Page<Rating> getByUser(
             @PathVariable String userId,
@@ -43,7 +39,6 @@ public class RatingController {
         return ratingService.getRatingByUser(userId, page);
     }
 
-    // ===================== GET BY TYPE =====================
     @GetMapping("/type/{type}")
     public Page<Rating> getByType(
             @PathVariable String type,
@@ -52,7 +47,6 @@ public class RatingController {
         return ratingService.getRatingByType(type, page);
     }
 
-    // ===================== GET HIDDEN (ADMIN ONLY) =====================
     @GetMapping("/hidden")
     public Page<Rating> getHiddenRatings(
             @RequestParam(defaultValue = "0") int page
@@ -60,7 +54,6 @@ public class RatingController {
         return ratingService.getHiddenRatings(page);
     }
 
-    // ===================== GET BY PROPERTY =====================
     @GetMapping("/property/{propertyId}")
     public Page<Rating> getByProperty(
             @PathVariable int propertyId,
@@ -69,7 +62,6 @@ public class RatingController {
         return ratingService.getRatingsForProperty(propertyId, page);
     }
 
-    // ===================== UPDATE =====================
     @PutMapping("/update/{id}")
     public Rating updateRating(
             @PathVariable int id,
@@ -78,7 +70,6 @@ public class RatingController {
         return ratingService.updateRating(id, rating);
     }
 
-    // ===================== HIDE / UNHIDE =====================
     @PatchMapping("/hide/{id}")
     public Rating hideRating(
             @PathVariable int id,
@@ -87,7 +78,6 @@ public class RatingController {
         return ratingService.hideRating(id, hide);
     }
 
-    // ===================== DELETE =====================
     @DeleteMapping("/delete/{id}")
     public void deleteRating(@PathVariable int id) {
         ratingService.deleteRating(id);
