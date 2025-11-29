@@ -20,7 +20,7 @@ public class Payment {
     private Integer paymentId;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", referencedColumnName = "bookingId", unique = true)
+    @JoinColumn(name = "bookingId", unique = true)
     private Booking booking;
 
     @Column(length = 100)
