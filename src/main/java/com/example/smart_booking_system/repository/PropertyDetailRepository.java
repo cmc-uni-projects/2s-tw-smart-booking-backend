@@ -8,6 +8,8 @@ import com.example.smart_booking_system.entity.PropertyDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
 import java.util.Optional;
 
 import java.util.List;
@@ -60,4 +62,33 @@ public interface PropertyDetailRepository extends JpaRepository<PropertyDetail, 
     List<PropertyImage> getImagesByPropertyId(@Param("propertyId") int propertyId);
 
     Optional<PropertyDetail> findByProperty_PropertyId(int propertyId);
+
+    @Query("""
+    SELECT DISTINCT p FROM Property p
+    JOIN p.rooms r
+    WHERE 
+        p.isActive = true
+        AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
+        AND r.isActive = true
+        AND r.capacity >= :capacity
+        AND (
+            :city IS NULL OR :city = '' 
+            OR LOWER(p.city) LIKE LOWER(CONCAT('%', :city, '%'))
+            OR LOWER(p.province) LIKE LOWER(CONCAT('%', :city, '%'))
+            OR LOWER(p.address) LIKE LOWER(CONCAT('%', :city, '%'))
+        )
+        AND r.roomId NOT IN (
+            SELECT b.room.roomId FROM Booking b
+            WHERE b.status <> com.example.smart_booking_system.enums.BookingStatus.CANCELLED
+            AND b.checkInDate < :checkOutDate
+            AND b.checkOutDate > :checkInDate
+        )
+""")
+    List<Property> findAvailableProperties(
+            @Param("city") String city,
+            @Param("capacity") int capacity,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate
+    );
+
 }
