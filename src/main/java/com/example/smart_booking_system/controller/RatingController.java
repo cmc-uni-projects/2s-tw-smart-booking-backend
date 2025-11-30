@@ -36,6 +36,7 @@ public class RatingController {
         dto.setCreatedAt(rating.getCreatedAt());
         dto.setUserId(rating.getUserId().getUserId());
         dto.setUserAvatar(rating.getUserId().getUserDetail().getProfilePhotoUrl());
+        dto.setIsPinned(Boolean.TRUE.equals(rating.getIsPinned()));
 
         // Lấy thông tin từ các quan hệ (đã được load hoặc proxy an toàn khi gọi getter ID)
         if (rating.getBookingId() != null) {
@@ -134,6 +135,19 @@ public class RatingController {
             @RequestParam boolean hide
     ) {
         return ResponseEntity.ok(mapToDTO(ratingService.hideRating(id, hide)));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PatchMapping("/pin/{id}")
+    public ResponseEntity<RatingResponseDTO> pinRating(
+            @PathVariable int id,
+            @RequestParam boolean pin
+    ) {
+        // Lưu ý: Để bảo mật chặt chẽ, trong Service nên check thêm:
+        // Nếu là ROLE_OWNER thì rating này phải thuộc về khách sạn của họ.
+        // Ở đây tạm thời giả định @PreAuthorize đã chặn user thường.
+
+        return ResponseEntity.ok(mapToDTO(ratingService.pinRating(id, pin)));
     }
 
 

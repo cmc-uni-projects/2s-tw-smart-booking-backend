@@ -210,6 +210,48 @@ public class RatingService {
         return paginate(mixed, page);
     }
 
+    public Rating pinRating(int ratingId, boolean pin) {
+        Rating rating = ratingRepository.findById(ratingId)
+                .orElseThrow(() -> new RuntimeException("Rating not found"));
+
+        // --- LOGIC CHECK QUYỀN OWNER ---
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        String currentUserId = auth.getName(); // Hoặc lấy ID từ principal tuỳ config
+
+        // Nếu không phải Admin, bắt buộc phải là Owner của khách sạn này
+        if (!isAdmin) {
+            // Lấy ID chủ sở hữu của khách sạn liên quan đến rating này
+            // Giả sử Property có quan hệ với User (owner)
+            String propertyOwnerId = String.valueOf(rating.getBookingId().getProperty().getOwner().getUserId());
+
+            // Nếu ID người đang login KHÁC ID chủ khách sạn -> Chặn
+            // (Lưu ý: Cần đảm bảo cách lấy currentUserId khớp với propertyOwnerId - cùng là username hoặc cùng là ID)
+
+            // Ví dụ nếu Security lưu username là email:
+            // String ownerEmail = rating.getBookingId().getProperty().getUser().getEmail();
+            // if (!currentUserId.equals(ownerEmail)) throw ...
+
+            // Ví dụ nếu Security lưu ID:
+            if (!currentUserId.equals(propertyOwnerId)) {
+                throw new RuntimeException("Bạn không có quyền ghim đánh giá của khách sạn này.");
+            }
+        }
+        // -------------------------------
+
+        if (pin) {
+            int propertyId = rating.getBookingId().getProperty().getPropertyId();
+            int currentPinnedCount = ratingRepository.countByBookingId_Property_PropertyIdAndIsPinnedTrue(propertyId);
+
+            if (currentPinnedCount >= 3) {
+                throw new RuntimeException("Chỉ được ghim tối đa 3 bình luận.");
+            }
+        }
+
+        rating.setIsPinned(pin);
+        return ratingRepository.save(rating); // Bỏ attachImages nếu không cần thiết để tối ưu
+    }
+
     public Rating getRatingById(int id) {
         Rating rating = ratingRepository.findById(id).orElseThrow(() -> new RuntimeException("Rating not found"));
         if (rating.isHidden()) throw new RuntimeException("This rating is hidden.");

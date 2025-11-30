@@ -14,7 +14,7 @@ import java.util.List;
 @Getter
 @Setter
 @Table(name = "rating")
-public class Rating {
+public class    Rating {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,4 +43,7 @@ public class Rating {
     private List<RatingImage> images;
 
     private LocalDateTime createdAt;
+
+    @Column(name = "is_pinned")
+    private Boolean isPinned = false;
 }

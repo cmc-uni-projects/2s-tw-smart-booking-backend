@@ -21,4 +21,5 @@ public class RatingResponseDTO {
     private boolean isHidden;
     private String userId;
     private LocalDateTime createdAt;
+    private Boolean isPinned;
 }
