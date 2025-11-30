@@ -36,11 +36,11 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     // Lấy list promotion có khả năng dùng được (Active + trong thời gian hiệu lực)
     @Query("""
-        SELECT p FROM Promotion p
-        WHERE p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
-        AND p.startDate <= :now
-        AND p.endDate >= :now
-        AND (p.usageLimit IS NULL OR p.usageCount < p.usageLimit)
-    """)
+    SELECT p FROM Promotion p
+    WHERE p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
+    AND p.startDate <= :now
+    AND p.endDate >= :now
+    AND (p.usageLimit IS NULL OR COALESCE(p.usageCount, 0) < p.usageLimit) 
+""")
     List<Promotion> findAvailablePromotions(@Param("now") LocalDateTime now);
 }
