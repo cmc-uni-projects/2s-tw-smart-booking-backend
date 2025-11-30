@@ -34,17 +34,12 @@ public interface RatingRepository extends JpaRepository<Rating, Integer> {
             nativeQuery = true
     )
     List<Rating> getRatingByHidden();
-    @Query(
-            value = """
-                SELECT r.* 
-                FROM Rating r
-                JOIN bookings b ON r.bookings = b.booking_id
-                WHERE b.property_id = :propertyId
-                  AND r.isHidden = 0
-                  AND r.rating_type <> 'VIOLATION'
-                """,
-            nativeQuery = true
-    )
+    @Query("""
+        SELECT r FROM Rating r
+        WHERE r.bookingId.property.propertyId = :propertyId
+          AND r.isHidden = false
+          AND r.ratingType != com.example.smart_booking_system.enums.RatingType.VIOLATION
+    """)
     List<Rating> getRatingsByProperty(int propertyId);
 
     // Check if a rating exists for a given booking ID

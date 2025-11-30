@@ -3,6 +3,7 @@ package com.example.smart_booking_system.dto.response;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -18,4 +19,6 @@ public class RatingResponseDTO {
     private String userName;     // Tên người đánh giá
     private String reply;        // Phản hồi của chủ nhà (nếu có sau này)
     private boolean isHidden;
+    private String userId;
+    private LocalDateTime createdAt;
 }

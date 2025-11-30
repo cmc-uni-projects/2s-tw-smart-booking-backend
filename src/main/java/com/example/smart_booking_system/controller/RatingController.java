@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +33,9 @@ public class RatingController {
         dto.setStars(rating.getRating());
         dto.setComment(rating.getComment());
         dto.setHidden(rating.isHidden());
+        dto.setCreatedAt(rating.getCreatedAt());
+        dto.setUserId(rating.getUserId().getUserId());
+        dto.setUserAvatar(rating.getUserId().getUserDetail().getProfilePhotoUrl());
 
         // Lấy thông tin từ các quan hệ (đã được load hoặc proxy an toàn khi gọi getter ID)
         if (rating.getBookingId() != null) {
@@ -117,13 +121,20 @@ public class RatingController {
     }
 
     // Giữ nguyên logic delete/hide nhưng có thể đổi return type nếu cần
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER', 'OWNER')")
     @DeleteMapping("/delete/{id}")
     public void deleteRating(@PathVariable int id) {
         ratingService.deleteRating(id);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/hide/{id}")
-    public ResponseEntity<RatingResponseDTO> hideRating(@PathVariable int id, @RequestParam boolean hide) {
+    public ResponseEntity<RatingResponseDTO> hideRating(
+            @PathVariable int id,
+            @RequestParam boolean hide
+    ) {
         return ResponseEntity.ok(mapToDTO(ratingService.hideRating(id, hide)));
     }
+
+
 }

@@ -9,10 +9,12 @@ import com.example.smart_booking_system.enums.RatingType;
 import com.example.smart_booking_system.repository.BookingRepository;
 import com.example.smart_booking_system.repository.RatingImageRepository;
 import com.example.smart_booking_system.repository.RatingRepository;
+import com.example.smart_booking_system.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -154,9 +156,25 @@ public class RatingService {
     }
 
     public void deleteRating(int id) {
-        if (!ratingRepository.existsById(id)) {
-            throw new RuntimeException("Rating not found");
+        Rating rating = ratingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Rating not found"));
+
+        // Lấy thông tin người dùng đang đăng nhập
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        String ownerEmail = rating.getUserId().getEmail(); // Hoặc getUsername() tuỳ config UserDetails của bạn
+
+        if (!isAdmin && !currentUsername.equals(ownerEmail)) {
+            throw new RuntimeException("Bạn không có quyền xóa đánh giá này.");
         }
+
+        // Xóa ảnh (nếu cần thiết, dù orphanRemoval=true đã lo rồi)
+        List<RatingImage> imgs = ratingImageRepository.getImagesByRatingId(id);
+        ratingImageRepository.deleteAll(imgs);
+
         ratingRepository.deleteById(id);
     }
 

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Null;
 import lombok.Getter;
 import lombok.Setter;
+import java.time.LocalDateTime;
 
 import java.util.List;
 
@@ -41,4 +42,5 @@ public class Rating {
     @OneToMany(mappedBy = "rating", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RatingImage> images;
 
+    private LocalDateTime createdAt;
 }
