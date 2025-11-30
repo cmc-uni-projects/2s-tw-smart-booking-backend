@@ -31,6 +31,7 @@ public class BookingService {
     private final EmailService emailService;
     private final PaymentRepository paymentRepo;
     private final PromotionRepository promotionRepo;
+    private final RatingRepository ratingRepository;
     private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
 
     // ================================
@@ -420,7 +421,7 @@ public class BookingService {
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
         dto.setCreatedAt(b.getCreatedAt());
-        // ✅ Map thêm thông tin giảm giá
+        dto.setReviewed(ratingRepository.existsByBookingId_BookingId(b.getBookingId()));
         dto.setDiscountAmount(b.getDiscountAmount() != null ? b.getDiscountAmount() : BigDecimal.ZERO);
         dto.setPromotionCode(b.getPromotionCode());
         dto.setStatus(b.getStatus());

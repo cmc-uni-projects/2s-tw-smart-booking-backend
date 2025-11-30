@@ -47,5 +47,7 @@ public interface RatingRepository extends JpaRepository<Rating, Integer> {
     )
     List<Rating> getRatingsByProperty(int propertyId);
 
+    // Check if a rating exists for a given booking ID
+    boolean existsByBookingId_BookingId(int bookingId);
 
 }

@@ -1,10 +1,22 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.request.RatingRequestDTO;
+import com.example.smart_booking_system.dto.response.RatingResponseDTO;
 import com.example.smart_booking_system.entity.Rating;
+import com.example.smart_booking_system.entity.RatingImage;
 import com.example.smart_booking_system.service.RatingService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/rating")
@@ -13,73 +25,105 @@ public class RatingController {
 
     private final RatingService ratingService;
 
-    @PostMapping("/create")
-    public Rating createRating(@RequestBody Rating rating) {
-        return ratingService.createRating(rating);
+    // --- HÀM MAPPER (Chuyển Entity -> DTO) ---
+    private RatingResponseDTO mapToDTO(Rating rating) {
+        RatingResponseDTO dto = new RatingResponseDTO();
+        dto.setRatingId(rating.getRatingId());
+        dto.setStars(rating.getRating());
+        dto.setComment(rating.getComment());
+        dto.setHidden(rating.isHidden());
+
+        // Lấy thông tin từ các quan hệ (đã được load hoặc proxy an toàn khi gọi getter ID)
+        if (rating.getBookingId() != null) {
+            dto.setBookingId(rating.getBookingId().getBookingId());
+            // Map thêm tên khách sạn/phòng nếu booking đã fetch property/room
+            if (rating.getBookingId().getProperty() != null) {
+                dto.setPropertyName(rating.getBookingId().getProperty().getPropertyName());
+            }
+            if (rating.getBookingId().getRoom() != null) {
+                dto.setRoomName(rating.getBookingId().getRoom().getRoomName());
+            }
+        }
+
+        if (rating.getUserId() != null) {
+            dto.setUserName(rating.getUserId().getFullName()); // Giả sử User có getFullName
+        }
+
+        // Map danh sách ảnh
+        if (rating.getImages() != null) {
+            List<String> urls = rating.getImages().stream()
+                    .map(RatingImage::getImageUrl)
+                    .collect(Collectors.toList());
+            dto.setImages(urls);
+        }
+
+        return dto;
     }
 
-    @GetMapping("/{id}")
-    public Rating getRatingById(@PathVariable int id) {
-        return ratingService.getRatingById(id);
+    // --- CREATE ---
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RatingResponseDTO> createRating(
+            @RequestPart("data") String ratingJson,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
+    ) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        RatingRequestDTO dto = mapper.readValue(ratingJson, RatingRequestDTO.class);
+
+        Rating savedRating = ratingService.createRating(dto, files);
+        return ResponseEntity.ok(mapToDTO(savedRating));
     }
 
+    // --- UPDATE ---
+    @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RatingResponseDTO> updateRating(
+            @PathVariable int id,
+            @RequestPart("data") String ratingJson,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
+    ) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        RatingRequestDTO dto = mapper.readValue(ratingJson, RatingRequestDTO.class);
+
+        Rating updatedRating = ratingService.updateRating(id, dto, files);
+        return ResponseEntity.ok(mapToDTO(updatedRating));
+    }
+
+    // --- GET BY BOOKING ---
     @GetMapping("/booking/{bookingId}")
-    public Page<Rating> getByBooking(
+    public ResponseEntity<Page<RatingResponseDTO>> getByBooking(
             @PathVariable int bookingId,
             @RequestParam(defaultValue = "0") int page
     ) {
-        return ratingService.getRatingByBooking(bookingId, page);
+        Page<Rating> ratings = ratingService.getRatingByBooking(bookingId, page);
+        // Convert Page<Entity> -> Page<DTO>
+        Page<RatingResponseDTO> dtoPage = ratings.map(this::mapToDTO);
+        return ResponseEntity.ok(dtoPage);
     }
 
-    @GetMapping("/user/{userId}")
-    public Page<Rating> getByUser(
-            @PathVariable String userId,
-            @RequestParam(defaultValue = "0") int page
-    ) {
-        return ratingService.getRatingByUser(userId, page);
-    }
-
-    @GetMapping("/type/{type}")
-    public Page<Rating> getByType(
-            @PathVariable String type,
-            @RequestParam(defaultValue = "0") int page
-    ) {
-        return ratingService.getRatingByType(type, page);
-    }
-
-    @GetMapping("/hidden")
-    public Page<Rating> getHiddenRatings(
-            @RequestParam(defaultValue = "0") int page
-    ) {
-        return ratingService.getHiddenRatings(page);
-    }
-
+    // --- GET BY PROPERTY ---
     @GetMapping("/property/{propertyId}")
-    public Page<Rating> getByProperty(
+    public ResponseEntity<Page<RatingResponseDTO>> getByProperty(
             @PathVariable int propertyId,
             @RequestParam(defaultValue = "0") int page
     ) {
-        return ratingService.getRatingsForProperty(propertyId, page);
+        Page<Rating> ratings = ratingService.getRatingsForProperty(propertyId, page);
+        return ResponseEntity.ok(ratings.map(this::mapToDTO));
     }
 
-    @PutMapping("/update/{id}")
-    public Rating updateRating(
-            @PathVariable int id,
-            @RequestBody Rating rating
-    ) {
-        return ratingService.updateRating(id, rating);
+    // --- CÁC API KHÁC (Cũng nên sửa return type tương tự) ---
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RatingResponseDTO> getRatingById(@PathVariable int id) {
+        return ResponseEntity.ok(mapToDTO(ratingService.getRatingById(id)));
     }
 
-    @PatchMapping("/hide/{id}")
-    public Rating hideRating(
-            @PathVariable int id,
-            @RequestParam boolean hide
-    ) {
-        return ratingService.hideRating(id, hide);
-    }
-
+    // Giữ nguyên logic delete/hide nhưng có thể đổi return type nếu cần
     @DeleteMapping("/delete/{id}")
     public void deleteRating(@PathVariable int id) {
         ratingService.deleteRating(id);
+    }
+
+    @PatchMapping("/hide/{id}")
+    public ResponseEntity<RatingResponseDTO> hideRating(@PathVariable int id, @RequestParam boolean hide) {
+        return ResponseEntity.ok(mapToDTO(ratingService.hideRating(id, hide)));
     }
 }
