@@ -2,6 +2,7 @@ package com.example.smart_booking_system.entity;
 
 import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.PromotionStatus;
+import com.example.smart_booking_system.enums.MembershipRank;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,6 +34,8 @@ public class Promotion {
     @Column(nullable = false)
     private DiscountType discountType;
 
+    @Enumerated(EnumType.STRING)
+    private MembershipRank minMembershipRank;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
