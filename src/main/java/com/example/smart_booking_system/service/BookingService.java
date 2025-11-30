@@ -31,6 +31,7 @@ public class BookingService {
     private final EmailService emailService;
     private final PaymentRepository paymentRepo;
     private final PromotionRepository promotionRepo;
+    private final RefundRequestRepository refundRepo;
     private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
 
     // ================================
@@ -42,6 +43,7 @@ public class BookingService {
         // --- 1) Kiểm tra tồn tại cơ bản ---
         User user = userRepo.findById(req.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found: " + req.getUserId()));
+
 
         Property property = propertyRepo.findById(req.getPropertyId())
                 .orElseThrow(() -> new RuntimeException("Property not found: " + req.getPropertyId()));
@@ -227,6 +229,7 @@ public class BookingService {
         booking.setRefundAmount(refundAmount);
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
 
         // 4. TỰ ĐỘNG TẠO YÊU CẦU HOÀN TIỀN (Nếu có tiền hoàn và đã thanh toán)
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
