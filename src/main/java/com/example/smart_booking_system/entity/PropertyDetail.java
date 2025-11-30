@@ -22,7 +22,7 @@ public class PropertyDetail {
 
     // Quan hệ 1-1 với Property
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "property_id", nullable = false, unique = true)
+    @JoinColumn(name = "propertyId", nullable = false, unique = true)
     private Property property;
 
     // Diện tích (m2) - Khớp với trường 'area' từ Frontend

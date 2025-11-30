@@ -14,6 +14,10 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +31,7 @@ public class BookingService {
     private final EmailService emailService;
     private final PaymentRepository paymentRepo;
     private final PromotionRepository promotionRepo;
+    private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
 
     // ================================
     // CREATE BOOKING (chặt chẽ, capacity cho mọi loại)
@@ -162,6 +167,23 @@ public class BookingService {
             throw new RuntimeException("Booking already cancelled");
         }
 
+        // Nếu chưa thanh toán -> Hủy ngay lập tức, không tính phạt, không hoàn tiền
+        if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            booking.setStatus(BookingStatus.CANCELLED);
+            booking.setPenaltyAmount(BigDecimal.ZERO);
+            booking.setRefundAmount(BigDecimal.ZERO);
+
+            // Cập nhật trạng thái Payment sang FAILED (nếu đã tạo record payment)
+            Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+            if (payment != null) {
+                payment.setPaymentStatus(PaymentStatus.REJECTED);
+                paymentRepo.save(payment);
+            }
+
+            Booking saved = bookingRepo.save(booking);
+            return convertToDTO(saved);
+        }
+
         // --- 1. Logic tính toán hoàn tiền (Lấy từ code gốc của bạn) ---
         PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
@@ -211,6 +233,37 @@ public class BookingService {
         }
 
         return convertToDTO(booking);
+    }
+
+
+
+    // ================================
+    // HÀM MỚI: TỰ ĐỘNG QUÉT ĐƠN QUÁ HẠN (Scheduler sẽ gọi hàm này)
+    // ================================
+    @Transactional
+    public void scanAndCancelExpiredBookings() {
+        // Thời gian hiện tại trừ đi 5 phút
+        LocalDateTime expirationTime = LocalDateTime.now().minusMinutes(5);
+
+        // Tìm các đơn PENDING_PAYMENT được tạo trước thời điểm expirationTime
+        List<Booking> expiredBookings = bookingRepo.findByStatusAndCreatedAtBefore(
+                BookingStatus.PENDING_PAYMENT,
+                expirationTime
+        );
+
+        if (!expiredBookings.isEmpty()) {
+            logger.info("Tìm thấy {} đơn hàng quá hạn thanh toán (5 phút). Đang hủy...", expiredBookings.size());
+
+            for (Booking booking : expiredBookings) {
+                try {
+                    // Gọi lại hàm cancelBooking ở trên để tái sử dụng logic
+                    cancelBooking(booking.getBookingId());
+                    logger.info("Đã tự động hủy đơn booking ID: {}", booking.getBookingId());
+                } catch (Exception e) {
+                    logger.error("Lỗi khi tự động hủy đơn ID {}: {}", booking.getBookingId(), e.getMessage());
+                }
+            }
+        }
     }
 
     // ================================
@@ -280,7 +333,7 @@ public class BookingService {
         // 1. Cập nhật trạng thái Booking
         booking.setStatus(BookingStatus.COMPLETED);
 
-        // 2. 🔥 [LOGIC MỚI] TÍCH ĐIỂM & THĂNG HẠNG
+        // 2. TÍCH ĐIỂM & THĂNG HẠNG
         if (booking.getTotalPrice() != null) {
             User user = booking.getUser();
 
@@ -366,6 +419,7 @@ public class BookingService {
         dto.setTotalPrice(b.getTotalPrice());
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
+        dto.setCreatedAt(b.getCreatedAt());
         // ✅ Map thêm thông tin giảm giá
         dto.setDiscountAmount(b.getDiscountAmount() != null ? b.getDiscountAmount() : BigDecimal.ZERO);
         dto.setPromotionCode(b.getPromotionCode());
@@ -423,6 +477,23 @@ public class BookingService {
         dto.setUser(userDto);
 
         return dto;
+    }
+
+    // ================================
+    // 🔍 LẤY LỊCH BẬN CỦA PHÒNG
+    // ================================
+    public List<Map<String, String>> getRoomAvailability(int roomId) {
+        // Lấy tất cả booking từ ngày hôm nay trở đi
+        LocalDate today = LocalDate.now();
+        List<Booking> bookings = bookingRepo.findFutureBookingsByRoomId(roomId, today);
+
+        // Chuyển đổi sang List Map đơn giản: [{start: "2023-12-01", end: "2023-12-05"}, ...]
+        return bookings.stream().map(b -> {
+            Map<String, String> range = new HashMap<>();
+            range.put("start", b.getCheckInDate().toString());
+            range.put("end", b.getCheckOutDate().toString());
+            return range;
+        }).collect(Collectors.toList());
     }
 
     // =====================================================
