@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -475,6 +477,23 @@ public class BookingService {
         dto.setUser(userDto);
 
         return dto;
+    }
+
+    // ================================
+    // 🔍 LẤY LỊCH BẬN CỦA PHÒNG
+    // ================================
+    public List<Map<String, String>> getRoomAvailability(int roomId) {
+        // Lấy tất cả booking từ ngày hôm nay trở đi
+        LocalDate today = LocalDate.now();
+        List<Booking> bookings = bookingRepo.findFutureBookingsByRoomId(roomId, today);
+
+        // Chuyển đổi sang List Map đơn giản: [{start: "2023-12-01", end: "2023-12-05"}, ...]
+        return bookings.stream().map(b -> {
+            Map<String, String> range = new HashMap<>();
+            range.put("start", b.getCheckInDate().toString());
+            range.put("end", b.getCheckOutDate().toString());
+            return range;
+        }).collect(Collectors.toList());
     }
 
     // =====================================================

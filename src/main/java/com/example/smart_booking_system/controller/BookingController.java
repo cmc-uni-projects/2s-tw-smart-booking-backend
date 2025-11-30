@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
 
 import java.util.List;
 
@@ -17,6 +19,7 @@ import java.util.List;
 public class BookingController {
 
     private final BookingService bookingService;
+
 
     // ==========================================
     // CREATE BOOKING
@@ -136,4 +139,9 @@ public class BookingController {
             return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
         }
     }
+
+    @GetMapping("/room/{roomId}/availability")
+    public ResponseEntity<ApiResponse> getRoomAvailability(@PathVariable int roomId) {
+        List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
 }

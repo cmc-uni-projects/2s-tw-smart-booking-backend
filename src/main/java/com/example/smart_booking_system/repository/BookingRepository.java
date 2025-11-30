@@ -36,5 +36,17 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime dateTime);
 
+    @Query("""
+       SELECT b FROM Booking b
+       WHERE b.room.roomId = :roomId
+         AND b.checkOutDate >= :today
+         AND b.status IN (
+             com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+             com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT,
+             com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN
+         )
+       """)
+    List<Booking> findFutureBookingsByRoomId(@Param("roomId") int roomId, @Param("today") LocalDate today);
+
 
 }
