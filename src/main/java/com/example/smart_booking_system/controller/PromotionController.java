@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.PromotionService;
@@ -10,6 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/v1/promotions")
@@ -99,6 +102,27 @@ public class PromotionController {
             );
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+    @GetMapping("/suggest")
+    public ResponseEntity<ApiResponse<PromotionResponseDTO>> suggestPromotion(
+            @RequestParam String userId,
+            @RequestParam BigDecimal amount) {
+
+        PromotionResponseDTO bestPromo = promotionService.suggestBestPromotion(userId, amount);
+
+        if (bestPromo != null) {
+            // ✅ SỬ DỤNG ApiResponse.success(message, data)
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Đã tìm thấy mã giảm giá tốt nhất cho bạn.",
+                    bestPromo
+            ));
+        } else {
+            // ✅ SỬ DỤNG ApiResponse.success(message, data) với data = null
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Hiện không có mã giảm giá nào phù hợp.",
+                    null
+            ));
         }
     }
 }

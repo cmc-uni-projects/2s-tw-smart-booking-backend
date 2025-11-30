@@ -2,6 +2,7 @@ package com.example.smart_booking_system.dto;
 
 import com.example.smart_booking_system.entity.Promotion;
 import com.example.smart_booking_system.enums.DiscountType;
+import com.example.smart_booking_system.enums.MembershipRank;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,7 +32,7 @@ public class PromotionResponseDTO {
     private LocalDateTime startDate;
     private PromotionStatus status;
     private DiscountType discountType;
-
+    private MembershipRank minMembershipRank;
     private BigDecimal discountValue;
     private BigDecimal maxDiscountAmount;
     private BigDecimal minBookingAmount;
@@ -47,7 +48,7 @@ public class PromotionResponseDTO {
         this.startDate = LocalDateTime.from(p.getStartDate());
         this.status = p.getStatus();
         this.discountType = p.getDiscountType();
-
+        this.minMembershipRank = p.getMinMembershipRank();
         this.discountValue = p.getDiscountValue();
         this.maxDiscountAmount = p.getMaxDiscountAmount();
         this.minBookingAmount = p.getMinBookingAmount();

@@ -5,7 +5,7 @@ import com.example.smart_booking_system.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,4 +49,15 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     List<Booking> findFutureBookingsByRoomId(@Param("roomId") int roomId, @Param("today") LocalDate today);
 
 
+    // Tính tổng tiền các booking đã hoàn thành/xác nhận của user để xét hạng
+    @Query("""
+        SELECT SUM(b.totalPrice) FROM Booking b
+        WHERE b.user.userId = :userId
+        AND b.status IN (
+            com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+            com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN,
+            com.example.smart_booking_system.enums.BookingStatus.COMPLETED
+        )
+    """)
+    BigDecimal calculateTotalSpentByUser(@Param("userId") String userId);
 }

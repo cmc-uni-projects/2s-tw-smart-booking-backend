@@ -3,14 +3,20 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
 import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.entity.Promotion;
+import com.example.smart_booking_system.enums.DiscountType;
+import com.example.smart_booking_system.enums.MembershipRank;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.PromotionRepository;
+import com.example.smart_booking_system.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
+import java.util.Comparator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +28,7 @@ public class PromotionService {
 
     private final PromotionRepository promotionRepository;
     private final FileStorageService fileStorageService;
+    private final BookingRepository bookingRepository;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
@@ -172,5 +179,81 @@ public class PromotionService {
         p.setBannerUrl(newBannerPath);
 
         return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+
+    /**
+     * Gợi ý mã giảm giá tốt nhất cho người dùng với đơn hàng dự kiến
+     *
+     * @param userId        ID người dùng
+     * @param bookingAmount Giá trị đơn đặt phòng dự kiến
+     * @return PromotionResponseDTO tốt nhất hoặc null nếu không có
+     */
+    public PromotionResponseDTO suggestBestPromotion(String userId, BigDecimal bookingAmount) {
+        // 1. Xác định hạng thành viên hiện tại của User
+        MembershipRank userRank = calculateUserRank(userId);
+
+        // 2. Lấy tất cả mã đang active
+        List<Promotion> activePromotions = promotionRepository.findAvailablePromotions(LocalDateTime.now());
+
+        // 3. Lọc và tìm mã giảm giá sâu nhất
+        Promotion bestPromotion = activePromotions.stream()
+                // Lọc 1: Kiểm tra hạng thành viên (User rank phải >= Promo rank)
+                .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
+                // Lọc 2: Kiểm tra giá trị đơn hàng tối thiểu
+                .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
+                // Sắp xếp: Tính toán số tiền giảm thực tế và sort giảm dần (nhiều tiền nhất lên đầu)
+                .sorted(Comparator.comparing((Promotion p) -> calculateDiscountAmount(p, bookingAmount)).reversed())
+                .findFirst()
+                .orElse(null);
+
+        if (bestPromotion == null) {
+            return null; // Không có mã nào phù hợp
+        }
+
+        return new PromotionResponseDTO(bestPromotion);
+    }
+
+    // --- CÁC HÀM HELPER ---
+
+    // Tính Rank dựa trên tiền đã tiêu
+    private MembershipRank calculateUserRank(String userId) {
+        BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
+        if (totalSpent == null) totalSpent = BigDecimal.ZERO;
+
+        // Logic xếp hạng (Ví dụ theo đơn vị VNĐ)
+        // Bạn có thể đưa các số này vào Constant hoặc Config
+        if (totalSpent.compareTo(new BigDecimal("10000000")) >= 0) { // > 10 triệu
+            return MembershipRank.DIAMOND;
+        } else if (totalSpent.compareTo(new BigDecimal("5000000")) >= 0) { // > 5 triệu
+            return MembershipRank.GOLD;
+        } else if (totalSpent.compareTo(new BigDecimal("1000000")) >= 0) { // > 1 triệu
+            return MembershipRank.SILVER;
+        } else {
+            return MembershipRank.BRONZE;
+        }
+    }
+
+    // So sánh Rank (Enum Ordinal: BRONZE=0, SILVER=1, GOLD=2, DIAMOND=3)
+    private boolean isRankEligible(MembershipRank userRank, MembershipRank requiredRank) {
+        if (requiredRank == null) return true; // Không yêu cầu rank
+        return userRank.ordinal() >= requiredRank.ordinal();
+    }
+
+    // Tính số tiền được giảm thực tế để so sánh
+    private BigDecimal calculateDiscountAmount(Promotion p, BigDecimal bookingAmount) {
+        BigDecimal discountAmount = BigDecimal.ZERO;
+
+        if (p.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discountAmount = p.getDiscountValue();
+        } else if (p.getDiscountType() == DiscountType.PERCENTAGE) {
+            discountAmount = bookingAmount.multiply(p.getDiscountValue()).divide(BigDecimal.valueOf(100));
+            // Kiểm tra giới hạn giảm tối đa (nếu có)
+            if (p.getMaxDiscountAmount() != null && discountAmount.compareTo(p.getMaxDiscountAmount()) > 0) {
+                discountAmount = p.getMaxDiscountAmount();
+            }
+        }
+
+        // Không được giảm quá giá trị đơn hàng
+        return discountAmount.min(bookingAmount);
     }
 }
