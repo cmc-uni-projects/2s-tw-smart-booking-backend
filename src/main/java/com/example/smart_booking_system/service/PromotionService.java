@@ -54,6 +54,7 @@ public class PromotionService {
         p.setEndDate(req.getEndDate());
         p.setMinBookingAmount(req.getMinBookingAmount());
         p.setMaxDiscountAmount(req.getMaxDiscountAmount());
+        p.setMinMembershipRank(req.getMinMembershipRank());
         p.setUsageLimit(req.getUsageLimit());
         p.setUsageCount(0);
 
@@ -95,6 +96,7 @@ public class PromotionService {
         p.setEndDate(req.getEndDate());
         p.setMinBookingAmount(req.getMinBookingAmount());
         p.setMaxDiscountAmount(req.getMaxDiscountAmount());
+        p.setMinMembershipRank(req.getMinMembershipRank());
         p.setUsageLimit(req.getUsageLimit());
 
         // Nếu admin muốn đổi status trực tiếp
