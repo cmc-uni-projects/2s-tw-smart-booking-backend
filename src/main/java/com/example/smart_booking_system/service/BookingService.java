@@ -357,20 +357,30 @@ public class BookingService {
         bookingRepo.save(booking);
     }
 
-    // ================================
-    // HELPER: CẬP NHẬT HẠNG THÀNH VIÊN
-    // ================================
-    private void updateUserRank(User user, int points) {
+    // ============================================================
+    // 🔥 1. HÀM STATIC: TÍNH RANK TỪ ĐIỂM (DÙNG CHUNG TOÀN HỆ THỐNG)
+    // ============================================================
+    public static MembershipRank calculateRankFromPoints(int points) {
         if (points >= 10000) {
-            user.setMembershipRank(MembershipRank.DIAMOND);
+            return MembershipRank.DIAMOND;
         } else if (points >= 5000) {
-            user.setMembershipRank(MembershipRank.GOLD);
+            return MembershipRank.GOLD;
         } else if (points >= 1000) {
-            user.setMembershipRank(MembershipRank.SILVER);
+            return MembershipRank.SILVER;
         } else {
-            user.setMembershipRank(MembershipRank.BRONZE);
+            return MembershipRank.BRONZE;
         }
     }
+
+    // ============================================================
+    // 🔥 2. HÀM UPDATE RANK CHO USER (SỬ DỤNG HÀM STATIC Ở TRÊN)
+    // ============================================================
+    public void updateUserRank(User user, int points) {
+        // Tái sử dụng logic tính toán để tránh lặp code
+        MembershipRank newRank = calculateRankFromPoints(points);
+        user.setMembershipRank(newRank);
+    }
+
 
     // ================================
     // GET APIs
