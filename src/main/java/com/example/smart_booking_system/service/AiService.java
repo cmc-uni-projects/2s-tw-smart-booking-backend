@@ -220,23 +220,26 @@ HARD RESTRICTIONS
             prop.put("reviewCount", p.getReviewCount());
             prop.put("address", p.getAddress());
 
-            ArrayNode roomArr = prop.putArray("rooms");
-            for (Room r : p.getRooms()) {
+            // ⭐ URL cho property (chỉ 1 lần)
+            String bookingUrl = frontendUrl + "/hotels/" + p.getPropertyId();
+            prop.put("bookingUrl", bookingUrl);
 
+            // ⭐ ROOM LIST — KHÔNG CÓ bookingUrl trong room nữa
+            ArrayNode roomArr = prop.putArray("rooms");
+
+            for (Room r : p.getRooms()) {
                 if (r.isActive() && r.getCapacity() >= capacity) {
                     ObjectNode room = roomArr.addObject();
                     room.put("roomName", r.getRoomName());
                     room.put("capacity", r.getCapacity());
                     room.put("price", r.getPricePerNight().longValue());
-
-                    String bookingUrl = frontendUrl + "/booking/" + r.getRoomId();
-                    room.put("bookingUrl", bookingUrl);
                 }
             }
         }
 
         return root.toString();
     }
+
 
     // ============================================================
     // CALL GEMINI API — with CURRENT_DATE, retry, timeout
