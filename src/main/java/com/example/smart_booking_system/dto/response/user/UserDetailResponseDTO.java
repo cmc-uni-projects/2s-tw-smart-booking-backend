@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.dto.response.user;
 
+import com.example.smart_booking_system.enums.MembershipRank;
 import lombok.Data;
 import java.time.LocalDate;
 
@@ -19,4 +20,6 @@ public class UserDetailResponseDTO {
     private String address;
     private String city;
     private String country;
+    private int points;
+    private MembershipRank membershipRank;
 }

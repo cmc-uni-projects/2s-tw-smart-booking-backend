@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -36,6 +37,8 @@ public class BookingResponseDTO {
     private String paymentStatus;
     private String paymentMethod;
     private String specialRequest;
+
+    private LocalDateTime createdAt;
 
     private UserSummaryDto user;
 

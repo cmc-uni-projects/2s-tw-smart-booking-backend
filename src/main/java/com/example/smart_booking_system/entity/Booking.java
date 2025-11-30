@@ -20,15 +20,15 @@ public class Booking {
     private int bookingId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "userId")
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "property_id")
+    @JoinColumn(name = "propertyId")
     private Property property;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id")
+    @JoinColumn(name = "roomId")
     private Room room;
 
     private LocalDate checkInDate;

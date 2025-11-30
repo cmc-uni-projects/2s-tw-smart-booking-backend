@@ -20,7 +20,7 @@ public class RefundRequest {
     private Integer id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", unique = true, nullable = false)
+    @JoinColumn(name = "bookingId", unique = true, nullable = false)
     private Booking booking;
 
     @Column(precision = 15, scale = 2)
