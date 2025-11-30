@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -196,20 +197,26 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    // 1. Gửi khi khách vừa bấm hủy (Chờ duyệt)
     @Override
-    public void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId) {
+    public void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId, BigDecimal totalPrice, BigDecimal penalty, BigDecimal refund) {
         try {
             Context context = new Context();
             context.setVariable("username", fullName);
             context.setVariable("bookingId", bookingId);
 
+            context.setVariable("totalPrice", String.format("%,.0f", totalPrice));
+            context.setVariable("penaltyAmount", String.format("%,.0f", penalty));
+            context.setVariable("refundAmount", String.format("%,.0f", refund));
+
             String htmlContent = templateEngine.process("email/cancellation-request", context);
-            sendHtmlEmailInternal(toEmail, "TravelMate - Đã nhận yêu cầu hủy phòng #" + bookingId, htmlContent);
+            sendHtmlEmailInternal(toEmail, "TravelMate - Xác nhận yêu cầu hủy phòng #" + bookingId, htmlContent);
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail cancellation-request: " + e.getMessage());
         }
     }
 
+    // 2. Gửi khi Admin đã duyệt (Thành công)
     @Override
     public void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount) {
         try {
@@ -220,31 +227,9 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("penaltyAmount", penaltyAmount);
 
             String htmlContent = templateEngine.process("email/cancellation-success", context);
-            sendHtmlEmailInternal(toEmail, "TravelMate - Hủy phòng thành công #" + bookingId, htmlContent);
+            sendHtmlEmailInternal(toEmail, "TravelMate - Hoàn tất hoàn tiền #" + bookingId, htmlContent);
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail cancellation-success: " + e.getMessage());
         }
-    }
-
-    @Override
-    public void sendRefundProcessedEmail(String toEmail, String fullName, String bookingId, boolean isApproved, String refundAmount, String reason) {
-        Context context = new Context();
-        context.setVariable("fullName", fullName);
-        context.setVariable("bookingId", bookingId);
-        context.setVariable("status", isApproved ? "ĐÃ ĐƯỢC CHẤP NHẬN" : "ĐÃ BỊ TỪ CHỐI");
-        context.setVariable("refundAmount", refundAmount);
-        context.setVariable("reason", reason != null ? reason : "Không có ghi chú thêm.");
-
-        // Tùy biến lời nhắn
-        String message = isApproved
-                ? "Khoản tiền hoàn lại sẽ được chuyển vào tài khoản của bạn trong vòng 3-5 ngày làm việc."
-                : "Rất tiếc, yêu cầu hoàn tiền của bạn không đáp ứng đủ điều kiện chính sách của chúng tôi.";
-        context.setVariable("message", message);
-
-        // Template: src/main/resources/templates/email/refund-processed.html
-        String subject = isApproved ? "Thông báo: Yêu cầu hoàn tiền được chấp nhận" : "Thông báo: Yêu cầu hoàn tiền bị từ chối";
-
-        // Gửi email (dùng template chung hoặc tạo mới)
-        sendHtmlEmail(toEmail, subject, "email/refund-processed", context);
     }
 }

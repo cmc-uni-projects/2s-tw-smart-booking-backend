@@ -156,7 +156,7 @@ public class BookingService {
     }
 
     // ================================
-    // CANCEL BOOKING (User thực hiện)
+    // CANCEL BOOKING
     // ================================
     @Transactional
     public BookingResponseDTO cancelBooking(int bookingId) {
@@ -187,49 +187,83 @@ public class BookingService {
         // --- 1. Logic tính toán hoàn tiền (Lấy từ code gốc của bạn) ---
         PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
-
-        boolean allowFree = false;
-
-        if (policies != null && Boolean.TRUE.equals(policies.isAllowFreeCancellation())) {
-            Integer freeDays = policies.getFreeCancellationDays();
-            if (freeDays == null) freeDays = 0;
-            if (freeDays < 0) freeDays = 0;
-
-            LocalDate deadline = booking.getCheckInDate().minusDays(freeDays);
-            // Cho phép hủy miễn phí nếu hôm nay <= deadline
-            if (!today.isAfter(deadline)) {
-                allowFree = true;
-            }
-        }
+        LocalDate checkInDate = booking.getCheckInDate();
 
         BigDecimal refundAmount;
+        BigDecimal penaltyAmount;
 
-        if (allowFree) {
-            booking.setPenaltyAmount(BigDecimal.ZERO);
-            refundAmount = booking.getTotalPrice();
+        long daysUntilCheckIn = ChronoUnit.DAYS.between(today, checkInDate);
+
+        if (daysUntilCheckIn <= 1) {
+            // Trường hợp 1: Sát ngày (<= 1 ngày) -> Phạt 100%
+            penaltyAmount = booking.getTotalPrice();
+            refundAmount = BigDecimal.ZERO;
         } else {
-            // Phạt 20% nếu hủy muộn
-            BigDecimal penalty = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.20));
-            booking.setPenaltyAmount(penalty);
-            refundAmount = booking.getTotalPrice().subtract(penalty);
+            boolean isFreeCancellation = false;
+            // Check chính sách miễn phí của Property
+            if (policies != null && Boolean.TRUE.equals(policies.isAllowFreeCancellation())) {
+                Integer freeDays = policies.getFreeCancellationDays();
+                if (freeDays == null) freeDays = 0;
+                LocalDate freeDeadline = checkInDate.minusDays(freeDays);
+
+                if (!today.isAfter(freeDeadline)) {
+                    isFreeCancellation = true;
+                }
+            }
+
+            if (isFreeCancellation) {
+                // Trường hợp 2: Miễn phí -> Hoàn 100%
+                penaltyAmount = BigDecimal.ZERO;
+                refundAmount = booking.getTotalPrice();
+            } else {
+                // Trường hợp 3: Ngoài chính sách -> Phạt 30%
+                penaltyAmount = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.30));
+                refundAmount = booking.getTotalPrice().subtract(penaltyAmount);
+            }
         }
 
+        // 3. Cập nhật Booking
+        booking.setPenaltyAmount(penaltyAmount);
         booking.setRefundAmount(refundAmount);
-        booking.setStatus(BookingStatus.CANCELLED); // Đã hủy booking
+        booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
 
+        // 4. TỰ ĐỘNG TẠO YÊU CẦU HOÀN TIỀN (Nếu có tiền hoàn và đã thanh toán)
+        if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
 
-        // --- 3. Gửi Email 1: Thông báo đã nhận yêu cầu hủy ---
-        try {
-            if (booking.getUser() != null) {
-                emailService.sendCancellationRequestReceivedEmail(
-                        booking.getUser().getEmail(),
-                        booking.getUser().getFullName(),
-                        String.valueOf(booking.getBookingId())
-                );
+            if (!refundRepo.existsByBooking(booking)) {
+                RefundRequest refund = new RefundRequest();
+                refund.setBooking(booking);
+                refund.setAmount(refundAmount);
+                refund.setStatus(RefundRequestStatus.PENDING); // Chờ Admin duyệt
+                refund.setReason("Khách hủy phòng (Hệ thống tự động tạo)");
+                refund.setRequestDate(LocalDateTime.now());
+
+                // Lưu RefundRequest (không cần bank info vì user ko nhập)
+                refundRepo.save(refund);
+
+                // Cập nhật Payment -> REFUND_REQUESTED
+                payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
+                paymentRepo.save(payment);
             }
+        }
+
+        // 5. Gửi Email thông báo "Chờ duyệt"
+        try {
+            // Ưu tiên gửi cho email khách hàng nhập trong booking
+            String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+            String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+
+            emailService.sendCancellationRequestReceivedEmail(
+                    emailTo,
+                    nameTo,
+                    String.valueOf(booking.getBookingId()),
+                    booking.getTotalPrice(),
+                    penaltyAmount,
+                    refundAmount
+            );
         } catch (Exception e) {
-            System.err.println("Lỗi gửi mail request cancel: " + e.getMessage());
+            System.err.println("Lỗi gửi mail cancel: " + e.getMessage());
         }
 
         return convertToDTO(booking);
@@ -271,38 +305,28 @@ public class BookingService {
     // ================================
     @Transactional
     public void approveRefund(int bookingId) {
-        // 1. Tìm Booking
-        Booking booking = bookingRepo.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new RuntimeException("Booking not found"));
+        RefundRequest refundRequest = refundRepo.findByBooking(booking).orElseThrow(() -> new RuntimeException("Refund Request not found"));
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        // 2. Tìm Payment liên quan
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
-                .orElseThrow(() -> new RuntimeException("Payment info not found for booking: " + bookingId));
+        refundRequest.setStatus(RefundRequestStatus.APPROVED);
+        refundRequest.setResolveDate(LocalDateTime.now());
+        refundRequest.setAdminNote("Admin approved.");
+        refundRepo.save(refundRequest);
 
-        // 3. Kiểm tra logic (chỉ duyệt nếu Booking đã hủy)
-        if (booking.getStatus() != BookingStatus.CANCELLED) {
-            throw new RuntimeException("Chỉ có thể hoàn tiền cho đơn đã Hủy (CANCELLED)");
-        }
-
-        // 4. Cập nhật trạng thái Payment thành REFUNDED
-        // (Nhớ import com.example.smart_booking_system.enums.PaymentStatus)
-        payment.setPaymentStatus(com.example.smart_booking_system.enums.PaymentStatus.REFUNDED);
-        payment.setConfirmedDate(LocalDateTime.now()); // Cập nhật ngày thực hiện hoàn tiền
-        payment.setNote(payment.getNote() + " | Admin đã duyệt hoàn tiền ngày " + LocalDateTime.now());
-
+        payment.setPaymentStatus(PaymentStatus.REFUNDED);
+        payment.setRefundedAmount(refundRequest.getAmount());
         paymentRepo.save(payment);
 
-        // ✅ [BƯỚC 2 - THÊM MỚI] Gửi Email 2: Xác nhận hoàn tiền thành công
         try {
-            if (booking.getUser() != null) {
-                emailService.sendCancellationSuccessEmail(
-                        booking.getUser().getEmail(),
-                        booking.getUser().getFullName(),
-                        String.valueOf(booking.getBookingId()),
-                        String.format("%,.0f", booking.getRefundAmount()), // Số tiền hoàn
-                        String.format("%,.0f", booking.getPenaltyAmount()) // Phí phạt
-                );
-            }
+            String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+            String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+
+            emailService.sendCancellationSuccessEmail(
+                    emailTo, nameTo, String.valueOf(booking.getBookingId()),
+                    String.format("%,.0f", booking.getRefundAmount()),
+                    String.format("%,.0f", booking.getPenaltyAmount())
+            );
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail success refund: " + e.getMessage());
         }
