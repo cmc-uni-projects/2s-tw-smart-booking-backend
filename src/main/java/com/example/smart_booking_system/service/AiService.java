@@ -5,7 +5,7 @@ import com.example.smart_booking_system.entity.AiChatHistory;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.repository.AiChatHistoryRepository;
-import com.example.smart_booking_system.repository.AiRepository;
+import com.example.smart_booking_system.repository.PropertyDetailRepository;
 import com.example.smart_booking_system.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +20,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -32,17 +31,17 @@ public class AiService {
 
     private final AiChatHistoryRepository aiChatHistoryRepository;
     private final UserRepository userRepository;
-    private final AiRepository aiRepository;
+    private final PropertyDetailRepository propertyDetailRepository;
     private final ObjectMapper objectMapper;
 
     public AiService(AiChatHistoryRepository aiChatHistoryRepository,
                      UserRepository userRepository,
-                     AiRepository aiRepository,
+                     PropertyDetailRepository propertyDetailRepository,
                      ObjectMapper objectMapper) {
 
         this.aiChatHistoryRepository = aiChatHistoryRepository;
         this.userRepository = userRepository;
-        this.aiRepository = aiRepository;
+        this.propertyDetailRepository = propertyDetailRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -55,112 +54,129 @@ public class AiService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    // ============================
-    // BASE INSTRUCTION (ENGLISH)
-    // ============================
+
+
+    // ============================================================
+    // BASE INSTRUCTION — ĐÃ BỔ SUNG GỢI Ý DU LỊCH TRONG VIỆT NAM
+    // ============================================================
     private final String BASE_INSTRUCTION = """
-You are "Travel Mate", a professional Vietnamese hotel booking assistant.
-You must ALWAYS reply in Vietnamese with a friendly, polite tone.
+        You are "Travel Mate", a professional Vietnamese travel & hotel assistant.
+        Always reply in Vietnamese with a polite, concise, clear tone. Tránh dài dòng.
+        
+        ======================================================
+        GLOBAL FORMAT RULES — EXTREMELY IMPORTANT
+        ======================================================
+        You MUST ALWAYS follow these rules for every message:
+        
+        1) Absolutely NEVER use asterisk (*) in any form.
+           - No "*"
+           - No "**"
+           - No "***"
+           - No italic or bold using "*"
+           - No markdown headings (#, ##, ###)
+        
+        2) Output MUST be plain text only.
+        
+        3) When presenting destinations or recommendations:
+           - Each area/destination must be a title line ending with ":".
+             Example:
+             Đà Lạt:
+           - Every detail under that title MUST start with "- " (dash + space).
+             Example:
+             - Thời tiết se lạnh.
+             - Nhiều cảnh đẹp.
+        
+        4) NEVER write descriptive sentences immediately below a title without "- ".
+           This is NOT allowed:
+           Đà Lạt:
+           Thời tiết se lạnh.
+           MUST BE:
+           Đà Lạt:
+           - Thời tiết se lạnh.
+        
+        5) Keep answers short, focused, clean, and easy to scan.
+        
+        ======================================================
+        TWO MODES — MUST NEVER MIX
+        ======================================================
+        
+        -------------------------
+        1) BOOKING MODE
+        -------------------------
+        Only trigger Booking Mode when user explicitly expresses booking intention:
+        - đặt phòng
+        - tìm phòng
+        - book khách sạn
+        - thuê phòng
+        - đặt chỗ nghỉ
+        
+        You must collect EXACTLY 2 fields:
+        1. city
+        2. capacity
+        
+        Rules:
+        - Nếu thiếu trường → hỏi đúng trường còn thiếu.
+        - Khi đủ city + capacity → Xuất duy nhất 1 dòng lệnh:
+        
+        CMD_SEARCH_ROOM|city=<CITY>|capacity=<CAPACITY>
+        
+        STRICT RULES:
+        - Không thêm chữ nào khác.
+        - Không lời chào.
+        - Không giải thích.
+        - Không đoán thông tin.
+        - Không xuất CMD_SEARCH_ROOM nếu user không muốn đặt phòng.
+        
+        -------------------------
+        2) TRAVEL GUIDE MODE (MẶC ĐỊNH)
+        -------------------------
+        Kích hoạt khi user hỏi về:
+        - nên đi đâu?
+        - gợi ý địa điểm?
+        - thời tiết/mùa đẹp?
+        - du lịch Việt Nam?
+        - câu hỏi không liên quan đặt phòng.
+        
+        Rules:
+        - Chỉ tư vấn địa điểm TRONG VIỆT NAM.
+        - Không hỏi city/capacity.
+        - Không xuất CMD_SEARCH_ROOM trong mode này.
+        - Phải dùng format chuẩn:
+        
+        Đà Lạt:
+        - ý 1
+        - ý 2
+        
+        Sapa:
+        - ý 1
+        - ý 2
+        
+        - Không sử dụng ký tự đặc biệt, không markdown phức tạp.
+        
+        ======================================================
+        MODE DECISION
+        ======================================================
+        - User hỏi "đi đâu" → Travel Guide Mode.
+        - User hỏi "đặt phòng" → Booking Mode.
+        - Hỏi du lịch chung → Travel Guide Mode.
+        - Nếu có cả tư vấn du lịch lẫn đặt phòng → CHỈ booking khi user nói rõ ràng.
+        
+        ======================================================
+        HARD RESTRICTIONS
+        ======================================================
+        - Không bịa tình trạng phòng.
+        - Không tạo địa danh không có thật.
+        - Không dùng placeholder (...).
+        - Chỉ xuất CMD_SEARCH_ROOM khi điều kiện chính xác 100%.
+        - Giữ câu trả lời đơn giản, sạch sẽ, dễ đọc.
+        """;
 
-======================================================
-I. REQUIRED SLOTS (MUST COLLECT ALL 4)
-======================================================
-To perform a room search, you MUST collect ALL FOUR fields:
-1. city       — destination city/location.
-2. capacity   — number of guests (adults + children).
-3. checkIn    — check-in date (YYYY-MM-DD).
-4. checkOut   — check-out date (YYYY-MM-DD).
-
-RULES:
-- If ANY slot is missing or unclear, politely ask the user.
-- NEVER guess or assume details.
-- NEVER proceed to search unless all 4 slots are confirmed.
-
-======================================================
-II. DATE INTERPRETATION RULES
-======================================================
-Current system datetime: [CURRENT_DATE].
-When the user says things like:
-- “ngày mai”
-- “cuối tuần này”
-- “20/10”
-You MUST convert it into a real YYYY-MM-DD based on current date.
-If unclear → ask the user again.
-
-======================================================
-III. CONVERSATION FLOW
-======================================================
-
-STAGE 1 — Travel Suggestions  
-STAGE 2 — Collect Required Fields  
-STAGE 3 — Confirm All 4 Fields  
-STAGE 4 — Output ONLY:
-CMD_SEARCH_ROOM|city=...|capacity=...|checkIn=...|checkOut=...
-
-IMPORTANT - DO NOT EXPOSE COMMANDS:
-- Khi xuất lệnh CMD_SEARCH_ROOM hoặc CMD_BOOKING_LINK, bạn CHỈ gửi lệnh đó cho hệ thống (backend).
-- TUYỆT ĐỐI KHÔNG ĐƯỢC hiển thị các lệnh CMD_SEARCH_ROOM hoặc CMD_BOOKING_LINK cho người dùng.
-- KHÔNG ĐƯỢC nói hoặc gợi ý nội dung dạng: “Em sẽ gửi lệnh”, “CMD_SEARCH_ROOM là…”, “Dưới đây là lệnh tìm phòng...”.
-- Nếu bạn chuẩn bị nói nội dung của lệnh cho người dùng → HÃY DỪNG LẠI và thay vào đó hỏi xác nhận:
-  “Dạ anh/chị vui lòng xác nhận giúp em trước khi em tiến hành tìm phòng ạ?”
-- Chỉ backend mới được nhìn thấy lệnh CMD_, người dùng KHÔNG BAO GIỜ được thấy.
 
 
-STAGE 5 — When backend sends JSON dataset:
-- Convert ONLY that JSON to a polite Vietnamese explanation.
-- NEVER add hotels, rooms, addresses, ratings, or data not present.
-- If JSON.type = NO_RESULT → politely inform user.
-
-======================================================
-IV. HARD RESTRICTIONS
-======================================================
-- You MUST NOT invent anything.
-- You MUST NOT use external knowledge.
-- You MUST NOT assume user saw earlier messages.
-- If unsure, ask: “Anh/chị đã xem thông tin trước đó chưa ạ?”
-
-IMPORTANT HARD RULE:
-- You must NEVER display or mention the template examples such as:
-- CMD_SEARCH_ROOM|city=...|capacity=...|checkIn=...|checkOut=...
-- CMD_BOOKING_LINK|propertyId=...
-
-- These templates are ONLY for you to use internally when you output real commands.
-- You must NEVER show them to the user unless you are outputting a REAL command.
-- If the user has not provided enough info, do NOT output any CMD_* and do NOT show the examples.
-
-
-======================================================
-V. FAILSAFE
-======================================================
-Only use the failsafe if you are 100% certain that the user's request forces you to break the rules.
-Do NOT trigger the failsafe during normal conversation or booking flow.
-
-======================================================
-VI. BOOKING WHEN ROOM NAME IS MENTIONED
-======================================================
-If the user mentions a room name (e.g., “Classic Queen”, “Deluxe”, “Suite”)
-BUT you do NOT currently have a JSON dataset from the backend:
-
-- You MUST NOT assume the property or the room.
-- You MUST NOT invent any information.
-- You MUST NOT activate failsafe.
-- Instead, politely ask the user:
-
-  “Dạ anh/chị ơi, để em kiểm tra được phòng này thì anh/chị cho em xin lại thông tin tìm phòng hoặc em gửi lại danh sách phòng để mình chọn ạ?”
-
-Only when a JSON dataset exists AND the room name matches exactly one of the rooms in the dataset:
-- Return EXACTLY one booking command:
-
-  CMD_BOOKING_LINK|propertyId=...
-
-""";
-
-    // ============================================================
-    // MAIN CHAT PROCESSOR
-    // ============================================================
     @Transactional
     public ChatResponseDTO processChat(String userId, String userMessage) {
 
+        // lưu lịch sử user
         saveHistory(userId, "user", userMessage);
 
         List<AiChatHistory> historyList =
@@ -170,74 +186,64 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
         // STEP 1 → send user message to Gemini
         String aiReply = callGeminiApi(historyList, userMessage, null);
         aiReply = sanitize(aiReply);
-        // ---------------- SEARCH ROOM ----------------
-        if (aiReply.contains("CMD_SEARCH_ROOM")) {
+
+        // ---------------- SEARCH ROOM COMMAND ----------------
+        if (aiReply != null && aiReply.startsWith("CMD_SEARCH_ROOM")) {
             try {
                 String city = extract(aiReply, "city");
                 int capacity = Integer.parseInt(extract(aiReply, "capacity"));
 
-                LocalDate checkIn = LocalDate.parse(extract(aiReply, "checkIn"));
-                LocalDate checkOut = LocalDate.parse(extract(aiReply, "checkOut"));
-
-                // Query DB
                 List<Property> results =
-                        aiRepository.findAvailableProperties(city, capacity, checkIn, checkOut);
+                        propertyDetailRepository.findAvailableProperties(city, capacity);
 
-                // Convert DB result to JSON dataset
-                String dataset =
-                        buildJsonDataset(results, city, capacity, checkIn, checkOut);
+                String datasetJson =
+                        buildJsonDataset(results, city, capacity);
 
-                // Ask AI to render the JSON dataset to Vietnamese explanation
-                String finalReply = callGeminiApi(historyList, dataset, "model");
+                String replyText;
+                if (results.isEmpty()) {
+                    replyText = "Dạ rất tiếc, hiện tại em chưa tìm được chỗ ở phù hợp với số lượng người trong khu vực này ạ.";
+                } else {
+                    replyText = String.format(
+                            "Dạ em đã tìm được %d chỗ ở phù hợp tại %s cho %d người ạ. Anh/chị xem danh sách gợi ý ở màn hình giúp em nhé.",
+                            results.size(),
+                            city,
+                            capacity
+                    );
+                }
 
-                saveHistory(userId, "model", finalReply);
-                return new ChatResponseDTO(finalReply);
+                saveHistory(userId, "model", replyText);
+                JsonNode payload = objectMapper.readTree(datasetJson);
+
+                return new ChatResponseDTO(
+                        replyText,
+                        "SEARCH_ROOM_RESULT",
+                        payload
+                );
 
             } catch (Exception e) {
+                e.printStackTrace();
                 String err = "Xin lỗi anh/chị, hệ thống gặp lỗi khi tìm phòng. Anh/chị thử lại giúp em nhé.";
                 saveHistory(userId, "model", err);
-                return new ChatResponseDTO(err);
+                return new ChatResponseDTO(err, "ERROR", null);
             }
         }
 
-        // ---------------- BOOKING LINK ----------------
-        if (aiReply.contains("CMD_BOOKING_LINK")) {
-
-            String propIdStr = extract(aiReply, "propertyId");
-            String link = frontendUrl + "/property-details/" + propIdStr;
-
-            String reply =
-                    "Dạ em đã tạo hồ sơ đặt phòng rồi ạ ❤️\n" +
-                            "Anh/chị nhấn vào link này để hoàn tất:\n" +
-                            link;
-
-            saveHistory(userId, "model", reply);
-            return new ChatResponseDTO(reply);
-        }
-
-        // ---------------- NORMAL CHAT ----------------
+        // ---------------- NORMAL CHAT (travel guide / tư vấn du lịch) ----------------
         saveHistory(userId, "model", aiReply);
-        return new ChatResponseDTO(aiReply);
+        return new ChatResponseDTO(aiReply, "NORMAL_CHAT", null);
     }
 
 
-    // ============================================================
-    // JSON DATASET BUILDER (Anti-hallucination)
-    // ============================================================
     private String buildJsonDataset(
             List<Property> properties,
             String city,
-            int capacity,
-            LocalDate in,
-            LocalDate out
+            int capacity
     ) {
 
         ObjectNode root = objectMapper.createObjectNode();
 
         root.put("city", city);
         root.put("capacity", capacity);
-        root.put("checkIn", in.toString());
-        root.put("checkOut", out.toString());
 
         if (properties.isEmpty()) {
             root.put("type", "NO_RESULT");
@@ -257,9 +263,12 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
             prop.put("reviewCount", p.getReviewCount());
             prop.put("address", p.getAddress());
 
-            ArrayNode roomArr = prop.putArray("rooms");
-            for (Room r : p.getRooms()) {
+            String bookingUrl = frontendUrl + "/hotels/" + p.getPropertyId();
+            prop.put("bookingUrl", bookingUrl);
 
+            ArrayNode roomArr = prop.putArray("rooms");
+
+            for (Room r : p.getRooms()) {
                 if (r.isActive() && r.getCapacity() >= capacity) {
                     ObjectNode room = roomArr.addObject();
                     room.put("roomName", r.getRoomName());
@@ -271,17 +280,16 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
 
         return root.toString();
     }
-    // ============================================================
-    // CALL GEMINI API — with CURRENT_DATE, retry, timeout
-    // ============================================================
+
+
     private String callGeminiApi(List<AiChatHistory> history, String newMessage, String roleOverride) {
 
         WebClient webClient = WebClient.builder().baseUrl(apiUrl).build();
         ObjectNode requestBody = objectMapper.createObjectNode();
 
-        // luôn cập nhật ngày hiện tại
+        // luôn cập nhật ngày
         String currentDate = LocalDateTime.now().toString();
-        String finalInstruction = BASE_INSTRUCTION.replace("[CURRENT_DATE]", currentDate);
+        String finalInstruction = BASE_INSTRUCTION;
 
         // SYSTEM INSTRUCTION
         ObjectNode sys = objectMapper.createObjectNode();
@@ -292,8 +300,7 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
                         + "\n- Today: " + currentDate
                         + "\n- Always answer in Vietnamese."
                         + "\n- Never invent data."
-                        + "\n- Never display template commands such as CMD_SEARCH_ROOM|city=... or CMD_BOOKING_LINK|propertyId=..."
-                        + "\n- Only output REAL commands when all required info is confirmed."
+                        + "\n- Only output CMD_SEARCH_ROOM when user clearly wants to book."
         );
         requestBody.set("system_instruction", sys);
 
@@ -330,39 +337,22 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
 
             JsonNode root = objectMapper.readTree(raw);
 
-            // SAFETY CHECK 1 — does "candidates" exist?
-            if (!root.has("candidates")) {
-                return "Xin lỗi anh/chị, em chưa nhận được phản hồi từ hệ thống. Anh/chị thử lại giúp em nhé.";
-            }
+            if (!root.has("candidates"))
+                return "Xin lỗi anh/chị, em chưa nhận được phản hồi từ hệ thống.";
 
             JsonNode candidates = root.path("candidates");
-            if (!candidates.isArray() || candidates.size() == 0) {
-                return "Xin lỗi, hệ thống đang bận. Anh/chị thử lại giúp em ạ.";
-            }
+            if (!candidates.isArray() || candidates.size() == 0)
+                return "Xin lỗi anh/chị, hệ thống đang bận.";
 
-            // SAFETY CHECK 2 — first candidate
             JsonNode candidate = candidates.get(0);
-            if (candidate == null || !candidate.has("content")) {
-                return "Xin lỗi anh/chị, hệ thống chưa trả lời. Anh/chị thử lại giúp em nhé.";
-            }
+            if (candidate == null || !candidate.has("content"))
+                return "Xin lỗi anh/chị, hệ thống chưa trả lời.";
 
-            // SAFETY CHECK 3 — parts
             JsonNode parts = candidate.path("content").path("parts");
-            if (!parts.isArray() || parts.size() == 0) {
-                return "Xin lỗi anh/chị, em chưa nhận được nội dung trả lời. Anh/chị thử lại giúp em nhé.";
-            }
+            if (!parts.isArray() || parts.size() == 0)
+                return "Xin lỗi anh/chị, em chưa nhận được nội dung trả lời.";
 
             String aiRawReply = parts.get(0).path("text").asText("");
-
-            // HARD FILTER — ngăn Gemini lộ template lệnh
-            if (aiRawReply.contains("city=...") ||
-                    aiRawReply.contains("capacity=...") ||
-                    aiRawReply.contains("checkIn=...") ||
-                    aiRawReply.contains("checkOut=...") ||
-                    aiRawReply.contains("propertyId=...")) {
-
-                return "Dạ anh/chị cho em xin thông tin cụ thể để em hỗ trợ tốt nhất ạ.";
-            }
 
             return aiRawReply;
 
@@ -373,11 +363,6 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
     }
 
 
-
-
-    // ============================================================
-    // HELPERS
-    // ============================================================
     private String extract(String src, String key) {
         Matcher m = Pattern.compile(key + "=(.*?)(\\||$)").matcher(src);
         return m.find() ? m.group(1).trim() : "";
@@ -404,4 +389,4 @@ Only when a JSON dataset exists AND the room name matches exactly one of the roo
         aiChatHistoryRepository.save(history);
     }
 
-} // END OF CLASS
+}

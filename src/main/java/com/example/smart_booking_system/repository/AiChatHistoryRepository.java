@@ -16,7 +16,7 @@ public interface AiChatHistoryRepository extends JpaRepository<AiChatHistory, In
         SELECT * FROM ai_chat_history 
         WHERE userId = :userId 
         ORDER BY timestamp DESC 
-        LIMIT 20
+        LIMIT 0
     """, nativeQuery = true)
     List<AiChatHistory> findRecentHistoryByUserId(@Param("userId") String userId);
 
