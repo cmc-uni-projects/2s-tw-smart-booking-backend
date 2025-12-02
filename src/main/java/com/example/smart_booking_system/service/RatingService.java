@@ -11,6 +11,7 @@ import com.example.smart_booking_system.repository.BookingRepository;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import com.example.smart_booking_system.repository.RatingImageRepository;
 import com.example.smart_booking_system.repository.RatingRepository;
+import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -211,19 +212,29 @@ public class RatingService {
         Rating rating = ratingRepository.findById(ratingId)
                 .orElseThrow(() -> new RuntimeException("Rating not found"));
 
-        // --- LOGIC CHECK QUYỀN OWNER ---
+        // --- LOGIC CHECK QUYỀN OWNER (SỬA LẠI) ---
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        String currentUserId = auth.getName();
+
+        // ✅ Lấy ID User từ CustomUserDetails thay vì dùng getName() (email)
+        String currentUserId = "";
+        if (auth.getPrincipal() instanceof CustomUserDetails) {
+            currentUserId = ((CustomUserDetails) auth.getPrincipal()).getUserId();
+        } else {
+            // Trường hợp hiếm khi principal là String (ví dụ anonymous)
+            throw new RuntimeException("Không xác thực được người dùng.");
+        }
 
         if (!isAdmin) {
             // Lấy ID chủ sở hữu khách sạn
             String propertyOwnerId = String.valueOf(rating.getBookingId().getProperty().getOwner().getUserId());
 
+            // ✅ So sánh ID với ID (String)
             if (!currentUserId.equals(propertyOwnerId)) {
                 throw new RuntimeException("Bạn không có quyền ghim đánh giá của khách sạn này.");
             }
         }
+        // -------------------------------
 
         if (pin) {
             int propertyId = rating.getBookingId().getProperty().getPropertyId();
@@ -235,7 +246,6 @@ public class RatingService {
         }
 
         rating.setIsPinned(pin);
-        // ✅ SỬA: Dùng attachImages để trả về đầy đủ thông tin ảnh
         return attachImages(ratingRepository.save(rating));
     }
 
@@ -247,8 +257,6 @@ public class RatingService {
         Rating saved = ratingRepository.save(rating);
 
         updatePropertyStats(saved.getBookingId().getProperty().getPropertyId());
-
-        // ✅ SỬA: Không cần save lần 2, trả về kết quả đã attach ảnh
         return attachImages(saved);
     }
 
