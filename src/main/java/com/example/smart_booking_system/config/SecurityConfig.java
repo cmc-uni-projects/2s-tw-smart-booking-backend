@@ -77,7 +77,7 @@ public class SecurityConfig {
                         // ===== 1. PUBLIC ROUTES (Phải được định nghĩa đầu tiên) =====
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/uploads/**", "/images/**", "/properties/**", "/api/v1/files/**").permitAll()
+                        .requestMatchers("/uploads/**", "/images/**", "/properties/**", "/api/v1/files/**", "/ratingImage/**").permitAll()
                         .requestMatchers("/api/v1/properties/search").permitAll()
                         .requestMatchers("/api/v1/properties/featured").permitAll()
                         .requestMatchers("/api/v1/properties/{id}").permitAll()

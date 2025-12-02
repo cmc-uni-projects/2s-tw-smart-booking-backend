@@ -42,6 +42,8 @@ public class BookingResponseDTO {
 
     private UserSummaryDto user;
 
+    private boolean isReviewed;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
