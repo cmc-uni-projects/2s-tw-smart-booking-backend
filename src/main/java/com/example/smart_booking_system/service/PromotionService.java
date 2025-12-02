@@ -3,14 +3,22 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
 import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.entity.Promotion;
+import com.example.smart_booking_system.enums.DiscountType;
+import com.example.smart_booking_system.enums.MembershipRank;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.PromotionRepository;
+import com.example.smart_booking_system.repository.BookingRepository;
+import com.example.smart_booking_system.entity.User;
+import com.example.smart_booking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import java.util.Comparator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +30,8 @@ public class PromotionService {
 
     private final PromotionRepository promotionRepository;
     private final FileStorageService fileStorageService;
+    private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
@@ -44,6 +54,7 @@ public class PromotionService {
         p.setEndDate(req.getEndDate());
         p.setMinBookingAmount(req.getMinBookingAmount());
         p.setMaxDiscountAmount(req.getMaxDiscountAmount());
+        p.setMinMembershipRank(req.getMinMembershipRank());
         p.setUsageLimit(req.getUsageLimit());
         p.setUsageCount(0);
 
@@ -85,6 +96,7 @@ public class PromotionService {
         p.setEndDate(req.getEndDate());
         p.setMinBookingAmount(req.getMinBookingAmount());
         p.setMaxDiscountAmount(req.getMaxDiscountAmount());
+        p.setMinMembershipRank(req.getMinMembershipRank());
         p.setUsageLimit(req.getUsageLimit());
 
         // Nếu admin muốn đổi status trực tiếp
@@ -172,5 +184,65 @@ public class PromotionService {
         p.setBannerUrl(newBannerPath);
 
         return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+
+
+    // ==========================================================
+    // 🔥 3. GỢI Ý MÃ GIẢM GIÁ (ĐÃ SỬA: DÙNG LOGIC CHUNG CỦA BOOKING SERVICE)
+    // ==========================================================
+    public PromotionResponseDTO suggestBestPromotion(String userId, BigDecimal bookingAmount) {
+        // 1. Kiểm tra User tồn tại
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found: " + userId);
+        }
+
+        // 2. TÍNH RANK ĐỘNG
+        // Lấy tổng tiền đã tiêu
+        BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
+        if (totalSpent == null) totalSpent = BigDecimal.ZERO;
+
+        // Quy đổi ra điểm (1000 VND = 1 Điểm)
+        int currentPoints = totalSpent.divide(BigDecimal.valueOf(1000)).intValue();
+
+        // 👉 GỌI HÀM STATIC CỦA BOOKING SERVICE (KHÔNG SỢ LỖI NULL RANK)
+        MembershipRank userRank = BookingService.calculateRankFromPoints(currentPoints);
+
+        // 3. Lấy tất cả mã đang active
+        List<Promotion> activePromotions = promotionRepository.findAvailablePromotions(LocalDateTime.now());
+
+        // 4. Lọc và tìm mã giảm giá tốt nhất
+        Promotion bestPromotion = activePromotions.stream()
+                .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
+                .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
+                .sorted(Comparator.comparing((Promotion p) -> calculateDiscountAmount(p, bookingAmount)).reversed())
+                .findFirst()
+                .orElse(null);
+
+        if (bestPromotion == null) {
+            return null;
+        }
+
+        return new PromotionResponseDTO(bestPromotion);
+    }
+
+    // --- CÁC HÀM HELPER ---
+
+    private boolean isRankEligible(MembershipRank userRank, MembershipRank requiredRank) {
+        if (requiredRank == null) return true;
+        return userRank.ordinal() >= requiredRank.ordinal();
+    }
+
+    private BigDecimal calculateDiscountAmount(Promotion p, BigDecimal bookingAmount) {
+        BigDecimal discountAmount = BigDecimal.ZERO;
+
+        if (p.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discountAmount = p.getDiscountValue();
+        } else if (p.getDiscountType() == DiscountType.PERCENTAGE) {
+            discountAmount = bookingAmount.multiply(p.getDiscountValue()).divide(BigDecimal.valueOf(100));
+            if (p.getMaxDiscountAmount() != null && discountAmount.compareTo(p.getMaxDiscountAmount()) > 0) {
+                discountAmount = p.getMaxDiscountAmount();
+            }
+        }
+        return discountAmount.min(bookingAmount);
     }
 }

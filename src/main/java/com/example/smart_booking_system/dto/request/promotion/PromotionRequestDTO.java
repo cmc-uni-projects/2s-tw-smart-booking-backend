@@ -2,6 +2,7 @@ package com.example.smart_booking_system.dto.request.promotion;
 
 import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.PromotionStatus;
+import com.example.smart_booking_system.enums.MembershipRank;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,9 +23,9 @@ public class PromotionRequestDTO {
     @NotNull(message = "Loại giảm giá là bắt buộc")
     private DiscountType discountType;
 
-
     private PromotionStatus status;
 
+    private MembershipRank minMembershipRank;
 
     @NotNull(message = "Giá trị giảm là bắt buộc")
     @Min(value = 0)
