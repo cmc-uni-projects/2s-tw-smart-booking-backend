@@ -7,7 +7,6 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-
 @Repository
 public interface RatingRepository extends JpaRepository<Rating, Integer> {
 
@@ -34,10 +33,10 @@ public interface RatingRepository extends JpaRepository<Rating, Integer> {
             nativeQuery = true
     )
     List<Rating> getRatingByHidden();
+
     @Query(
             value = """
-                SELECT r.* 
-                FROM Rating r
+                SELECT r.* FROM Rating r
                 JOIN bookings b ON r.bookings = b.booking_id
                 WHERE b.property_id = :propertyId
                   AND r.isHidden = 0
@@ -47,5 +46,5 @@ public interface RatingRepository extends JpaRepository<Rating, Integer> {
     )
     List<Rating> getRatingsByProperty(int propertyId);
 
-
+    long countByIsHidden(boolean isHidden);
 }

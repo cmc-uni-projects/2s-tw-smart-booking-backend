@@ -3,15 +3,16 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.request.BookingRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
-
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -20,10 +21,6 @@ public class BookingController {
 
     private final BookingService bookingService;
 
-
-    // ==========================================
-    // CREATE BOOKING
-    // ==========================================
     @PostMapping("/create")
     public ResponseEntity<?> createBooking(@RequestBody BookingRequestDTO req) {
         try {
@@ -34,20 +31,13 @@ public class BookingController {
         }
     }
 
-    // ==========================================
-    // CANCEL BOOKING
-    // ==========================================
     @PutMapping("/cancel/{bookingId}")
     public ResponseEntity<?> cancelBooking(@PathVariable int bookingId) {
-        // Logic mới: Hủy và tự động tạo RefundRequest bên trong Service
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 
-    // ==========================================
-    // ADMIN APPROVE REFUND (Duyệt hoàn tiền)
-    // ==========================================
     @PutMapping("/approve-refund/{bookingId}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveRefund(@PathVariable int bookingId) {
         try {
             bookingService.approveRefund(bookingId);
@@ -57,9 +47,6 @@ public class BookingController {
         }
     }
 
-    // ==========================================
-    // GET BOOKING BY ID
-    // ==========================================
     @GetMapping("/{bookingId}")
     public ResponseEntity<?> getBookingById(@PathVariable int bookingId) {
         try {
@@ -69,9 +56,6 @@ public class BookingController {
         }
     }
 
-    // ==========================================
-    // GET ALL BOOKINGS OF USER
-    // ==========================================
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getBookingsByUser(@PathVariable String userId) {
         try {
@@ -82,9 +66,6 @@ public class BookingController {
         }
     }
 
-    // ==========================================
-    // GET ALL BOOKINGS OF PROPERTY
-    // ==========================================
     @GetMapping("/property/{propertyId}")
     public ResponseEntity<?> getBookingsByProperty(@PathVariable int propertyId) {
         try {
@@ -95,11 +76,8 @@ public class BookingController {
         }
     }
 
-    // ==========================================
-    // GET ALL BOOKINGS (ADMIN)
-    // ==========================================
     @GetMapping("")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllBookings() {
         try {
             return ResponseEntity.ok(bookingService.getAllBookings());
@@ -115,9 +93,8 @@ public class BookingController {
         return ResponseEntity.ok("Check-in thành công");
     }
 
-    // Check-out (Mới - Thay thế logic checkout cũ)
     @PutMapping("/checkout/{bookingId}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> checkOut(@PathVariable int bookingId) {
         try {
             bookingService.checkOutBooking(bookingId);
@@ -128,7 +105,7 @@ public class BookingController {
     }
 
     @PutMapping("/{bookingId}/apply-promotion")
-    @PreAuthorize("hasRole('CUSTOMER')") // Chỉ khách hàng mới đc nhập
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<?> applyPromotion(
             @PathVariable int bookingId,
             @RequestParam String code
@@ -144,5 +121,38 @@ public class BookingController {
     @GetMapping("/room/{roomId}/availability")
     public ResponseEntity<ApiResponse> getRoomAvailability(@PathVariable int roomId) {
         List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));
+    }
+
+    // ==========================================
+    // 🔥 API THỐNG KÊ ADMIN (ĐẦY ĐỦ) 🔥
+    // GET /api/v1/bookings/admin/dashboard-stats
+    // ==========================================
+    @GetMapping("/admin/dashboard-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAdminDashboardStats() {
+        try {
+            // Gọi service lấy toàn bộ số liệu: Khách sạn, Phòng, Booking, Doanh thu, Review
+            Map<String, Object> stats = bookingService.getAdminDashboardStats();
+            return ResponseEntity.ok(ApiResponse.success("Lấy thống kê admin thành công", stats));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi lấy thống kê: " + ex.getMessage()));
+        }
+    }
+
+    // ==========================================
+    // API THỐNG KÊ OWNER (Nếu cần dùng sau này)
+    // ==========================================
+    @GetMapping("/owner/dashboard-stats")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> getOwnerDashboardStats(org.springframework.security.core.Authentication authentication) {
+        try {
+            com.example.smart_booking_system.security.CustomUserDetails userDetails = (com.example.smart_booking_system.security.CustomUserDetails) authentication.getPrincipal();
+            String ownerId = userDetails.getUserId();
+            Map<String, Object> stats = bookingService.getOwnerDashboardStats(ownerId);
+            return ResponseEntity.ok(ApiResponse.success("Thành công", stats));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi: " + ex.getMessage()));
+        }
+    }
 }
