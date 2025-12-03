@@ -36,4 +36,16 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
            """)
     Optional<Room> findByPropertyIdAndCategory(@Param("propertyId") int propertyId,
                                                @Param("category") com.example.smart_booking_system.enums.RoomCategory category);
+    // Kiểm tra tồn tại phòng theo tên trong cùng một property, loại trừ phòng hiện tại
+    @Query("""
+        SELECT COUNT(r) > 0 FROM Room r
+        WHERE r.propertyId.propertyId = :propertyId
+        AND LOWER(r.roomName) = LOWER(:roomName)
+        AND r.roomId != :excludeRoomId
+    """)
+    boolean existsByPropertyIdAndRoomNameAndIdNot(
+            @Param("propertyId") int propertyId,
+            @Param("roomName") String roomName,
+            @Param("excludeRoomId") int excludeRoomId
+    );
 }
