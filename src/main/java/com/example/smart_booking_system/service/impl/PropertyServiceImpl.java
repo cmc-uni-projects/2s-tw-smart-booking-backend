@@ -143,6 +143,11 @@ public class PropertyServiceImpl implements PropertyService {
 
         return mapToPropertyDetailDTO(savedProperty);
     }
+    //  Kiểm tra tên Property đã tồn tại chưa
+    @Override
+    public boolean checkNameAvailability(String propertyName) {
+        return !propertyRepository.existsByPropertyName(propertyName);
+    }
 
     // ==================================================================
     // 2. LOGIC QUẢN LÝ TÀI SẢN (OWNER & ADMIN & SEARCH)

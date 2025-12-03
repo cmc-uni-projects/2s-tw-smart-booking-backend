@@ -83,4 +83,6 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     List<Property> findNearbyProperties(@Param("lat") double lat,
                                         @Param("lng") double lng,
                                         @Param("radius") double radius);
+
+    boolean existsByPropertyName(String propertyName);
 }
