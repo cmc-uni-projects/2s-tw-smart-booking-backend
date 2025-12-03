@@ -31,10 +31,21 @@ public class Property {
 
     private String address;
     private String country;
-    private String city;      // Thường dùng làm Quận/Huyện
-    private String province;  // Tỉnh/Thành phố
 
-    // ✅ [NEW] Thêm các trường mới cho địa chỉ chi tiết
+    // ========================================================
+    // ✅ [MODIFIED] CẬP NHẬT LẠI VAI TRÒ CÁC TRƯỜNG ĐỊA LÝ
+    // ========================================================
+
+    @Column(name = "city")
+    private String city;      // LƯU TỈNH/THÀNH PHỐ
+
+    @Column(name = "district")
+    private String district;  // LƯU QUẬN/HUYỆN (VD: "Quận Hà Đông")
+
+    private String province;
+
+    // ========================================================
+
     private String ward;           // Phường/Xã
     private String provinceCode;   // Mã tỉnh (VD: "01")
     private String districtCode;   // Mã huyện (VD: "001")
