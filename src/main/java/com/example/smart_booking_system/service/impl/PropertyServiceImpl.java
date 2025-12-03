@@ -69,9 +69,10 @@ public class PropertyServiceImpl implements PropertyService {
 
         // Địa chỉ
         property.setAddress(dto.getAddress());
-        property.setCity(dto.getCity());
+        property.setCity(dto.getProvince());
         property.setProvince(dto.getProvince());
         property.setCountry(dto.getCountry());
+        property.setDistrict(dto.getCity());
 
         property.setWard(dto.getWard());
         property.setProvinceCode(dto.getProvinceCode());
@@ -322,8 +323,11 @@ public class PropertyServiceImpl implements PropertyService {
         if (updatedProperty.getPropertyName() != null) existingProperty.setPropertyName(updatedProperty.getPropertyName());
 
         if (updatedProperty.getAddress() != null) existingProperty.setAddress(updatedProperty.getAddress());
-        if (updatedProperty.getCity() != null) existingProperty.setCity(updatedProperty.getCity());
-        if (updatedProperty.getProvince() != null) existingProperty.setProvince(updatedProperty.getProvince());
+        if (updatedProperty.getCity() != null) existingProperty.setDistrict(updatedProperty.getCity());
+        if (updatedProperty.getProvince() != null) {
+            existingProperty.setCity(updatedProperty.getProvince());
+            existingProperty.setProvince(updatedProperty.getProvince());
+        }
         if (updatedProperty.getCountry() != null) existingProperty.setCountry(updatedProperty.getCountry());
 
         if (updatedProperty.getWard() != null) existingProperty.setWard(updatedProperty.getWard());
