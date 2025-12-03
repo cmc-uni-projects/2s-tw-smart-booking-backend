@@ -172,4 +172,21 @@ public class PropertyController {
         return ResponseEntity.ok(propertyService.findNearbyProperties(lat, lng, radius));
     }
 
+    @GetMapping("/check-name")
+    public ResponseEntity<ApiResponse<Boolean>> checkNameAvailability(@RequestParam String name) {
+        boolean isAvailable = propertyService.checkNameAvailability(name);
+
+        if (isAvailable) {
+            // ✅ Dùng hàm success(message, data) có sẵn
+            return ResponseEntity.ok(
+                    ApiResponse.success("Tên hợp lệ", true)
+            );
+        } else {
+            // ✅ Dùng hàm error(message) có sẵn
+            return ResponseEntity.status(409).body(
+                    ApiResponse.error("Tên chỗ nghỉ đã tồn tại")
+            );
+        }
+    }
+
 }

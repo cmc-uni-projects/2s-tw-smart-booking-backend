@@ -31,4 +31,6 @@ public interface PropertyService {
 
     List<PropertyMapDTO> findNearbyProperties(Double lat, Double lng, Double radius);
     List<PropertyDetailDTO> searchProperties(String keyword, Integer guests, LocalDate checkIn, LocalDate checkOut); // Mới
+
+    boolean checkNameAvailability(String propertyName);
 }
