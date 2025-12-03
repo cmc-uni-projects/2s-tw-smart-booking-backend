@@ -18,4 +18,6 @@ public interface RoomService {
 
     void deleteRoom(int roomId);
     RoomResponseDTO getRoomById(int roomId);
+
+    boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId);
 }

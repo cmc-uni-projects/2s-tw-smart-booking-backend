@@ -29,7 +29,15 @@ public class RoomServiceImpl implements RoomService {
     private final RoomImageRepository roomImageRepository;
     private final FileStorageService fileStorageService;
 
-    // ✅ SỬA LỖI CÚ PHÁP & LOGIC: Trả về List<RoomResponseDTO>
+
+    // HÀM KIỂM TRA TÊN PHÒNG ĐÃ TỒN TẠI CHƯA
+    @Override
+    public boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId) {
+        // excludeRoomId = 0 nếu là tạo mới (vì ID tự tăng bắt đầu từ 1)
+        return roomRepository.existsByPropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
+    }
+
+    //  SỬA LỖI CÚ PHÁP & LOGIC: Trả về List<RoomResponseDTO>
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getRoomsByPropertyId(int propertyId) {

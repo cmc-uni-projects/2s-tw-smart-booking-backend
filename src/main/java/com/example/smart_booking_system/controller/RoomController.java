@@ -82,4 +82,18 @@ public class RoomController {
         RoomResponseDTO room = roomService.getRoomById(roomId);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết phòng thành công", room));
     }
+
+    // 5. Kiểm tra tên phòng đã tồn tại trong cùng cơ sở lưu trú chưa
+    @GetMapping("/check-name")
+    public ResponseEntity<?> checkRoomName(
+            @RequestParam int propertyId,
+            @RequestParam String roomName,
+            @RequestParam(defaultValue = "0") int excludeRoomId // Mặc định 0 nếu thêm mới
+    ) {
+        boolean exists = roomService.checkRoomNameExists(propertyId, roomName, excludeRoomId);
+        if (exists) {
+            return ResponseEntity.status(409).body(ApiResponse.error("Tên phòng đã tồn tại trong cơ sở lưu trú này"));
+        }
+        return ResponseEntity.ok(ApiResponse.success("Tên hợp lệ", true));
+    }
 }
