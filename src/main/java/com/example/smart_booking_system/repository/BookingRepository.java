@@ -17,14 +17,19 @@ import java.util.List;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
+    // --- CÁC HÀM CƠ BẢN ---
     List<Booking> findByUserUserId(String userId);
 
     List<Booking> findByPropertyPropertyId(int propertyId);
 
     List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime dateTime);
 
+    // Dùng cho biểu đồ Booking Trends và thống kê số liệu mới
+    List<Booking> findByCreatedAtAfter(LocalDateTime date);
+
     long countByCreatedAtAfter(LocalDateTime date);
 
+    // --- QUERY CHECK TRÙNG PHÒNG ---
     @Query("""
        SELECT b FROM Booking b
        WHERE b.room.roomId = :roomId
@@ -40,6 +45,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             @Param("checkOutDate") LocalDate checkOutDate
     );
 
+    // --- QUERY LẤY BOOKING TƯƠNG LAI CỦA PHÒNG ---
     @Query("""
        SELECT b FROM Booking b
        WHERE b.room.roomId = :roomId
@@ -52,6 +58,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
        """)
     List<Booking> findFutureBookingsByRoomId(@Param("roomId") int roomId, @Param("today") LocalDate today);
 
+    // --- TÍNH TỔNG TIỀN USER ĐÃ CHI (ĐỂ XÉT HẠNG) ---
     @Query("""
         SELECT SUM(b.totalPrice) FROM Booking b
         WHERE b.user.userId = :userId
@@ -67,20 +74,31 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     // 🔥 ADMIN DASHBOARD QUERIES
     // ==========================================
 
+    // 1. Tổng doanh thu toàn hệ thống
     @Query("SELECT SUM(b.totalPrice) FROM Booking b WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
     BigDecimal calculateGlobalRevenue();
 
+    // 2. Tổng số booking thành công
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
     long countTotalConfirmedBookings();
 
+    // 3. Lấy booking theo năm (Biểu đồ doanh thu)
     @Query("SELECT b FROM Booking b WHERE YEAR(b.createdAt) = :year AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
     List<Booking> findGlobalBookingsByYear(@Param("year") int year);
 
+    // 4. Top khách sạn được đặt nhiều nhất
     @Query("SELECT b.property, COUNT(b), SUM(b.totalPrice) FROM Booking b WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) GROUP BY b.property ORDER BY COUNT(b) DESC")
     List<Object[]> findTopPropertiesGlobal(Pageable pageable);
 
-    // 🔥 Query mới để lấy danh sách booking mới nhất cho Admin
+    // 5. Lấy danh sách booking mới nhất (Cho bảng Recent Bookings & Activity)
     Page<Booking> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    // 6. Doanh thu theo loại hình (Biểu đồ tròn Revenue Overview)
+    @Query("SELECT b.property.propertyType, SUM(b.totalPrice) " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.COMPLETED, com.example.smart_booking_system.enums.BookingStatus.CONFIRMED) " +
+            "GROUP BY b.property.propertyType")
+    List<Object[]> getRevenueByPropertyType();
 
     // ==========================================
     // 🔥 OWNER DASHBOARD QUERIES

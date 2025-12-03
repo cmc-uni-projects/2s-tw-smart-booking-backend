@@ -21,6 +21,8 @@ public class BookingController {
 
     private final BookingService bookingService;
 
+    // --- CÁC API CŨ (CREATE, CANCEL, GET...) GIỮ NGUYÊN ---
+
     @PostMapping("/create")
     public ResponseEntity<?> createBooking(@RequestBody BookingRequestDTO req) {
         try {
@@ -125,8 +127,7 @@ public class BookingController {
     }
 
     // ==========================================
-    // 🔥 API THỐNG KÊ ADMIN (ĐẦY ĐỦ) 🔥
-    // GET /api/v1/bookings/admin/dashboard-stats
+    // 🔥 [MỚI] API THỐNG KÊ ADMIN (ĐẦY ĐỦ) 🔥
     // ==========================================
     @GetMapping("/admin/dashboard-stats")
     @PreAuthorize("hasRole('ADMIN')")
@@ -141,13 +142,13 @@ public class BookingController {
     }
 
     // ==========================================
-    // API THỐNG KÊ OWNER (Nếu cần dùng sau này)
+    // 🔥 [MỚI] API THỐNG KÊ OWNER 🔥
     // ==========================================
     @GetMapping("/owner/dashboard-stats")
     @PreAuthorize("hasRole('OWNER')")
-    public ResponseEntity<?> getOwnerDashboardStats(org.springframework.security.core.Authentication authentication) {
+    public ResponseEntity<?> getOwnerDashboardStats(Authentication authentication) {
         try {
-            com.example.smart_booking_system.security.CustomUserDetails userDetails = (com.example.smart_booking_system.security.CustomUserDetails) authentication.getPrincipal();
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             String ownerId = userDetails.getUserId();
             Map<String, Object> stats = bookingService.getOwnerDashboardStats(ownerId);
             return ResponseEntity.ok(ApiResponse.success("Thành công", stats));
