@@ -1,20 +1,16 @@
 package com.example.smart_booking_system.entity;
 
 import com.example.smart_booking_system.enums.AuthProvider;
+import com.example.smart_booking_system.enums.MembershipRank;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import com.example.smart_booking_system.enums.MembershipRank;
+import lombok.ToString; // ✅ Import mới
+import lombok.EqualsAndHashCode; // ✅ Import mới
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "users")
@@ -86,7 +82,10 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    // ✅ SỬA: Ngắt vòng lặp toString với UserDetail
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private UserDetail userDetail;
 
     // helper methods
@@ -108,4 +107,16 @@ public class User {
     public void setProvider(AuthProvider provider) { this.provider = provider; }
     public String getProviderId() { return providerId; }
     public void setProviderId(String providerId) { this.providerId = providerId; }
+
+    // ✅ SỬA: Ngắt vòng lặp toString với SocialAccount
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<SocialAccount> socialAccounts = new ArrayList<>();
+
+    // Helper method
+    public void addSocialAccount(SocialAccount socialAccount) {
+        socialAccounts.add(socialAccount);
+        socialAccount.setUser(this);
+    }
 }

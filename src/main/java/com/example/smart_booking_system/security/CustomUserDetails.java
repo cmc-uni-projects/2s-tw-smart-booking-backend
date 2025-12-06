@@ -7,8 +7,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User; // <--- Import mới
+import com.example.smart_booking_system.entity.SocialAccount;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map; // <--- Import mới
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,6 +27,7 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
     private String status;
     private Collection<? extends GrantedAuthority> authorities;
     private Map<String, Object> attributes; // <--- Thêm trường để lưu attributes từ Google/FB
+    private List<SocialAccount> socialAccounts;
 
     /**
      * Create UserDetails from User entity (Dùng cho Login thường)
@@ -42,7 +45,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
                 user.getIsEmailVerified(),
                 user.getStatus(),
                 authorities,
-                null // Attributes là null khi login thường
+                null, // Attributes là null khi login thường
+                user.getSocialAccounts()
         );
     }
 
