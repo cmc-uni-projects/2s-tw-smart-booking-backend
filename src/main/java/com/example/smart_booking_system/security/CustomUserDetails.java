@@ -6,14 +6,16 @@ import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.OAuth2User; // <--- Import mới
 
 import java.util.Collection;
+import java.util.Map; // <--- Import mới
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Data
 @AllArgsConstructor
-public class CustomUserDetails implements UserDetails {
+public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Implements thêm OAuth2User
 
     private String userId;
     private String email;
@@ -22,9 +24,10 @@ public class CustomUserDetails implements UserDetails {
     private Boolean isEmailVerified;
     private String status;
     private Collection<? extends GrantedAuthority> authorities;
+    private Map<String, Object> attributes; // <--- Thêm trường để lưu attributes từ Google/FB
 
     /**
-     * Create UserDetails from User entity
+     * Create UserDetails from User entity (Dùng cho Login thường)
      */
     public static CustomUserDetails create(User user) {
         Set<GrantedAuthority> authorities = user.getRoles().stream()
@@ -38,10 +41,21 @@ public class CustomUserDetails implements UserDetails {
                 user.getFullName(),
                 user.getIsEmailVerified(),
                 user.getStatus(),
-                authorities
+                authorities,
+                null // Attributes là null khi login thường
         );
     }
 
+    /**
+     * Create UserDetails from User entity & Attributes (Dùng cho OAuth2)
+     */
+    public static CustomUserDetails create(User user, Map<String, Object> attributes) {
+        CustomUserDetails userDetails = CustomUserDetails.create(user);
+        userDetails.setAttributes(attributes);
+        return userDetails;
+    }
+
+    // --- UserDetails Methods ---
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
@@ -75,5 +89,16 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return "ACTIVE".equals(status);
+    }
+
+    // --- OAuth2User Methods (Mới thêm) ---
+    @Override
+    public Map<String, Object> getAttributes() {
+        return attributes;
+    }
+
+    @Override
+    public String getName() {
+        return String.valueOf(userId); // Trả về userId làm định danh chính
     }
 }

@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.entity;
 
+import com.example.smart_booking_system.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -96,4 +97,15 @@ public class User {
     public boolean hasRole(String roleName) {
         return roles.stream().anyMatch(r -> r.getRoleName().equalsIgnoreCase(roleName));
     }
+
+    @Enumerated(EnumType.STRING)
+    private AuthProvider provider;
+
+    private String providerId;
+
+    // Getter và Setter cho 2 trường mới này
+    public AuthProvider getProvider() { return provider; }
+    public void setProvider(AuthProvider provider) { this.provider = provider; }
+    public String getProviderId() { return providerId; }
+    public void setProviderId(String providerId) { this.providerId = providerId; }
 }
