@@ -30,14 +30,24 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
+    @Override // Thêm Override cho rõ ràng
     protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        // Sửa lỗi: Truyền trực tiếp authentication vào generateToken
-        // Hàm generateToken trong JwtTokenProvider của bạn đã có logic ép kiểu (CustomUserDetails) authentication.getPrincipal() rồi.
+        // Lấy UserDetails để kiểm tra trạng thái
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
         String token = tokenProvider.generateToken(authentication);
 
-        // Redirect về Frontend
-        return UriComponentsBuilder.fromUriString("http://localhost:5173/oauth2/redirect")
-                .queryParam("token", token)
-                .build().toUriString();
+        // Xây dựng URL cơ bản
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString("http://localhost:5173/oauth2/redirect")
+                .queryParam("token", token);
+
+        // === [LOGIC MỚI] Kiểm tra trạng thái User ===
+        // Nếu user đang thiếu email (PENDING_EMAIL), báo hiệu cho Frontend biết
+        if ("PENDING_EMAIL".equals(userDetails.getStatus())) {
+            uriBuilder.queryParam("action", "require_email");
+        }
+        // ==========================================
+
+        return uriBuilder.build().toUriString();
     }
 }

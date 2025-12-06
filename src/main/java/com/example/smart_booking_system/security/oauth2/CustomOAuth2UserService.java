@@ -40,7 +40,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         try {
             return processOAuth2User(oAuth2UserRequest, oAuth2User);
         } catch (Exception ex) {
-            // Throwing an instance of AuthenticationException will trigger the OAuth2AuthenticationFailureHandler
             throw new InternalAuthenticationServiceException(ex.getMessage(), ex.getCause());
         }
     }
@@ -57,11 +56,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Login with " + registrationId + " is not supported yet.");
         }
 
-        if (StringUtils.isEmpty(oAuth2UserInfo.getEmail())) {
-            throw new OAuth2AuthenticationException("Email not found from OAuth2 provider");
-        }
+        String email = oAuth2UserInfo.getEmail();
 
-        Optional<User> userOptional = userRepository.findByEmail(oAuth2UserInfo.getEmail());
+        // === [LOGIC MỚI] Xử lý khi không có Email ===
+        // Thay vì ném lỗi, ta tạo một email tạm thời để định danh
+        if (!StringUtils.hasText(email)) {
+            email = oAuth2UserInfo.getId() + "@temp." + registrationId + ".com";
+        }
+        // ===========================================
+
+        Optional<User> userOptional = userRepository.findByEmail(email);
         User user;
         if (userOptional.isPresent()) {
             user = userOptional.get();
@@ -72,37 +76,41 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
             user = updateExistingUser(user, oAuth2UserInfo);
         } else {
-            user = registerNewUser(oAuth2UserRequest, oAuth2UserInfo);
+            // Truyền email đã xử lý (thật hoặc tạm) vào hàm tạo mới
+            user = registerNewUser(oAuth2UserRequest, oAuth2UserInfo, email);
         }
 
-        // Sửa lỗi: Sử dụng phương thức static create() thay vì constructor
         return CustomUserDetails.create(user, oAuth2User.getAttributes());
     }
 
-    private User registerNewUser(OAuth2UserRequest oAuth2UserRequest, OAuth2UserInfo oAuth2UserInfo) {
+    // Cập nhật hàm này nhận thêm tham số String email
+    private User registerNewUser(OAuth2UserRequest oAuth2UserRequest, OAuth2UserInfo oAuth2UserInfo, String email) {
         User user = new User();
 
         user.setProvider(AuthProvider.valueOf(oAuth2UserRequest.getClientRegistration().getRegistrationId()));
         user.setProviderId(oAuth2UserInfo.getId());
         user.setFullName(oAuth2UserInfo.getName());
-        user.setEmail(oAuth2UserInfo.getEmail());
-        user.setIsEmailVerified(true); // Đăng nhập Google/FB thì coi như đã verify email
-        user.setStatus("ACTIVE");
+        user.setEmail(email); // Set email (thật hoặc tạm)
+        user.setIsEmailVerified(true);
 
-        // Vì password not null, ta set một chuỗi random (người dùng này sẽ không đăng nhập bằng pass được)
+        // === [LOGIC MỚI] Set trạng thái PENDING_EMAIL nếu là email tạm ===
+        if (email.contains("@temp.") && email.endsWith(".com")) {
+            user.setStatus("PENDING_EMAIL");
+        } else {
+            user.setStatus("ACTIVE");
+        }
+        // ================================================================
+
         user.setPasswordHash(UUID.randomUUID().toString());
 
-        // 1. Xử lý Role: Tìm role CUSTOMER từ DB
         Role userRole = roleRepository.findByRoleName("CUSTOMER")
                 .orElseThrow(() -> new InternalAuthenticationServiceException("Role 'CUSTOMER' not set."));
         user.addRole(userRole);
 
-        // 2. Xử lý UserDetail để lưu ảnh
         UserDetail userDetail = new UserDetail();
         userDetail.setProfilePhotoUrl(oAuth2UserInfo.getImageUrl());
         userDetail.setUser(user);
 
-        // Liên kết 2 chiều
         user.setUserDetail(userDetail);
 
         return userRepository.save(user);
@@ -111,7 +119,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private User updateExistingUser(User existingUser, OAuth2UserInfo oAuth2UserInfo) {
         existingUser.setFullName(oAuth2UserInfo.getName());
 
-        // Cập nhật ảnh trong UserDetail
         UserDetail userDetail = existingUser.getUserDetail();
         if (userDetail == null) {
             userDetail = new UserDetail();
