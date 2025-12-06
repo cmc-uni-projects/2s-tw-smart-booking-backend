@@ -10,10 +10,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 @Data
 @NoArgsConstructor
@@ -24,6 +21,8 @@ public class PromotionResponseDTO {
     private String description;
 
 
+    private Integer propertyId;
+    private String propertyName;
 
     private String discountDetail;
     private Integer usageLimit;
@@ -38,14 +37,15 @@ public class PromotionResponseDTO {
     private BigDecimal minBookingAmount;
     private String bannerUrl;
 
+
     public PromotionResponseDTO(Promotion p) {
         this.promotionId = p.getPromotionId();
         this.code = p.getCode();
         this.description = p.getDescription();
         this.usageLimit = p.getUsageLimit();
         this.usageCount = p.getUsageCount();
-        this.endDate = LocalDateTime.from(p.getEndDate());
-        this.startDate = LocalDateTime.from(p.getStartDate());
+        this.endDate = p.getEndDate();
+        this.startDate = p.getStartDate();
         this.status = p.getStatus();
         this.discountType = p.getDiscountType();
         this.minMembershipRank = p.getMinMembershipRank();
@@ -55,6 +55,15 @@ public class PromotionResponseDTO {
 
         this.discountDetail = formatDiscountDetail(p);
         this.bannerUrl = p.getBannerUrl();
+
+
+        if (p.getProperty() != null) {
+            this.propertyId = p.getProperty().getPropertyId();
+            this.propertyName = p.getProperty().getPropertyName();
+        } else {
+            this.propertyId = null;
+            this.propertyName = "Toàn sàn (Global)";
+        }
     }
 
     // --- HELPER METHODS ---

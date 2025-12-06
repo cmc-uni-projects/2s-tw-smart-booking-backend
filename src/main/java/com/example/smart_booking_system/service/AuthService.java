@@ -2,6 +2,7 @@ package com.example.smart_booking_system.service;
 
 import com.example.smart_booking_system.dto.request.auth.*;
 import com.example.smart_booking_system.dto.response.auth.LoginResponse;
+import com.example.smart_booking_system.entity.User;
 
 public interface AuthService {
 
@@ -18,4 +19,6 @@ public interface AuthService {
     void changePassword(ChangePasswordRequest request, String userId);
 
     void resendVerificationEmail(String email);
+
+    User getCurrentUser();
 }

@@ -2,6 +2,7 @@ package com.example.smart_booking_system.entity;
 
 import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.PromotionStatus;
+import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.MembershipRank;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -41,6 +42,9 @@ public class Promotion {
     @Column(nullable = false)
     private PromotionStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "propertyId")
+    private Property property;
 
     @Column(nullable = false)
     private BigDecimal discountValue;

@@ -7,10 +7,10 @@ import com.example.smart_booking_system.service.PromotionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 
@@ -21,20 +21,22 @@ public class PromotionController {
 
     private final PromotionService promotionService;
 
+    // 1. TẠO MỚI (Admin hoặc Owner)
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
     public ResponseEntity<?> create(@Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.status(201).body(
-                    ApiResponse.success("Tạo mã toàn sàn thành công", promotionService.createPromotion(req))
+                    ApiResponse.success("Tạo mã khuyến mãi thành công", promotionService.createPromotion(req))
             );
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
+    // 2. CẬP NHẬT
     @PutMapping("/update/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
     public ResponseEntity<?> update(@PathVariable int id, @Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.ok(
@@ -45,9 +47,9 @@ public class PromotionController {
         }
     }
 
-    // DELETE: Xóa mềm (Chuyển sang DELETED)
+    // 3. XÓA MỀM
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
     public ResponseEntity<?> delete(@PathVariable int id) {
         try {
             promotionService.deletePromotion(id);
@@ -57,26 +59,41 @@ public class PromotionController {
         }
     }
 
-    // TOGGLE: Bật/Tắt (ACTIVE <-> PAUSED)
+    // 4. BẬT/TẮT TRẠNG THÁI
     @PutMapping("/toggle/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
     public ResponseEntity<?> toggle(@PathVariable int id) {
         try {
             return ResponseEntity.ok(
-                    ApiResponse.success("Thay đổi trạng thái Bật/Tắt thành công", promotionService.toggleStatus(id))
+                    ApiResponse.success("Thay đổi trạng thái thành công", promotionService.toggleStatus(id))
             );
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
+    // 5. LẤY TẤT CẢ (TOÀN SÀN - Dành cho ADMIN quản lý hoặc User xem list chung)
     @GetMapping("/all")
-    public ResponseEntity<?> getAllPromotions() {
+    public ResponseEntity<?> getAllGlobalPromotions() {
         return ResponseEntity.ok(
                 ApiResponse.success(promotionService.getAllGlobalPromotions())
         );
     }
 
+    // 6. ✅ API MỚI: LẤY DANH SÁCH MÃ CỦA PROPERTY CỤ THỂ (Dành cho Owner/Admin xem)
+    @GetMapping("/property/{propertyId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    public ResponseEntity<?> getPromotionsByProperty(@PathVariable int propertyId) {
+        try {
+            return ResponseEntity.ok(
+                    ApiResponse.success(promotionService.getPromotionsByProperty(propertyId))
+            );
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // 7. CHI TIẾT
     @GetMapping("/detail/{id}")
     public ResponseEntity<?> getDetail(@PathVariable int id) {
         try {
@@ -86,9 +103,9 @@ public class PromotionController {
         }
     }
 
-    //  Upload Banner
+    // 8. UPLOAD BANNER
     @PostMapping(value = "/{id}/banner", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
     public ResponseEntity<?> uploadBanner(
             @PathVariable int id,
             @RequestParam("file") MultipartFile file
@@ -104,21 +121,23 @@ public class PromotionController {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    // 9. GỢI Ý MÃ GIẢM GIÁ (User dùng khi đặt phòng)
     @GetMapping("/suggest")
     public ResponseEntity<ApiResponse<PromotionResponseDTO>> suggestPromotion(
             @RequestParam String userId,
+            @RequestParam(required = false) Integer propertyId, // ✅ SỬA: Thêm tham số propertyId (có thể null)
             @RequestParam BigDecimal amount) {
 
-        PromotionResponseDTO bestPromo = promotionService.suggestBestPromotion(userId, amount);
+        // Gọi hàm service với logic mới (3 tham số)
+        PromotionResponseDTO bestPromo = promotionService.suggestBestPromotion(userId, propertyId, amount);
 
         if (bestPromo != null) {
-            // ✅ SỬ DỤNG ApiResponse.success(message, data)
             return ResponseEntity.ok(ApiResponse.success(
                     "Đã tìm thấy mã giảm giá tốt nhất cho bạn.",
                     bestPromo
             ));
         } else {
-            // ✅ SỬ DỤNG ApiResponse.success(message, data) với data = null
             return ResponseEntity.ok(ApiResponse.success(
                     "Hiện không có mã giảm giá nào phù hợp.",
                     null

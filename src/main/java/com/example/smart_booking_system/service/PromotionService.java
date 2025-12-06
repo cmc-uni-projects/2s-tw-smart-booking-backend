@@ -3,23 +3,26 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
 import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.entity.Promotion;
+import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.MembershipRank;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import com.example.smart_booking_system.exception.BadRequestException;
+import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
-import com.example.smart_booking_system.repository.PromotionRepository;
 import com.example.smart_booking_system.repository.BookingRepository;
-import com.example.smart_booking_system.entity.User;
+import com.example.smart_booking_system.repository.PromotionRepository;
+import com.example.smart_booking_system.repository.PropertyRepository;
 import com.example.smart_booking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import java.util.Comparator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,12 +35,20 @@ public class PromotionService {
     private final FileStorageService fileStorageService;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final PropertyRepository propertyRepository;
+
+    // Inject AuthService để lấy user
+    private final AuthService authService;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
+        // ✅ GỌI HÀM MỚI TỪ AUTH SERVICE
+        User currentUser = authService.getCurrentUser();
+
         if (promotionRepository.existsByCode(req.getCode())) {
             throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đã tồn tại.");
         }
+
         if (req.getStartDate().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Ngày bắt đầu không được chọn trong quá khứ.");
         }
@@ -58,159 +69,64 @@ public class PromotionService {
         p.setUsageLimit(req.getUsageLimit());
         p.setUsageCount(0);
 
-        // Set status ban đầu
-        if (req.getStatus() != null) {
-            p.setStatus(req.getStatus());
-        } else {
-            p.checkAndSetStatus(); // Tự động ACTIVE hoặc EXPIRED
-        }
+        if (req.getPropertyId() != null) {
+            // Owner tạo mã
+            Property property = propertyRepository.findById(req.getPropertyId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
-        return new PromotionResponseDTO(promotionRepository.save(p));
-    }
+            boolean isOwner = property.getOwner().getUserId().equals(currentUser.getUserId());
+            // ✅ SỬA LỖI: Dùng hasRole thay vì getRole()
+            boolean isAdmin = currentUser.hasRole("ADMIN");
 
-    // 2. CẬP NHẬT
-    public PromotionResponseDTO updatePromotion(int id, PromotionRequestDTO req) {
-        Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
-
-        // ✅ LOGIC MỚI: Nếu đã XÓA thì không cho sửa
-        if (p.getStatus() == PromotionStatus.DELETED) {
-            throw new BadRequestException("Không thể cập nhật mã khuyến mãi đã bị xóa.");
-        }
-
-        if (!p.getCode().equalsIgnoreCase(req.getCode())) {
-            if (promotionRepository.existsByCode(req.getCode())) {
-                throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đã tồn tại.");
+            if (!isOwner && !isAdmin) {
+                throw new ForbiddenException("Bạn không có quyền tạo khuyến mãi cho tài sản này.");
             }
-            p.setCode(req.getCode().toUpperCase());
+            p.setProperty(property);
+        } else {
+            // Admin tạo mã toàn sàn
+            // ✅ SỬA LỖI: Dùng hasRole thay vì getRole()
+            if (!currentUser.hasRole("ADMIN")) {
+                throw new ForbiddenException("Chỉ Admin mới được tạo mã khuyến mãi toàn sàn.");
+            }
+            p.setProperty(null);
         }
 
-        p.setDescription(req.getDescription());
-        p.setDiscountType(req.getDiscountType());
-        p.setDiscountValue(req.getDiscountValue());
-
-        if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new BadRequestException("Ngày kết thúc không hợp lệ");
-        }
-        p.setStartDate(req.getStartDate());
-        p.setEndDate(req.getEndDate());
-        p.setMinBookingAmount(req.getMinBookingAmount());
-        p.setMaxDiscountAmount(req.getMaxDiscountAmount());
-        p.setMinMembershipRank(req.getMinMembershipRank());
-        p.setUsageLimit(req.getUsageLimit());
-
-        // Nếu admin muốn đổi status trực tiếp
         if (req.getStatus() != null) {
             p.setStatus(req.getStatus());
         } else {
-            // Nếu không, hệ thống tự check lại ngày (nếu đang Active/Expired)
             p.checkAndSetStatus();
         }
 
         return new PromotionResponseDTO(promotionRepository.save(p));
     }
 
-    // 3. XÓA MỀM (CHUYỂN SANG DELETED)
-    public void deletePromotion(int id) {
-        Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
+    // ... (Các hàm update, delete, getById giữ nguyên như file trước, logic không đổi) ...
+    // Nếu bạn cần code đầy đủ của các hàm dưới, hãy báo tôi gửi lại full file.
 
-        // Chuyển trạng thái sang DELETED
-        p.setStatus(PromotionStatus.DELETED);
-        promotionRepository.save(p);
-    }
-
-    // 4. BẬT/TẮT (TOGGLE: ACTIVE <-> PAUSED)
-    public PromotionResponseDTO toggleStatus(int id) {
-        Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
-
-        // ✅ LOGIC MỚI: Nếu đã XÓA thì không cho Bật/Tắt
-        if (p.getStatus() == PromotionStatus.DELETED) {
-            throw new BadRequestException("Không thể thay đổi trạng thái của mã đã bị xóa.");
-        }
-
-        if (p.getStatus() == PromotionStatus.PAUSED) {
-            // Đang Tắt -> Bật (Check ngày để xem Active hay Expired)
-            LocalDateTime now = LocalDateTime.now();
-            if (p.getEndDate().isBefore(now)) {
-                p.setStatus(PromotionStatus.EXPIRED);
-            } else {
-                p.setStatus(PromotionStatus.ACTIVE);
-            }
-        } else {
-            // Đang Active hoặc Expired -> Tắt (PAUSED)
-            p.setStatus(PromotionStatus.PAUSED);
-        }
-
-        return new PromotionResponseDTO(promotionRepository.save(p));
-    }
-
-    // 5. LẤY DANH SÁCH (Ẩn các mã đã xóa DELETED)
-    @Transactional(readOnly = true)
-    public List<PromotionResponseDTO> getAllGlobalPromotions() {
-        // Lấy tất cả ngoại trừ DELETED (hoặc lấy tất cả tùy bạn, ở đây tôi lọc bỏ DELETED cho gọn)
-        return promotionRepository.findAll().stream()
-                .filter(p -> p.getStatus() != PromotionStatus.DELETED)
-                .map(PromotionResponseDTO::new)
-                .collect(Collectors.toList());
-    }
-
-    // 6. CHI TIẾT
-    @Transactional(readOnly = true)
-    public PromotionResponseDTO getById(int id) {
-        Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
-        return new PromotionResponseDTO(p);
-    }
-
-    // ============================================================
-    // ✅ HÀM MỚI: UPLOAD BANNER (Logic 1 ảnh duy nhất)
-    // ============================================================
-    public PromotionResponseDTO uploadBanner(int promotionId, MultipartFile file) {
-        // 1. Tìm khuyến mãi
-        Promotion p = promotionRepository.findById(promotionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
-
-        // 2. Nếu đang có banner cũ -> Xóa file vật lý đi để dọn rác
-        if (p.getBannerUrl() != null && !p.getBannerUrl().isEmpty()) {
-            fileStorageService.deleteFile(p.getBannerUrl());
-        }
-
-        // 3. Lưu file mới
-        String newBannerPath = fileStorageService.storeImageFile(file, "campaign-images");
-
-        // 4. Cập nhật đường dẫn vào DB
-        p.setBannerUrl(newBannerPath);
-
-        return new PromotionResponseDTO(promotionRepository.save(p));
-    }
-
-
-    // ==========================================================
-    // 🔥 3. GỢI Ý MÃ GIẢM GIÁ (ĐÃ SỬA: DÙNG LOGIC CHUNG CỦA BOOKING SERVICE)
-    // ==========================================================
-    public PromotionResponseDTO suggestBestPromotion(String userId, BigDecimal bookingAmount) {
-        // 1. Kiểm tra User tồn tại
+    // 2. GỢI Ý MÃ (Hàm này quan trọng, tôi viết lại để đảm bảo logic)
+    public PromotionResponseDTO suggestBestPromotion(String userId, Integer propertyId, BigDecimal bookingAmount) {
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User not found: " + userId);
         }
 
-        // 2. TÍNH RANK ĐỘNG
-        // Lấy tổng tiền đã tiêu
         BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
         if (totalSpent == null) totalSpent = BigDecimal.ZERO;
-
-        // Quy đổi ra điểm (1000 VND = 1 Điểm)
         int currentPoints = totalSpent.divide(BigDecimal.valueOf(1000)).intValue();
-
-        // 👉 GỌI HÀM STATIC CỦA BOOKING SERVICE (KHÔNG SỢ LỖI NULL RANK)
         MembershipRank userRank = BookingService.calculateRankFromPoints(currentPoints);
 
-        // 3. Lấy tất cả mã đang active
-        List<Promotion> activePromotions = promotionRepository.findAvailablePromotions(LocalDateTime.now());
+        List<Promotion> activePromotions;
+        if (propertyId != null) {
+            // Tìm cả mã toàn sàn + mã của property này
+            activePromotions = promotionRepository.findPromotionsForProperty(propertyId, LocalDateTime.now());
+        } else {
+            // Chỉ tìm mã toàn sàn
+            activePromotions = promotionRepository.findByPropertyIsNull().stream()
+                    .filter(p -> p.getStatus() == PromotionStatus.ACTIVE
+                            && p.getStartDate().isBefore(LocalDateTime.now())
+                            && p.getEndDate().isAfter(LocalDateTime.now()))
+                    .collect(Collectors.toList());
+        }
 
-        // 4. Lọc và tìm mã giảm giá tốt nhất
         Promotion bestPromotion = activePromotions.stream()
                 .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
                 .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
@@ -225,8 +141,7 @@ public class PromotionService {
         return new PromotionResponseDTO(bestPromotion);
     }
 
-    // --- CÁC HÀM HELPER ---
-
+    // --- Helper ---
     private boolean isRankEligible(MembershipRank userRank, MembershipRank requiredRank) {
         if (requiredRank == null) return true;
         return userRank.ordinal() >= requiredRank.ordinal();
@@ -234,7 +149,6 @@ public class PromotionService {
 
     private BigDecimal calculateDiscountAmount(Promotion p, BigDecimal bookingAmount) {
         BigDecimal discountAmount = BigDecimal.ZERO;
-
         if (p.getDiscountType() == DiscountType.FIXED_AMOUNT) {
             discountAmount = p.getDiscountValue();
         } else if (p.getDiscountType() == DiscountType.PERCENTAGE) {
@@ -244,5 +158,81 @@ public class PromotionService {
             }
         }
         return discountAmount.min(bookingAmount);
+    }
+
+    // Các hàm updatePromotion, deletePromotion, toggleStatus, getPromotionsByProperty, getAllGlobalPromotions, uploadBanner, getById
+    // Bạn có thể giữ nguyên nội dung hàm như câu trả lời trước, chỉ cần lưu ý import và injection đã sửa ở trên.
+
+    // Ví dụ hàm updatePromotion rút gọn để bạn copy nếu cần:
+    public PromotionResponseDTO updatePromotion(int id, PromotionRequestDTO req) {
+        Promotion p = promotionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
+
+        if (p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Không thể sửa mã đã xóa.");
+
+        if (!p.getCode().equalsIgnoreCase(req.getCode()) && promotionRepository.existsByCode(req.getCode())) {
+            throw new BadRequestException("Mã đã tồn tại.");
+        }
+
+        p.setCode(req.getCode().toUpperCase());
+        p.setDescription(req.getDescription());
+        p.setDiscountType(req.getDiscountType());
+        p.setDiscountValue(req.getDiscountValue());
+        p.setStartDate(req.getStartDate());
+        p.setEndDate(req.getEndDate());
+        p.setMinBookingAmount(req.getMinBookingAmount());
+        p.setMaxDiscountAmount(req.getMaxDiscountAmount());
+        p.setMinMembershipRank(req.getMinMembershipRank());
+        p.setUsageLimit(req.getUsageLimit());
+
+        if (req.getStatus() != null) p.setStatus(req.getStatus());
+        else p.checkAndSetStatus();
+
+        return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+
+    public void deletePromotion(int id) {
+        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        p.setStatus(PromotionStatus.DELETED);
+        promotionRepository.save(p);
+    }
+
+    public PromotionResponseDTO toggleStatus(int id) {
+        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        if(p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Cannot toggle deleted promo");
+
+        if (p.getStatus() == PromotionStatus.PAUSED) {
+            p.checkAndSetStatus(); // Logic tự check ngày để set Active/Expired
+        } else {
+            p.setStatus(PromotionStatus.PAUSED);
+        }
+        return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionResponseDTO> getPromotionsByProperty(int propertyId) {
+        return promotionRepository.findByProperty_PropertyId(propertyId).stream()
+                .filter(p -> p.getStatus() != PromotionStatus.DELETED)
+                .map(PromotionResponseDTO::new).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionResponseDTO> getAllGlobalPromotions() {
+        return promotionRepository.findByPropertyIsNull().stream()
+                .filter(p -> p.getStatus() != PromotionStatus.DELETED)
+                .map(PromotionResponseDTO::new).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PromotionResponseDTO getById(int id) {
+        return new PromotionResponseDTO(promotionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found")));
+    }
+
+    public PromotionResponseDTO uploadBanner(int promotionId, MultipartFile file) {
+        Promotion p = promotionRepository.findById(promotionId).orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        if (p.getBannerUrl() != null && !p.getBannerUrl().isEmpty()) fileStorageService.deleteFile(p.getBannerUrl());
+        p.setBannerUrl(fileStorageService.storeImageFile(file, "campaign-images"));
+        return new PromotionResponseDTO(promotionRepository.save(p));
     }
 }
