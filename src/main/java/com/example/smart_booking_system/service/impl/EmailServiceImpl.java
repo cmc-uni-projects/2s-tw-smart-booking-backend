@@ -232,4 +232,29 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("Lỗi gửi mail cancellation-success: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendCheckinReminderEmail(String toEmail, String fullName, String bookingId, String propertyName, String checkInDate) {
+        try {
+            String subject = "Nhắc nhở: Bạn có lịch check-in vào ngày mai - Smart Booking";
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("propertyName", propertyName);
+            context.setVariable("checkInDate", checkInDate);
+            // Link xem chi tiết booking
+            context.setVariable("bookingUrl", getFrontendBaseUrl() + "bookings/" + bookingId);
+
+            // Đảm bảo bạn đã tạo file template checkin-reminder.html
+            String htmlContent = templateEngine.process("email/checkin-reminder", context);
+
+            // Gọi hàm gửi email nội bộ
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            // Log lỗi nhưng không ném exception để tránh làm gián đoạn vòng lặp gửi email cho người khác
+            System.err.println("❌ Lỗi gửi email nhắc nhở check-in cho booking " + bookingId + ": " + e.getMessage());
+        }
+    }
 }

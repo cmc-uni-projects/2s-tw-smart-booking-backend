@@ -604,4 +604,115 @@ public class BookingService {
         Booking saved = bookingRepo.save(booking);
         return convertToDTO(saved);
     }
+
+    // ============================================================
+    // 🔥 [NEW] XỬ LÝ THANH TOÁN THÀNH CÔNG (Được gọi từ PaymentController/Service)
+    // ============================================================
+    @Transactional
+    public void confirmBookingPayment(int bookingId) {
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // 1. Kiểm tra trạng thái hợp lệ
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            // Có thể log warning nếu đơn đã confirm rồi
+            logger.warn("Booking {} đã được xử lý trước đó. Trạng thái hiện tại: {}", bookingId, booking.getStatus());
+            return;
+        }
+
+        // 2. Cập nhật trạng thái Booking -> CONFIRMED
+        booking.setStatus(BookingStatus.CONFIRMED);
+
+        // 3. Cập nhật trạng thái Payment -> PAID/APPROVED (Đồng bộ dữ liệu)
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+        if (payment != null) {
+            payment.setPaymentStatus(PaymentStatus.APPROVED); // Hoặc PAID tuỳ enum của bạn
+            payment.setPaymentDate(LocalDateTime.now()); // Lưu thời gian thanh toán
+            paymentRepo.save(payment);
+        }
+
+        bookingRepo.save(booking);
+        logger.info("✅ Booking {} đã được xác nhận thanh toán thành công.", bookingId);
+
+        // 4. Gửi email xác nhận đặt phòng (Booking Confirmation)
+        try {
+            String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+            String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+            emailService.sendBookingConfirmationEmail(emailTo, nameTo, String.valueOf(bookingId));
+        } catch (Exception e) {
+            logger.error("Lỗi gửi email xác nhận booking: {}", e.getMessage());
+        }
+
+        // 5. 🔥 [LOGIC MỚI] Kiểm tra xem có cần gửi mail nhắc nhở check-in NGAY LẬP TỨC không?
+        // (Dành cho khách đặt sát ngày: Ví dụ đặt hôm nay đi luôn, hoặc đặt hôm nay đi ngày mai)
+        checkAndSendImmediateReminder(booking);
+    }
+
+    // ============================================================
+    // 🔥 SCHEDULER: QUÉT VÀ GỬI EMAIL NHẮC CHECK-IN (Chạy 8h sáng hàng ngày)
+    // ============================================================
+    @Transactional
+    public void sendCheckinReminders() {
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+
+        // Tìm các đơn CONFIRMED check-in ngày mai
+        List<Booking> bookings = bookingRepo.findByCheckInDateAndStatus(tomorrow, BookingStatus.CONFIRMED);
+
+        if (!bookings.isEmpty()) {
+            logger.info("🔍 Tìm thấy {} đơn hàng check-in ngày mai ({})", bookings.size(), tomorrow);
+
+            for (Booking booking : bookings) {
+                try {
+                    String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+                    String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+                    String propertyName = booking.getProperty().getPropertyName();
+
+                    emailService.sendCheckinReminderEmail(
+                            emailTo,
+                            nameTo,
+                            String.valueOf(booking.getBookingId()),
+                            propertyName,
+                            booking.getCheckInDate().toString()
+                    );
+                    logger.info("✅ Đã gửi email nhắc check-in (Scheduler) cho Booking ID: {}", booking.getBookingId());
+
+                } catch (Exception e) {
+                    logger.error("❌ Lỗi gửi email nhắc check-in (Scheduler) cho ID {}: {}", booking.getBookingId(), e.getMessage());
+                }
+            }
+        } else {
+            logger.info("📅 Không có đơn hàng nào check-in vào ngày mai ({})", tomorrow);
+        }
+    }
+
+    // ============================================================
+    // 🔥 HELPER: KIỂM TRA VÀ GỬI MAIL NHẮC CHECK-IN NGAY (Real-time)
+    // ============================================================
+    public void checkAndSendImmediateReminder(Booking booking) {
+        LocalDate checkInDate = booking.getCheckInDate();
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+
+        // Logic: Nếu khách đặt phòng Check-in là HÔM NAY hoặc NGÀY MAI
+        // thì gửi email nhắc nhở ngay lập tức (vì đã lỡ hoặc sắp tới giờ Scheduler chạy)
+        if (checkInDate.isEqual(today) || checkInDate.isEqual(tomorrow)) {
+            try {
+                String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+                String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+                String propertyName = booking.getProperty().getPropertyName();
+
+                emailService.sendCheckinReminderEmail(
+                        emailTo,
+                        nameTo,
+                        String.valueOf(booking.getBookingId()),
+                        propertyName,
+                        booking.getCheckInDate().toString()
+                );
+                logger.info("⚡ Đã gửi email nhắc nhở NGAY LẬP TỨC cho Booking ID: {}", booking.getBookingId());
+            } catch (Exception e) {
+                logger.error("❌ Lỗi gửi email nhắc nhở ngay lập tức: {}", e.getMessage());
+            }
+        }
+    }
 }
+
