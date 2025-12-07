@@ -21,9 +21,9 @@ public class PromotionController {
 
     private final PromotionService promotionService;
 
-    // 1. TẠO MỚI (Admin hoặc Owner)
+    // 1. TẠO MỚI
     @PostMapping("/create")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> create(@Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.status(201).body(
@@ -36,7 +36,7 @@ public class PromotionController {
 
     // 2. CẬP NHẬT
     @PutMapping("/update/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> update(@PathVariable int id, @Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.ok(
@@ -47,21 +47,21 @@ public class PromotionController {
         }
     }
 
-    // 3. XÓA MỀM
+    // 3. XÓA
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> delete(@PathVariable int id) {
         try {
             promotionService.deletePromotion(id);
-            return ResponseEntity.ok(ApiResponse.success("Đã xóa mã khuyến mãi (Chuyển sang thùng rác)"));
+            return ResponseEntity.ok(ApiResponse.success("Đã xóa mã khuyến mãi"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
-    // 4. BẬT/TẮT TRẠNG THÁI
+    // 4. TOGGLE STATUS
     @PutMapping("/toggle/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> toggle(@PathVariable int id) {
         try {
             return ResponseEntity.ok(
@@ -72,7 +72,7 @@ public class PromotionController {
         }
     }
 
-    // 5. LẤY TẤT CẢ (TOÀN SÀN - Dành cho ADMIN quản lý hoặc User xem list chung)
+    // 5. LẤY TẤT CẢ (TOÀN SÀN - ADMIN)
     @GetMapping("/all")
     public ResponseEntity<?> getAllGlobalPromotions() {
         return ResponseEntity.ok(
@@ -80,7 +80,7 @@ public class PromotionController {
         );
     }
 
-    // 6. ✅ API MỚI: LẤY DANH SÁCH MÃ CỦA PROPERTY CỤ THỂ (Dành cho Owner/Admin xem)
+    // 6. LẤY MÃ CỦA PROPERTY CỤ THỂ
     @GetMapping("/property/{propertyId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> getPromotionsByProperty(@PathVariable int propertyId) {
@@ -105,7 +105,7 @@ public class PromotionController {
 
     // 8. UPLOAD BANNER
     @PostMapping(value = "/{id}/banner", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')") // ✅ SỬA: Thêm quyền OWNER
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> uploadBanner(
             @PathVariable int id,
             @RequestParam("file") MultipartFile file
@@ -122,26 +122,32 @@ public class PromotionController {
         }
     }
 
-    // 9. GỢI Ý MÃ GIẢM GIÁ (User dùng khi đặt phòng)
+    // 9. GỢI Ý MÃ (USER)
     @GetMapping("/suggest")
     public ResponseEntity<ApiResponse<PromotionResponseDTO>> suggestPromotion(
             @RequestParam String userId,
-            @RequestParam(required = false) Integer propertyId, // ✅ SỬA: Thêm tham số propertyId (có thể null)
+            @RequestParam(required = false) Integer propertyId,
             @RequestParam BigDecimal amount) {
 
-        // Gọi hàm service với logic mới (3 tham số)
         PromotionResponseDTO bestPromo = promotionService.suggestBestPromotion(userId, propertyId, amount);
 
         if (bestPromo != null) {
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Đã tìm thấy mã giảm giá tốt nhất cho bạn.",
-                    bestPromo
-            ));
+            return ResponseEntity.ok(ApiResponse.success("Tìm thấy mã phù hợp", bestPromo));
         } else {
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Hiện không có mã giảm giá nào phù hợp.",
-                    null
-            ));
+            return ResponseEntity.ok(ApiResponse.success("Không có mã phù hợp", null));
+        }
+    }
+
+    // 10. LẤY DANH SÁCH CHO OWNER
+    @GetMapping("/owner/my-promotions")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> getOwnerPromotions() {
+        try {
+            return ResponseEntity.ok(
+                    ApiResponse.success(promotionService.getPromotionsByCurrentOwner())
+            );
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 }

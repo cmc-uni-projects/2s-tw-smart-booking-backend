@@ -2,7 +2,6 @@ package com.example.smart_booking_system.entity;
 
 import com.example.smart_booking_system.enums.DiscountType;
 import com.example.smart_booking_system.enums.PromotionStatus;
-import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.MembershipRank;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -25,7 +24,7 @@ public class Promotion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer promotionId;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String code;
 
     @Column(columnDefinition = "TEXT")
@@ -72,8 +71,6 @@ public class Promotion {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (usageCount == null) usageCount = 0;
-
-        // Mặc định khi tạo mới sẽ check ngày để set ACTIVE
         if (status == null) {
             checkAndSetStatus();
         }
@@ -84,13 +81,10 @@ public class Promotion {
         updatedAt = LocalDateTime.now();
     }
 
-    // Helper: Tự động set status theo ngày (chỉ dùng khi đang ACTIVE/PAUSED)
     public void checkAndSetStatus() {
-        // Nếu đã xóa hoặc tạm dừng thì không tự động đổi status
         if (this.status == PromotionStatus.DELETED || this.status == PromotionStatus.PAUSED) {
             return;
         }
-
         LocalDateTime now = LocalDateTime.now();
         if (endDate != null && endDate.isBefore(now)) {
             this.status = PromotionStatus.EXPIRED;

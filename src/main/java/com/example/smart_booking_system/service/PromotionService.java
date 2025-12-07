@@ -36,17 +36,28 @@ public class PromotionService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final PropertyRepository propertyRepository;
-
-    // Inject AuthService để lấy user
     private final AuthService authService;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
-        // ✅ GỌI HÀM MỚI TỪ AUTH SERVICE
         User currentUser = authService.getCurrentUser();
 
-        if (promotionRepository.existsByCode(req.getCode())) {
-            throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đã tồn tại.");
+
+        if (req.getPropertyId() == null) {
+            // ADMIN: Không được trùng với bất kỳ mã nào ĐANG HOẠT ĐỘNG
+            if (promotionRepository.existsByCodeAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
+                throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đang được sử dụng (chưa xóa). Vui lòng chọn mã khác.");
+            }
+        } else {
+            // OWNER:
+            // 1. Check trùng Admin (đang hoạt động)
+            if (promotionRepository.existsByCodeAndPropertyIsNullAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
+                throw new BadRequestException("Mã '" + req.getCode() + "' đang được Admin sử dụng.");
+            }
+            // 2. Check trùng nội bộ KS (đang hoạt động)
+            if (promotionRepository.existsByCodeAndProperty_PropertyIdAndStatusNot(req.getCode(), req.getPropertyId(), PromotionStatus.DELETED)) {
+                throw new BadRequestException("Mã '" + req.getCode() + "' đang hoạt động tại khách sạn này.");
+            }
         }
 
         if (req.getStartDate().isBefore(LocalDateTime.now())) {
@@ -70,12 +81,10 @@ public class PromotionService {
         p.setUsageCount(0);
 
         if (req.getPropertyId() != null) {
-            // Owner tạo mã
             Property property = propertyRepository.findById(req.getPropertyId())
                     .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
             boolean isOwner = property.getOwner().getUserId().equals(currentUser.getUserId());
-            // ✅ SỬA LỖI: Dùng hasRole thay vì getRole()
             boolean isAdmin = currentUser.hasRole("ADMIN");
 
             if (!isOwner && !isAdmin) {
@@ -83,8 +92,6 @@ public class PromotionService {
             }
             p.setProperty(property);
         } else {
-            // Admin tạo mã toàn sàn
-            // ✅ SỬA LỖI: Dùng hasRole thay vì getRole()
             if (!currentUser.hasRole("ADMIN")) {
                 throw new ForbiddenException("Chỉ Admin mới được tạo mã khuyến mãi toàn sàn.");
             }
@@ -100,78 +107,49 @@ public class PromotionService {
         return new PromotionResponseDTO(promotionRepository.save(p));
     }
 
-    // ... (Các hàm update, delete, getById giữ nguyên như file trước, logic không đổi) ...
-    // Nếu bạn cần code đầy đủ của các hàm dưới, hãy báo tôi gửi lại full file.
-
-    // 2. GỢI Ý MÃ (Hàm này quan trọng, tôi viết lại để đảm bảo logic)
-    public PromotionResponseDTO suggestBestPromotion(String userId, Integer propertyId, BigDecimal bookingAmount) {
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User not found: " + userId);
-        }
-
-        BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
-        if (totalSpent == null) totalSpent = BigDecimal.ZERO;
-        int currentPoints = totalSpent.divide(BigDecimal.valueOf(1000)).intValue();
-        MembershipRank userRank = BookingService.calculateRankFromPoints(currentPoints);
-
-        List<Promotion> activePromotions;
-        if (propertyId != null) {
-            // Tìm cả mã toàn sàn + mã của property này
-            activePromotions = promotionRepository.findPromotionsForProperty(propertyId, LocalDateTime.now());
-        } else {
-            // Chỉ tìm mã toàn sàn
-            activePromotions = promotionRepository.findByPropertyIsNull().stream()
-                    .filter(p -> p.getStatus() == PromotionStatus.ACTIVE
-                            && p.getStartDate().isBefore(LocalDateTime.now())
-                            && p.getEndDate().isAfter(LocalDateTime.now()))
-                    .collect(Collectors.toList());
-        }
-
-        Promotion bestPromotion = activePromotions.stream()
-                .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
-                .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
-                .sorted(Comparator.comparing((Promotion p) -> calculateDiscountAmount(p, bookingAmount)).reversed())
-                .findFirst()
-                .orElse(null);
-
-        if (bestPromotion == null) {
-            return null;
-        }
-
-        return new PromotionResponseDTO(bestPromotion);
-    }
-
-    // --- Helper ---
-    private boolean isRankEligible(MembershipRank userRank, MembershipRank requiredRank) {
-        if (requiredRank == null) return true;
-        return userRank.ordinal() >= requiredRank.ordinal();
-    }
-
-    private BigDecimal calculateDiscountAmount(Promotion p, BigDecimal bookingAmount) {
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        if (p.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-            discountAmount = p.getDiscountValue();
-        } else if (p.getDiscountType() == DiscountType.PERCENTAGE) {
-            discountAmount = bookingAmount.multiply(p.getDiscountValue()).divide(BigDecimal.valueOf(100));
-            if (p.getMaxDiscountAmount() != null && discountAmount.compareTo(p.getMaxDiscountAmount()) > 0) {
-                discountAmount = p.getMaxDiscountAmount();
-            }
-        }
-        return discountAmount.min(bookingAmount);
-    }
-
-    // Các hàm updatePromotion, deletePromotion, toggleStatus, getPromotionsByProperty, getAllGlobalPromotions, uploadBanner, getById
-    // Bạn có thể giữ nguyên nội dung hàm như câu trả lời trước, chỉ cần lưu ý import và injection đã sửa ở trên.
-
-    // Ví dụ hàm updatePromotion rút gọn để bạn copy nếu cần:
+    // 2. CẬP NHẬT
     public PromotionResponseDTO updatePromotion(int id, PromotionRequestDTO req) {
+        User currentUser = authService.getCurrentUser();
         Promotion p = promotionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
 
         if (p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Không thể sửa mã đã xóa.");
 
-        if (!p.getCode().equalsIgnoreCase(req.getCode()) && promotionRepository.existsByCode(req.getCode())) {
-            throw new BadRequestException("Mã đã tồn tại.");
+        boolean isCodeChanged = !p.getCode().equalsIgnoreCase(req.getCode());
+        Integer currentPropertyId = p.getProperty() != null ? p.getProperty().getPropertyId() : null;
+        Integer newPropertyId = req.getPropertyId();
+
+        Integer targetPropertyId = newPropertyId != null ? newPropertyId : currentPropertyId;
+
+        // Check trùng lặp (Bỏ qua DELETED)
+        if (isCodeChanged || (newPropertyId != null && !newPropertyId.equals(currentPropertyId))) {
+            if (targetPropertyId == null) {
+                // Admin Update
+                if (promotionRepository.existsByCodeAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
+                    throw new BadRequestException("Mã '" + req.getCode() + "' đang được sử dụng.");
+                }
+            } else {
+                // Owner Update
+                if (promotionRepository.existsByCodeAndPropertyIsNullAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
+                    throw new BadRequestException("Mã '" + req.getCode() + "' đang được Admin sử dụng.");
+                }
+                if (promotionRepository.existsByCodeAndProperty_PropertyIdAndStatusNot(req.getCode(), targetPropertyId, PromotionStatus.DELETED)) {
+                    throw new BadRequestException("Mã '" + req.getCode() + "' đã tồn tại tại khách sạn bạn chọn.");
+                }
+            }
+        }
+
+        if (req.getPropertyId() != null) {
+            if (p.getProperty() == null) {
+                if (!currentUser.hasRole("ADMIN")) throw new ForbiddenException("Không thể sửa mã toàn sàn.");
+            } else if (p.getProperty().getPropertyId() != req.getPropertyId()) {
+                Property newProperty = propertyRepository.findById(req.getPropertyId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+                boolean isOwner = newProperty.getOwner().getUserId().equals(currentUser.getUserId());
+                boolean isAdmin = currentUser.hasRole("ADMIN");
+                if (!isOwner && !isAdmin) throw new ForbiddenException("Bạn không sở hữu khách sạn mới này.");
+                p.setProperty(newProperty);
+            }
         }
 
         p.setCode(req.getCode().toUpperCase());
@@ -191,6 +169,31 @@ public class PromotionService {
         return new PromotionResponseDTO(promotionRepository.save(p));
     }
 
+    public Promotion validateAndGetPromotionForBooking(String code, Integer propertyId) {
+        List<Promotion> promotions = promotionRepository.findValidPromotionsList(code.toUpperCase(), LocalDateTime.now());
+
+        if (promotions.isEmpty()) {
+            throw new ResourceNotFoundException("Mã khuyến mãi không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // Lọc property
+        List<Promotion> applicable = promotions.stream()
+                .filter(p -> p.getProperty() == null || p.getProperty().getPropertyId() == propertyId)
+                .collect(Collectors.toList());
+
+        if (applicable.isEmpty()) {
+            throw new BadRequestException("Mã này không áp dụng cho khách sạn bạn đang đặt.");
+        }
+
+        applicable.sort((p1, p2) -> {
+            if (p1.getProperty() != null && p2.getProperty() == null) return -1;
+            if (p1.getProperty() == null && p2.getProperty() != null) return 1;
+            return 0;
+        });
+
+        return applicable.get(0);
+    }
+
     public void deletePromotion(int id) {
         Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
         p.setStatus(PromotionStatus.DELETED);
@@ -200,13 +203,52 @@ public class PromotionService {
     public PromotionResponseDTO toggleStatus(int id) {
         Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
         if(p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Cannot toggle deleted promo");
-
-        if (p.getStatus() == PromotionStatus.PAUSED) {
-            p.checkAndSetStatus(); // Logic tự check ngày để set Active/Expired
-        } else {
-            p.setStatus(PromotionStatus.PAUSED);
-        }
+        if (p.getStatus() == PromotionStatus.PAUSED) p.checkAndSetStatus();
+        else p.setStatus(PromotionStatus.PAUSED);
         return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+
+    public PromotionResponseDTO suggestBestPromotion(String userId, Integer propertyId, BigDecimal bookingAmount) {
+        if (!userRepository.existsById(userId)) throw new ResourceNotFoundException("User not found");
+        BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
+        if (totalSpent == null) totalSpent = BigDecimal.ZERO;
+        int currentPoints = totalSpent.divide(BigDecimal.valueOf(1000)).intValue();
+        MembershipRank userRank = BookingService.calculateRankFromPoints(currentPoints);
+        List<Promotion> activePromotions;
+        if (propertyId != null) {
+            activePromotions = promotionRepository.findPromotionsForProperty(propertyId, LocalDateTime.now());
+        } else {
+            activePromotions = promotionRepository.findByPropertyIsNull().stream()
+                    .filter(p -> p.getStatus() == PromotionStatus.ACTIVE
+                            && p.getStartDate().isBefore(LocalDateTime.now())
+                            && p.getEndDate().isAfter(LocalDateTime.now()))
+                    .collect(Collectors.toList());
+        }
+        Promotion bestPromotion = activePromotions.stream()
+                .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
+                .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
+                .sorted(Comparator.comparing((Promotion p) -> calculateDiscountAmount(p, bookingAmount)).reversed())
+                .findFirst()
+                .orElse(null);
+        return bestPromotion != null ? new PromotionResponseDTO(bestPromotion) : null;
+    }
+
+    private boolean isRankEligible(MembershipRank userRank, MembershipRank requiredRank) {
+        if (requiredRank == null) return true;
+        return userRank.ordinal() >= requiredRank.ordinal();
+    }
+
+    private BigDecimal calculateDiscountAmount(Promotion p, BigDecimal bookingAmount) {
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (p.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discountAmount = p.getDiscountValue();
+        } else if (p.getDiscountType() == DiscountType.PERCENTAGE) {
+            discountAmount = bookingAmount.multiply(p.getDiscountValue()).divide(BigDecimal.valueOf(100));
+            if (p.getMaxDiscountAmount() != null && discountAmount.compareTo(p.getMaxDiscountAmount()) > 0) {
+                discountAmount = p.getMaxDiscountAmount();
+            }
+        }
+        return discountAmount.min(bookingAmount);
     }
 
     @Transactional(readOnly = true)
@@ -225,8 +267,15 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public PromotionResponseDTO getById(int id) {
-        return new PromotionResponseDTO(promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Not found")));
+        return new PromotionResponseDTO(promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found")));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromotionResponseDTO> getPromotionsByCurrentOwner() {
+        User currentUser = authService.getCurrentUser();
+        return promotionRepository.findAllByOwnerId(currentUser.getUserId()).stream()
+                .map(PromotionResponseDTO::new)
+                .collect(Collectors.toList());
     }
 
     public PromotionResponseDTO uploadBanner(int promotionId, MultipartFile file) {

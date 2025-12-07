@@ -14,13 +14,32 @@ import java.util.Optional;
 @Repository
 public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
-    // 1. Check code tồn tại (Chỉ giữ lại 1 cái này)
-    boolean existsByCode(String code);
+    // --- CÁC HÀM CHECK TRÙNG (LOGIC MỚI: BỎ QUA MÃ ĐÃ XÓA) ---
 
-    // 2. Tìm theo trạng thái
+    // Check trùng toàn sàn (Admin): Tìm xem có mã nào TRÙNG TÊN và CHƯA XÓA không?
+    boolean existsByCodeAndStatusNot(String code, PromotionStatus status);
+
+    // Check trùng Owner: Admin có mã này (chưa xóa) không?
+    boolean existsByCodeAndPropertyIsNullAndStatusNot(String code, PromotionStatus status);
+
+    // Check trùng Owner: Property này có mã này (chưa xóa) không?
+    boolean existsByCodeAndProperty_PropertyIdAndStatusNot(String code, Integer propertyId, PromotionStatus status);
+
+    // --- HÀM HỖ TRỢ PAYMENT SERVICE (QUAN TRỌNG) ---
+    // Vì DB giờ cho phép trùng code (1 xóa, 1 mới), nên tìm theo code có thể ra nhiều kết quả.
+    // Ta lấy list, sắp xếp mới nhất lên đầu.
+    @Query("SELECT p FROM Promotion p WHERE p.code = :code ORDER BY p.createdAt DESC")
+    List<Promotion> findByCodeRaw(@Param("code") String code);
+
+    // Hàm default để PaymentService gọi mà không bị lỗi compile, cũng không bị lỗi runtime
+    // Logic: Lấy mã mới nhất tìm được (Ưu tiên mã Active nếu có, hoặc mã Deleted mới nhất để hiện lịch sử)
+    default Optional<Promotion> findByCode(String code) {
+        List<Promotion> list = findByCodeRaw(code);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
+
     List<Promotion> findByStatus(PromotionStatus status);
 
-    // 3. Tìm mã cụ thể để validate (Check cả hạn dùng + số lượng)
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.code = :code
@@ -29,12 +48,16 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
         AND p.endDate >= :now
         AND (p.usageLimit IS NULL OR p.usageCount < p.usageLimit)
     """)
-    Optional<Promotion> findValidPromotion(@Param("code") String code, @Param("now") LocalDateTime now);
+    List<Promotion> findValidPromotionsList(@Param("code") String code, @Param("now") LocalDateTime now);
 
-    // 4. Hàm cho Scheduler (Tìm mã hết hạn để update status)
+    // Wrapper cho Service gọi (Lấy cái đầu tiên tìm thấy)
+    default Optional<Promotion> findValidPromotion(String code, LocalDateTime now) {
+        List<Promotion> list = findValidPromotionsList(code, now);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
+
     List<Promotion> findByStatusAndEndDateBefore(PromotionStatus status, LocalDateTime date);
 
-    // 5. Lấy danh sách mã đang ACTIVE (cơ bản)
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
@@ -44,20 +67,10 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
     """)
     List<Promotion> findAvailablePromotions(@Param("now") LocalDateTime now);
 
-    // ==========================================
-    // CÁC HÀM MỚI CHO OWNER & PROPERTY
-    // ==========================================
-
-    // 6. Lấy mã riêng của một Property cụ thể (Dùng cho Owner xem quản lý)
-    // Yêu cầu: Trong Entity Promotion phải có quan hệ "private Property property;"
     List<Promotion> findByProperty_PropertyId(int propertyId);
 
-    // 7. Lấy mã toàn sàn (Dùng cho Admin xem quản lý)
     List<Promotion> findByPropertyIsNull();
 
-    // 8. Tìm mã khuyến mãi áp dụng được cho 1 Property cụ thể
-    // (Bao gồm: Mã toàn sàn + Mã riêng của Property đó)
-    // Dùng khi User xem chi tiết phòng hoặc chuẩn bị đặt phòng
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
@@ -67,4 +80,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
         AND (p.property IS NULL OR p.property.propertyId = :propertyId)
     """)
     List<Promotion> findPromotionsForProperty(@Param("propertyId") int propertyId, @Param("now") LocalDateTime now);
+
+    @Query("SELECT p FROM Promotion p WHERE p.property.owner.userId = :userId AND p.status != com.example.smart_booking_system.enums.PromotionStatus.DELETED ORDER BY p.createdAt DESC")
+    List<Promotion> findAllByOwnerId(@Param("userId") String userId);
 }
