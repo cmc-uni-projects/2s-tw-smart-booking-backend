@@ -4,6 +4,7 @@ import com.example.smart_booking_system.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -147,10 +148,11 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // ==================================================
-    // ✉️ Private Helper - Gửi Email HTML
+    // ✉️ Private Helper - Gửi Email HTML (ĐÃ SỬA ĐỂ HIỆN LOGO)
     // ==================================================
     private void sendHtmlEmailInternal(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
+
         MimeMessageHelper helper = new MimeMessageHelper(
                 message,
                 MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
@@ -161,6 +163,24 @@ public class EmailServiceImpl implements EmailService {
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(htmlContent, true);
+
+        // --- 👇 PHẦN QUAN TRỌNG: FIX LỖI HIỂN THỊ TRÊN MÁY TÍNH ---
+        try {
+            // 1. Tìm file ảnh
+            String path = "static/images/logo-travelmate.png";
+            ClassPathResource logoResource = new ClassPathResource(path);
+
+            if (logoResource.exists()) {
+                // 2. Đính kèm VÀ khai báo rõ đây là "image/png"
+                // Outlook máy tính bắt buộc phải có tham số thứ 3 này mới chịu hiện ảnh
+                helper.addInline("logoImage", logoResource, "image/png");
+            } else {
+                System.err.println("⚠️ Cảnh báo: Không tìm thấy logo tại: " + path);
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi đính kèm logo: " + e.getMessage());
+        }
+        // -----------------------------------------------------------
 
         mailSender.send(message);
     }
