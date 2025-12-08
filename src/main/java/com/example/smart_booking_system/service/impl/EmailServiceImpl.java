@@ -277,4 +277,29 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("❌ Lỗi gửi email nhắc nhở check-in cho booking " + bookingId + ": " + e.getMessage());
         }
     }
+
+    // Gửi email cảm ơn sau khi Check-out
+    @Override
+    public void sendThankYouEmail(String toEmail, String fullName, String bookingId, String propertyName) {
+        try {
+            String subject = "Cảm ơn bạn đã lựa chọn " + propertyName + " - Smart Booking";
+
+
+            String reviewUrl = getFrontendBaseUrl() + "bookings/" + bookingId;
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("propertyName", propertyName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("reviewUrl", reviewUrl);
+
+            // Sử dụng template: src/main/resources/templates/email/checkout-thankyou.html
+            String htmlContent = templateEngine.process("email/checkout-thankyou", context);
+
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send thank you email: " + e.getMessage());
+        }
+    }
 }

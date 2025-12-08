@@ -26,4 +26,6 @@ public interface EmailService {
     void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount);
 
     void sendCheckinReminderEmail(String toEmail, String fullName, String bookingId, String propertyName, String checkInDate);
+
+    void sendThankYouEmail(String toEmail, String fullName, String bookingId, String propertyName);
 }
