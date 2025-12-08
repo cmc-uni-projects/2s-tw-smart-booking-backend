@@ -383,6 +383,25 @@ public class BookingService {
         }
 
         bookingRepo.save(booking);
+
+        try {
+            // Lấy email và tên người nhận (Ưu tiên thông tin Customer trong booking)
+            String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
+            String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
+            String propertyName = booking.getProperty().getPropertyName();
+
+            // Gọi service gửi email
+            emailService.sendThankYouEmail(
+                    emailTo,
+                    nameTo,
+                    String.valueOf(booking.getBookingId()),
+                    propertyName
+            );
+            logger.info("✅ Đã gửi email cảm ơn checkout cho Booking ID: {}", bookingId);
+        } catch (Exception e) {
+            // Log lỗi nhưng không chặn transaction checkout (để khách vẫn checkout được dù lỗi mail)
+            logger.error("❌ Lỗi gửi mail cảm ơn sau checkout: {}", e.getMessage());
+        }
     }
 
     // ============================================================

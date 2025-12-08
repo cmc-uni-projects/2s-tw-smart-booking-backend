@@ -264,7 +264,7 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("propertyName", propertyName);
             context.setVariable("checkInDate", checkInDate);
             // Link xem chi tiết booking
-            context.setVariable("bookingUrl", getFrontendBaseUrl() + "bookings/" + bookingId);
+            context.setVariable("bookingUrl", getFrontendBaseUrl() + "customer/bookings");
 
             // Đảm bảo bạn đã tạo file template checkin-reminder.html
             String htmlContent = templateEngine.process("email/checkin-reminder", context);
@@ -285,7 +285,7 @@ public class EmailServiceImpl implements EmailService {
             String subject = "Cảm ơn bạn đã lựa chọn " + propertyName + " - Smart Booking";
 
 
-            String reviewUrl = getFrontendBaseUrl() + "bookings/" + bookingId;
+            String reviewUrl = getFrontendBaseUrl() + "customer/bookings";
 
             Context context = new Context();
             context.setVariable("username", fullName);
