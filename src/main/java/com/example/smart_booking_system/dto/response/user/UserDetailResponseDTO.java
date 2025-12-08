@@ -3,6 +3,8 @@ package com.example.smart_booking_system.dto.response.user;
 import com.example.smart_booking_system.enums.MembershipRank;
 import lombok.Data;
 import java.time.LocalDate;
+import lombok.AllArgsConstructor;
+import java.util.List;
 
 @Data
 public class UserDetailResponseDTO {
@@ -22,4 +24,15 @@ public class UserDetailResponseDTO {
     private String country;
     private int points;
     private MembershipRank membershipRank;
+
+    private String notificationEmail;
+    private List<SocialAccountDTO> socialAccounts; // Để hiển thị list email phụ
+
+    // Tạo thêm class DTO nhỏ ở trong hoặc ngoài file này để map SocialAccount
+    @Data
+    @AllArgsConstructor
+    public static class SocialAccountDTO {
+        private String provider;
+        private String email;
+    }
 }

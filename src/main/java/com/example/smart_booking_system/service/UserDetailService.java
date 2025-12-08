@@ -11,23 +11,24 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value; // ✅ Import Value
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile; // ✅ Import MultipartFile
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder; // ✅ Import ServletUriComponentsBuilder
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors; // ✅ Import Collectors
 
 @Service
 public class UserDetailService {
     private final UserRepository userRepository;
     private final UserDetailRepository userDetailRepository;
-    private final FileStorageService fileStorageService; // ✅ Inject FileStorageService
+    private final FileStorageService fileStorageService;
 
-    @Value("${file.static-url-prefix}") // ✅ Lấy prefix từ cấu hình (vd: /images)
+    @Value("${file.static-url-prefix}")
     private String staticUrlPrefix;
 
     @Autowired
@@ -58,7 +59,7 @@ public class UserDetailService {
         UserDetailResponseDTO responseDTO = new UserDetailResponseDTO();
 
         // Lấy từ User
-        responseDTO.setUserId(user.getUserId()); // Thêm userId nếu DTO có trường này (tùy chọn)
+        responseDTO.setUserId(user.getUserId());
         responseDTO.setEmail(user.getEmail());
         responseDTO.setFullName(user.getFullName());
         responseDTO.setPhoneNumber(user.getPhoneNumber());
@@ -74,6 +75,15 @@ public class UserDetailService {
         responseDTO.setAddress(userDetail.getAddress());
         responseDTO.setCity(userDetail.getCity());
         responseDTO.setCountry(userDetail.getCountry());
+
+        // ✅ [MỚI] Map Notification Email (Nếu null thì mặc định lấy email chính)
+        responseDTO.setNotificationEmail(user.getNotificationEmail() != null ? user.getNotificationEmail() : user.getEmail());
+
+        // ✅ [MỚI] Map Social Accounts (Danh sách các tài khoản liên kết)
+        List<UserDetailResponseDTO.SocialAccountDTO> socialDTOs = user.getSocialAccounts().stream()
+                .map(acc -> new UserDetailResponseDTO.SocialAccountDTO(acc.getProvider().toString(), acc.getEmail()))
+                .collect(Collectors.toList());
+        responseDTO.setSocialAccounts(socialDTOs);
 
         return responseDTO;
     }
@@ -91,6 +101,12 @@ public class UserDetailService {
         // Cập nhật các trường của User
         user.setFullName(userDetailRequestDTO.getFullName());
         user.setPhoneNumber(userDetailRequestDTO.getPhoneNumber());
+
+        // ✅ [MỚI] Cập nhật Notification Email
+        if (StringUtils.hasText(userDetailRequestDTO.getNotificationEmail())) {
+            user.setNotificationEmail(userDetailRequestDTO.getNotificationEmail());
+        }
+
         userRepository.save(user);
 
         // Cập nhật các trường của UserDetail
@@ -100,15 +116,13 @@ public class UserDetailService {
         userDetail.setCity(userDetailRequestDTO.getCity());
         userDetail.setCountry(userDetailRequestDTO.getCountry());
 
-        // Lưu ý: Không cập nhật profilePhotoUrl ở đây, vì có API riêng
-
         userDetailRepository.save(userDetail);
 
         return this.getUserDetail(email);
     }
 
     /**
-     * ✅ HÀM MỚI: Upload ảnh đại diện
+     * Upload ảnh đại diện
      */
     @Transactional
     public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
@@ -122,9 +136,7 @@ public class UserDetailService {
                     return userDetailRepository.save(newUserDetail);
                 });
 
-        // =========================================================
-        // 🗑️ BƯỚC 1: XÓA ẢNH CŨ (Nếu có)
-        // =========================================================
+        // 🗑️ Xóa ảnh cũ
         String oldUrl = userDetail.getProfilePhotoUrl();
         if (StringUtils.hasText(oldUrl)) {
             try {
@@ -138,9 +150,7 @@ public class UserDetailService {
             }
         }
 
-        // =========================================================
-        // 🆕 BƯỚC 2: LƯU ẢNH MỚI
-        // =========================================================
+        // 🆕 Lưu ảnh mới
         String fileName = fileStorageService.storeImageFile(file, "userdetail");
 
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
@@ -155,7 +165,7 @@ public class UserDetailService {
     }
 
     /**
-     * Kiểm tra xem các trường bắt buộc đã hoàn tất hay chưa.
+     * Kiểm tra hồ sơ hoàn tất
      */
     @Transactional(readOnly = true)
     public ProfileStatusResponse checkProfileCompleteness(String email) {
