@@ -5,18 +5,19 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileStorageService {
 
     /**
-     * Lưu file vào thư mục con (ví dụ: "avatars")
-     */
-    String storeImageFile(MultipartFile file, String subDirectory);
-
-    /**
-     * Lưu file vào thư mục gốc (không có thư mục con)
+     * Upload file vào folder mặc định
      */
     String storeImageFile(MultipartFile file);
 
     /**
-     * Xóa file vật lý dựa trên đường dẫn tương đối
-     * @param relativeFilePath Đường dẫn tương đối (ví dụ: "avatars/abc.png")
+     * Upload file vào folder tùy chỉnh
+     * @param file File ảnh
+     * @param folderName Tên thư mục trên Cloudinary
      */
-    void deleteFile(String relativeFilePath);
+    String storeImageFile(MultipartFile file, String folderName);
+
+    /**
+     * Xóa file (nếu cần)
+     */
+    void deleteFile(String fileUrl);
 }

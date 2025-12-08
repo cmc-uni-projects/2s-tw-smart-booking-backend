@@ -3,14 +3,12 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.response.FileUploadResponse;
 import com.example.smart_booking_system.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -19,26 +17,24 @@ public class FileUploadController {
 
     private final FileStorageService fileStorageService;
 
-
-    @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix;
-
     @PostMapping("/upload")
-    public ResponseEntity<FileUploadResponse> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<FileUploadResponse> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "folder", required = false) String folder) {
 
-        // Gọi hàm 1 tham số (lưu vào thư mục gốc)
-        String fileName = fileStorageService.storeImageFile(file);
+        String fileUrl;
 
+        // Nếu client gửi kèm tên folder thì dùng, không thì dùng mặc định
+        if (folder != null && !folder.isEmpty()) {
+            fileUrl = fileStorageService.storeImageFile(file, folder);
+        } else {
+            fileUrl = fileStorageService.storeImageFile(file);
+        }
 
-        // Tạo URL công khai cho file (ví dụ: http://.../images/abc.png)
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path(staticUrlPrefix + "/") // Dùng prefix (ví dụ: /images/)
-                .path(fileName)              // Tên file (ví dụ: abc.png)
-                .toUriString();
-
+        // Tạo response trả về URL Cloudinary trực tiếp
         FileUploadResponse response = new FileUploadResponse(
-                fileDownloadUri,
-                fileName,
+                fileUrl,        // fileDownloadUri (bây giờ là link Cloudinary)
+                fileUrl,        // fileName (dùng luôn link hoặc bạn có thể tách tên ra nếu muốn)
                 file.getSize(),
                 file.getContentType()
         );

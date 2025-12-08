@@ -58,7 +58,7 @@ public class DataInitializer {
         // Dùng tên không có tiền tố
         createAccountIfNotExists(
                 "admin@travelmate.vn",
-                    "Admin@123",
+                "Admin@123",
                 "Admin FullName",
                 Set.of("ADMIN", "CUSTOMER")
         );
