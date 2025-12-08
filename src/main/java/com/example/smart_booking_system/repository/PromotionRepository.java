@@ -40,6 +40,8 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     List<Promotion> findByStatus(PromotionStatus status);
 
+    // Tìm tất cả promotion có trạng thái khác DELETED (bao gồm cả null property và có property)
+    List<Promotion> findAllByStatusNot(PromotionStatus status);
     @Query("""
         SELECT p FROM Promotion p
         WHERE p.code = :code

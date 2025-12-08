@@ -260,9 +260,10 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<PromotionResponseDTO> getAllGlobalPromotions() {
-        return promotionRepository.findByPropertyIsNull().stream()
-                .filter(p -> p.getStatus() != PromotionStatus.DELETED)
-                .map(PromotionResponseDTO::new).collect(Collectors.toList());
+        // Lấy tất cả khuyến mãi chưa bị xóa (bao gồm cả Admin và Owner)
+        return promotionRepository.findAllByStatusNot(PromotionStatus.DELETED).stream()
+                .map(PromotionResponseDTO::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
