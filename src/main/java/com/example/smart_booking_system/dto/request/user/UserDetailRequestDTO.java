@@ -16,4 +16,5 @@ public class UserDetailRequestDTO {
     private String address;
     private String city;
     private String country;
+    private String notificationEmail;
 }

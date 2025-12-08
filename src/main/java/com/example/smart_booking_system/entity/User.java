@@ -49,6 +49,9 @@ public class User {
     @Column(length = 500)
     private String resetPasswordToken;
 
+    @Column(length = 255)
+    private String notificationEmail;
+
     private LocalDateTime resetPasswordTokenExpiry;
 
     @Column(nullable = false, updatable = false)
