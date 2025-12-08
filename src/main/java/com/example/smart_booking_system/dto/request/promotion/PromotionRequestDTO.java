@@ -45,4 +45,6 @@ public class PromotionRequestDTO {
 
     @Min(value = 1)
     private Integer usageLimit;
+
+    private Integer propertyId;
 }

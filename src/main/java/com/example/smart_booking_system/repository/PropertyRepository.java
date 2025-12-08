@@ -85,4 +85,6 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
                                         @Param("radius") double radius);
 
     boolean existsByPropertyName(String propertyName);
+
+
 }
