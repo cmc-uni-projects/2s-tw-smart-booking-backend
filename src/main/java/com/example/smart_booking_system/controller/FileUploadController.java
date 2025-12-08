@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
@@ -18,27 +20,22 @@ public class FileUploadController {
     private final FileStorageService fileStorageService;
 
     @PostMapping("/upload")
-    public ResponseEntity<FileUploadResponse> uploadFile(
-            @RequestParam("file") MultipartFile file,
+    public ResponseEntity<?> uploadFiles(
+            @RequestParam("files") MultipartFile[] files,
             @RequestParam(value = "folder", required = false) String folder) {
 
-        String fileUrl;
-
-        // Nếu client gửi kèm tên folder thì dùng, không thì dùng mặc định
-        if (folder != null && !folder.isEmpty()) {
-            fileUrl = fileStorageService.storeImageFile(file, folder);
-        } else {
-            fileUrl = fileStorageService.storeImageFile(file);
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body("Không có file nào được gửi lên.");
         }
 
-        // Tạo response trả về URL Cloudinary trực tiếp
-        FileUploadResponse response = new FileUploadResponse(
-                fileUrl,        // fileDownloadUri (bây giờ là link Cloudinary)
-                fileUrl,        // fileName (dùng luôn link hoặc bạn có thể tách tên ra nếu muốn)
-                file.getSize(),
-                file.getContentType()
-        );
+        String targetFolder = (folder != null && !folder.isEmpty())
+                ? folder
+                : "smart_booking_general";
 
-        return ResponseEntity.ok(response);
+        // Xử lý nhiều file (kể cả khi có 1 file)
+        List<String> urls = fileStorageService.storeImageFiles(files, targetFolder);
+
+        return ResponseEntity.ok(urls);
     }
+
 }
