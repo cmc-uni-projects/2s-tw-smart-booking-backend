@@ -1,11 +1,8 @@
 package com.example.smart_booking_system.controller;
 
-import com.example.smart_booking_system.dto.request.admin.AdminResetPasswordDTO;
-import com.example.smart_booking_system.dto.request.admin.UpdateMembershipDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.admin.AdminUserResponseDTO;
 import com.example.smart_booking_system.service.AdminManageUserService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,9 +29,8 @@ public class AdminManageUserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status
     ) {
-        // Tạo đối tượng Pageable từ request
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<AdminUserResponseDTO> users = adminManageUserService.getAllUsers(keyword, role, status, pageable);
 
@@ -57,34 +53,6 @@ public class AdminManageUserController {
         try {
             adminManageUserService.updateUserStatus(userId, status);
             return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công: " + status, null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
-    }
-
-    // 4. Cập nhật Hạng & Điểm (Membership)
-    @PutMapping("/{userId}/membership")
-    public ResponseEntity<?> updateUserMembership(
-            @PathVariable String userId,
-            @RequestBody UpdateMembershipDTO updateDTO
-    ) {
-        try {
-            adminManageUserService.updateUserMembership(userId, updateDTO);
-            return ResponseEntity.ok(ApiResponse.success("Cập nhật hạng thành viên thành công", null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
-    }
-
-    // 5. Đặt lại mật khẩu (Reset Password)
-    @PutMapping("/{userId}/password")
-    public ResponseEntity<?> resetUserPassword(
-            @PathVariable String userId,
-            @Valid @RequestBody AdminResetPasswordDTO resetDTO
-    ) {
-        try {
-            adminManageUserService.resetUserPassword(userId, resetDTO);
-            return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
