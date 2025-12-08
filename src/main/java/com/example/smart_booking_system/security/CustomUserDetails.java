@@ -1,23 +1,23 @@
 package com.example.smart_booking_system.security;
 
 import com.example.smart_booking_system.entity.User;
+import com.example.smart_booking_system.entity.SocialAccount; // Import entity
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.oauth2.core.user.OAuth2User; // <--- Import mới
-import com.example.smart_booking_system.entity.SocialAccount;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map; // <--- Import mới
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Data
 @AllArgsConstructor
-public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Implements thêm OAuth2User
+public class CustomUserDetails implements UserDetails, OAuth2User {
 
     private String userId;
     private String email;
@@ -26,8 +26,11 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
     private Boolean isEmailVerified;
     private String status;
     private Collection<? extends GrantedAuthority> authorities;
-    private Map<String, Object> attributes; // <--- Thêm trường để lưu attributes từ Google/FB
+    private Map<String, Object> attributes;
     private List<SocialAccount> socialAccounts;
+
+    // ✅ THÊM TRƯỜNG MỚI
+    private boolean hasPassword;
 
     /**
      * Create UserDetails from User entity (Dùng cho Login thường)
@@ -36,6 +39,11 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
         Set<GrantedAuthority> authorities = user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRoleName()))
                 .collect(Collectors.toSet());
+
+        // ✅ LOGIC KIỂM TRA MẬT KHẨU
+        // Mật khẩu thật (do BCrypt mã hóa) luôn bắt đầu bằng "$2a$".
+        // Mật khẩu ngẫu nhiên (UUID do hệ thống tạo khi login Google/FB) sẽ không có tiền tố này.
+        boolean hasPasswordSet = user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2a$");
 
         return new CustomUserDetails(
                 user.getUserId().toString(),
@@ -46,7 +54,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
                 user.getStatus(),
                 authorities,
                 null, // Attributes là null khi login thường
-                user.getSocialAccounts()
+                user.getSocialAccounts(),
+                hasPasswordSet // ✅ Truyền giá trị vào constructor
         );
     }
 
@@ -95,7 +104,7 @@ public class CustomUserDetails implements UserDetails, OAuth2User { // <--- Impl
         return "ACTIVE".equals(status);
     }
 
-    // --- OAuth2User Methods (Mới thêm) ---
+    // --- OAuth2User Methods ---
     @Override
     public Map<String, Object> getAttributes() {
         return attributes;

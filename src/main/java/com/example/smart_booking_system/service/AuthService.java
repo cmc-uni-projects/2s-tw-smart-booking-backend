@@ -18,4 +18,6 @@ public interface AuthService {
     void changePassword(ChangePasswordRequest request, String userId);
 
     void resendVerificationEmail(String email);
+
+    void unlinkSocialAccount(String userId, String providerName);
 }

@@ -3,15 +3,18 @@
     import com.example.smart_booking_system.dto.request.auth.*;
     import com.example.smart_booking_system.dto.response.auth.LoginResponse;
     import com.example.smart_booking_system.entity.Role;
+    import com.example.smart_booking_system.entity.SocialAccount;
     import com.example.smart_booking_system.entity.User;
     import com.example.smart_booking_system.exception.*;
     import com.example.smart_booking_system.repository.RoleRepository;
+    import com.example.smart_booking_system.repository.SocialAccountRepository;
     import com.example.smart_booking_system.repository.UserRepository;
     import com.example.smart_booking_system.security.CustomUserDetails;
     import com.example.smart_booking_system.security.JwtTokenProvider;
     import com.example.smart_booking_system.service.AuthService;
     import com.example.smart_booking_system.service.EmailService;
     import lombok.RequiredArgsConstructor;
+    import org.springframework.beans.factory.annotation.Autowired;
     import org.springframework.security.authentication.AuthenticationManager;
     import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
     import org.springframework.security.core.Authentication;
@@ -21,6 +24,7 @@
     import org.springframework.transaction.annotation.Transactional;
 
     import java.time.LocalDateTime;
+    import java.util.Optional;
     import java.util.Set;
     import java.util.UUID;
     import java.util.stream.Collectors;
@@ -35,6 +39,40 @@
         private final JwtTokenProvider tokenProvider;
         private final AuthenticationManager authenticationManager;
         private final EmailService emailService;
+
+        @Autowired
+        private SocialAccountRepository socialAccountRepository;
+
+        @Override
+        @Transactional
+        public void unlinkSocialAccount(String userId, String providerName) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            // 1. Tìm tài khoản liên kết cần xóa
+            Optional<SocialAccount> accountToDelete = user.getSocialAccounts().stream()
+                    .filter(acc -> acc.getProvider().toString().equalsIgnoreCase(providerName))
+                    .findFirst();
+
+            if (accountToDelete.isEmpty()) {
+                throw new BadRequestException("Tài khoản " + providerName + " chưa được liên kết.");
+            }
+
+            // 2. KIỂM TRA AN TOÀN (Quan trọng)
+            // Người dùng phải có mật khẩu (BCrypt bắt đầu bằng $2a$) HOẶC còn ít nhất 1 liên kết MXH khác
+            boolean hasPassword = user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2a$");
+            boolean hasOtherSocial = user.getSocialAccounts().size() > 1;
+
+            if (!hasPassword && !hasOtherSocial) {
+                throw new BadRequestException("Bạn không thể ngắt kết nối " + providerName +
+                        " vì đây là phương thức đăng nhập duy nhất. Hãy đặt mật khẩu trước.");
+            }
+
+            // 3. Xóa liên kết
+            SocialAccount account = accountToDelete.get();
+            user.getSocialAccounts().remove(account); // Xóa khỏi List trong User (để Hibernate orphanRemoval xử lý nếu có)
+            socialAccountRepository.delete(account);  // Xóa trực tiếp khỏi DB cho chắc chắn
+        }
 
         // ✅ Đăng ký người dùng mới
         @Override

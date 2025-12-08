@@ -106,4 +106,14 @@ public class AuthController {
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ResponseEntity.ok(ApiResponse.success(currentUser));
     }
+
+    @DeleteMapping("/social/unlink")
+    public ResponseEntity<ApiResponse<Void>> unlinkSocialAccount(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestParam String provider) {
+
+        authService.unlinkSocialAccount(currentUser.getUserId(), provider);
+
+        return ResponseEntity.ok(ApiResponse.success("Đã ngắt kết nối tài khoản " + provider));
+    }
 }
