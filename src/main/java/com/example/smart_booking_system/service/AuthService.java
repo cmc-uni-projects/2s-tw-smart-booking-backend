@@ -20,4 +20,5 @@ public interface AuthService {
     void resendVerificationEmail(String email);
 
     void unlinkSocialAccount(String userId, String providerName);
+    void createPassword(String userId, String newPassword);
 }

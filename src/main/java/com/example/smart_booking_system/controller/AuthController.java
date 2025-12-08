@@ -116,4 +116,17 @@ public class AuthController {
 
         return ResponseEntity.ok(ApiResponse.success("Đã ngắt kết nối tài khoản " + provider));
     }
+    @PostMapping("/create-password")
+    public ResponseEntity<ApiResponse<Void>> createPassword(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody Map<String, String> request) { // Nhận JSON { "password": "..." }
+
+        String newPassword = request.get("password");
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new BadRequestException("Mật khẩu phải có ít nhất 6 ký tự.");
+        }
+
+        authService.createPassword(currentUser.getUserId(), newPassword);
+        return ResponseEntity.ok(ApiResponse.success("Tạo mật khẩu thành công"));
+    }
 }
