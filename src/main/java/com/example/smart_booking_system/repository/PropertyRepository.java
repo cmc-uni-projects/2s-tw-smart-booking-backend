@@ -65,9 +65,18 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     @Query("SELECT p FROM Property p WHERE p.owner.userId = :ownerId AND p.propertyStatus <> com.example.smart_booking_system.enums.PropertyStatus.REJECTED")
     List<Property> findAllByOwnerIdAndNotRejected(@Param("ownerId") String ownerId);
 
+    // ✅ SỬA LẠI TÊN HÀM CHO ĐÚNG VỚI FIELD 'owner'
+    // Field trong Property là 'owner', nên phải dùng 'Owner_UserId'
     List<Property> findByOwner_UserIdAndPropertyStatus(String ownerId, PropertyStatus status);
 
-    // Query search cũ (có thể bỏ hoặc giữ làm backup, nhưng controller sẽ dùng cái mới)
+    // ✅ THÊM HÀM ĐẾM SỐ TÀI SẢN CỦA OWNER (FIX LỖI CỦA BẠN TẠI ĐÂY)
+    long countByOwner_UserId(String ownerId);
+
+    // ============================================================
+    // 4. CÁC QUERY KHÁC
+    // ============================================================
+
+    // Query search cũ
     @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.propertyId = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.isActive = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Property> searchProperties(@Param("keyword") String keyword);
 
@@ -85,6 +94,4 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
                                         @Param("radius") double radius);
 
     boolean existsByPropertyName(String propertyName);
-
-
 }
