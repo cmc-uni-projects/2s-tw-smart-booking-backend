@@ -60,4 +60,6 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
         )
     """)
     BigDecimal calculateTotalSpentByUser(@Param("userId") String userId);
+
+    List<Booking> findByCheckInDateAndStatus(LocalDate checkInDate, BookingStatus status);
 }

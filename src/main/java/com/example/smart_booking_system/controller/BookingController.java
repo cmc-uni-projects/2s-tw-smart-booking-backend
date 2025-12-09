@@ -145,4 +145,12 @@ public class BookingController {
     public ResponseEntity<ApiResponse> getRoomAvailability(@PathVariable int roomId) {
         List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
+
+
+    @PostMapping("/test/trigger-reminders")
+// @PreAuthorize("hasRole('ADMIN')") // Mở comment nếu muốn bảo mật
+    public ResponseEntity<String> triggerCheckinReminders() {
+        bookingService.sendCheckinReminders();
+        return ResponseEntity.ok("Đã kích hoạt quét và gửi email nhắc nhở check-in!");
+    }
 }
