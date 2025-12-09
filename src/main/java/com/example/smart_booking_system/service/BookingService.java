@@ -289,7 +289,12 @@ public class BookingService {
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail cancel: " + e.getMessage());
         }
-
+        createNotification(
+                booking.getUser(),
+                "Hủy đơn đặt phòng thành công",
+                buildCancelMessage(booking, refundAmount, penaltyAmount),
+                "BOOKING_CANCELLED"
+        );
         return convertToDTO(booking);
     }
 
@@ -364,7 +369,8 @@ public class BookingService {
                     "Hoàn tiền đã được duyệt",
                     String.format("Yêu cầu hoàn tiền cho đơn #%d đã được duyệt.", booking.getBookingId()),
                     "REFUND_APPROVED"
-            );
+
+                    );
         }
     }
 
@@ -657,17 +663,46 @@ public class BookingService {
     }
 
     private void createNotification(User user, String title, String message, String type) {
-        try {
-            Notification notification = Notification.builder()
-                    .title(title)
-                    .message(message)
-                    .type(type)
-                    .isRead(false)
-                    .user(user)
-                    .build();
-            notificationRepo.save(notification);
-        } catch (Exception e) {
-            logger.error("Lỗi tạo thông báo (Notification) cho user {}: {}", user.getUserId(), e.getMessage());
+        if (user == null) return;
+
+        boolean shouldCheckDuplicate =
+                "BOOKING_EXPIRED".equals(type);   // muốn chặn thêm type nào thì OR thêm ở đây
+
+        if (shouldCheckDuplicate) {
+            boolean exists = notificationRepo
+                    .existsByUserUserIdAndTypeAndMessage(user.getUserId(), type, message);
+
+            if (exists) {
+                logger.info("Skip duplicate AUTO notification for user {} - type: {}, msg: {}",
+                        user.getUserId(), type, message);
+                return;
+            }
         }
+
+        Notification notification = Notification.builder()
+                .title(title)
+                .message(message)
+                .type(type)
+                .isRead(false)
+                .user(user)
+                .build();
+
+        notificationRepo.save(notification);
+
     }
+    private String buildCancelMessage(Booking booking,
+                                      BigDecimal refundAmount,
+                                      BigDecimal penaltyAmount) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Đơn hàng #%d đã được hủy thành công.", booking.getBookingId()));
+
+        if (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            sb.append(String.format(" Bạn sẽ được hoàn khoảng %,.0f₫.", refundAmount));
+        }
+        if (penaltyAmount != null && penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
+            sb.append(String.format(" Phí phạt khoảng %,.0f₫.", penaltyAmount));
+        }
+        return sb.toString();
+    }
+
 }
