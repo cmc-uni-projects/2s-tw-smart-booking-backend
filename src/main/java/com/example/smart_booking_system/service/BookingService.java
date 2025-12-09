@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.HashMap;
+import com.example.smart_booking_system.entity.Notification;
+import com.example.smart_booking_system.repository.NotificationRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class BookingService {
     private final PromotionRepository promotionRepo;
     private final RatingRepository ratingRepository;
     private final RefundRequestRepository refundRepo;
+    private final NotificationRepository notificationRepo;
     private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
 
     // ================================
@@ -154,7 +157,12 @@ public class BookingService {
         } catch (Exception e) {
             System.err.println("Lỗi gửi email: " + e.getMessage());
         }
-
+        createNotification(
+                booking.getUser(),
+                "Đơn đặt phòng đang chờ thanh toán",
+                String.format("Đơn hàng #%d đã được tạo thành công và đang chờ bạn thanh toán trong vòng 5 phút.", booking.getBookingId()),
+                "BOOKING_PENDING"
+        );
         return convertToDTO(booking);
     }
 
@@ -184,6 +192,12 @@ public class BookingService {
             }
 
             Booking saved = bookingRepo.save(booking);
+            createNotification(
+                    booking.getUser(),
+                    "Hủy đơn đặt phòng thành công",
+                    String.format("Đơn hàng #%d đã được hủy thành công do chưa thanh toán.", booking.getBookingId()),
+                    "BOOKING_CANCELLED"
+            );
             return convertToDTO(saved);
         }
 
@@ -249,6 +263,12 @@ public class BookingService {
                 // Cập nhật Payment -> REFUND_REQUESTED
                 payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
                 paymentRepo.save(payment);
+                createNotification(
+                        booking.getUser(),
+                        "Yêu cầu hủy phòng đã được gửi",
+                        String.format("Hệ thống đã nhận yêu cầu hủy đơn #%d và đang chờ quản trị viên duyệt hoàn tiền.", booking.getBookingId()),
+                        "CANCELLATION_REQUESTED"
+                );
             }
         }
 
@@ -297,6 +317,12 @@ public class BookingService {
                     // Gọi lại hàm cancelBooking ở trên để tái sử dụng logic
                     cancelBooking(booking.getBookingId());
                     logger.info("Đã tự động hủy đơn booking ID: {}", booking.getBookingId());
+                    createNotification(
+                            booking.getUser(),
+                            "Đơn hàng bị hủy tự động",
+                            String.format("Đơn hàng #%d đã bị hủy do quá thời gian thanh toán cho phép.", booking.getBookingId()),
+                            "BOOKING_EXPIRED"
+                    );
                 } catch (Exception e) {
                     logger.error("Lỗi khi tự động hủy đơn ID {}: {}", booking.getBookingId(), e.getMessage());
                 }
@@ -333,6 +359,12 @@ public class BookingService {
             );
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail success refund: " + e.getMessage());
+            createNotification(
+                    booking.getUser(),
+                    "Hoàn tiền đã được duyệt",
+                    String.format("Yêu cầu hoàn tiền cho đơn #%d đã được duyệt.", booking.getBookingId()),
+                    "REFUND_APPROVED"
+            );
         }
     }
 
@@ -345,6 +377,12 @@ public class BookingService {
         }
         booking.setStatus(BookingStatus.CHECKED_IN);
         bookingRepo.save(booking);
+        createNotification(
+                booking.getUser(),
+                "Check-in thành công",
+                String.format("Bạn đã Check-in thành công tại %s.", booking.getProperty().getPropertyName()),
+                "CHECK_IN"
+        );
     }
 
     // 4. CHECK-OUT (Hoàn tất)
@@ -360,13 +398,15 @@ public class BookingService {
 
         // 1. Cập nhật trạng thái Booking
         booking.setStatus(BookingStatus.COMPLETED);
+        MembershipRank oldRank = booking.getUser().getMembershipRank();
+        int earnedPoints = 0; // Khai báo earnedPoints ở ngoài để nó có thể được sử dụng ở cuối hàm
 
         // 2. TÍCH ĐIỂM & THĂNG HẠNG
         if (booking.getTotalPrice() != null) {
             User user = booking.getUser();
 
             // Tính điểm: 1000 VND = 1 điểm (Lấy phần nguyên)
-            int earnedPoints = booking.getTotalPrice().divide(BigDecimal.valueOf(1000)).intValue();
+            earnedPoints = booking.getTotalPrice().divide(BigDecimal.valueOf(1000)).intValue();
 
             if (earnedPoints > 0) {
                 // Cộng điểm vào tổng điểm hiện tại
@@ -383,6 +423,17 @@ public class BookingService {
         }
 
         bookingRepo.save(booking);
+        String message = String.format("Đơn hàng #%d đã hoàn tất. Bạn đã tích lũy thêm %d điểm.", booking.getBookingId(), earnedPoints);
+        if (oldRank != booking.getUser().getMembershipRank()) {
+            message += String.format(" Bạn đã được thăng hạng thành viên lên %s!", booking.getUser().getMembershipRank());
+        }
+
+        createNotification(
+                booking.getUser(),
+                "Hoàn tất đơn hàng & Tích điểm",
+                message,
+                "CHECKOUT_COMPLETED"
+        );
     }
 
     // ============================================================
@@ -603,5 +654,20 @@ public class BookingService {
 
         Booking saved = bookingRepo.save(booking);
         return convertToDTO(saved);
+    }
+
+    private void createNotification(User user, String title, String message, String type) {
+        try {
+            Notification notification = Notification.builder()
+                    .title(title)
+                    .message(message)
+                    .type(type)
+                    .isRead(false)
+                    .user(user)
+                    .build();
+            notificationRepo.save(notification);
+        } catch (Exception e) {
+            logger.error("Lỗi tạo thông báo (Notification) cho user {}: {}", user.getUserId(), e.getMessage());
+        }
     }
 }
