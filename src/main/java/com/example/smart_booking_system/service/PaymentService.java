@@ -25,6 +25,7 @@ public class PaymentService {
     private final RefundRequestRepository refundRepo;
     private final EmailService emailService;
     private final PromotionRepository promotionRepo;
+    private final NotificationService notificationService;
 
     @Transactional
     public ApiResponse<?> submitPayment(int bookingId, String note, String paymentMethod) {
@@ -52,6 +53,20 @@ public class PaymentService {
         bookingRepo.save(booking);
 
         sendConfirmationEmail(booking, trxRef);
+        try {
+            User owner = booking.getProperty().getOwner();
+            if (owner != null) {
+                notificationService.sendNotification(
+                        owner,
+                        "Thanh toán thành công #" + booking.getBookingId(),
+                        "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + String.format("%,.0f", booking.getTotalPrice()) + " VNĐ. Đơn hàng đã được xác nhận!",
+                        NotificationType.SUCCESS, // Màu xanh
+                        String.valueOf(booking.getBookingId())
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo thanh toán: " + e.getMessage());
+        }
         return ApiResponse.success("Thanh toán thành công!", new PaymentResponseDTO(payment, null));
     }
 
@@ -109,11 +124,10 @@ public class PaymentService {
         refundRepo.save(refund);
         paymentRepo.save(payment);
 
-        // ✅ LOGIC MỚI: Chỉ gửi mail khi DUYỆT (isApproved = true)
-        // Sử dụng hàm sendCancellationSuccessEmail
+        // ✅ LOGIC GỬI EMAIL & THÔNG BÁO (Chỉ khi duyệt)
         try {
             if (isApproved) {
-                // Lấy thông tin người nhận (ưu tiên customer info trong booking)
+                // 1. Gửi Email cho khách (Giữ nguyên)
                 String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
                 String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
 
@@ -124,9 +138,21 @@ public class PaymentService {
                         String.format("%,.0f", refund.getAmount()), // Số tiền hoàn
                         String.format("%,.0f", booking.getPenaltyAmount()) // Phí phạt
                 );
+
+                // 2. 🔥 [NEW] GỬI THÔNG BÁO CHO OWNER: ĐÃ HOÀN TIỀN
+                User owner = booking.getProperty().getOwner();
+                if (owner != null) {
+                    notificationService.sendNotification(
+                            owner,
+                            "Đã hoàn tiền booking #" + booking.getBookingId(),
+                            "Yêu cầu hoàn tiền đã được Admin chấp thuận. Số tiền hoàn: " + String.format("%,.0f", refund.getAmount()) + " VNĐ.",
+                            NotificationType.WARNING, // Màu vàng (tiền đi ra/cảnh báo thay đổi số dư)
+                            String.valueOf(booking.getBookingId())
+                    );
+                }
             }
         } catch (Exception e) {
-            System.err.println("Lỗi gửi email hoàn tiền: " + e.getMessage());
+            System.err.println("Lỗi gửi email/thông báo hoàn tiền: " + e.getMessage());
         }
 
         return ApiResponse.success(isApproved ? "Đã duyệt hoàn tiền" : "Đã từ chối hoàn tiền", null);
