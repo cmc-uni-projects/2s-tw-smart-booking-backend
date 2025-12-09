@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
+
 
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
@@ -62,4 +64,42 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     BigDecimal calculateTotalSpentByUser(@Param("userId") String userId);
 
     List<Booking> findByCheckInDateAndStatus(LocalDate checkInDate, BookingStatus status);
+
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
+    BigDecimal calculateTotalRevenue();
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.createdAt >= :startTime")
+    long countNewBookings(@Param("startTime") LocalDateTime startTime);
+
+    // ✅ FIX: ORDER BY FUNCTION('MONTH', b.checkInDate) thay vì ORDER BY month
+    @Query("SELECT FUNCTION('MONTH', b.checkInDate) as month, SUM(b.totalPrice) as revenue " +
+            "FROM Booking b " +
+            "WHERE FUNCTION('YEAR', b.checkInDate) = :year " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY FUNCTION('MONTH', b.checkInDate) " +
+            "ORDER BY FUNCTION('MONTH', b.checkInDate) ASC")
+    List<Object[]> getMonthlyRevenue(@Param("year") int year);
+
+    // ✅ FIX: ORDER BY FUNCTION('MONTH', b.createdAt) thay vì ORDER BY month
+    @Query("SELECT FUNCTION('MONTH', b.createdAt) as month, COUNT(b) as count " +
+            "FROM Booking b " +
+            "WHERE FUNCTION('YEAR', b.createdAt) = :year " +
+            "GROUP BY FUNCTION('MONTH', b.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', b.createdAt) ASC")
+    List<Object[]> getMonthlyBookingCount(@Param("year") int year);
+
+    @Query("SELECT b.property.propertyName, SUM(b.totalPrice) as revenue, COUNT(b) as bookings " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY b.property.propertyId, b.property.propertyName " +
+            "ORDER BY revenue DESC")
+    List<Object[]> getTopPerformingHotels(Pageable pageable);
+
+    @Query("SELECT b.property.propertyType, SUM(b.totalPrice) " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY b.property.propertyType")
+    List<Object[]> getRevenueByPropertyType();
+
+    List<Booking> findTop10ByOrderByCreatedAtDesc();
 }
