@@ -288,4 +288,16 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationToken);
     }
+    @Override
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new UnauthorizedException("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.");
+        }
+
+        String email = authentication.getName(); // Lấy email từ token
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại."));
+    }
 }
