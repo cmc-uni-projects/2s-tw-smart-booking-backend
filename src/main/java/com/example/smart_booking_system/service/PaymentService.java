@@ -26,23 +26,46 @@ public class PaymentService {
     private final EmailService emailService;
     private final PromotionRepository promotionRepo;
 
+    // =================================================================
+    // 1. SUBMIT PAYMENT (Khách thanh toán thành công -> Chốt đơn)
+    // =================================================================
     @Transactional
     public ApiResponse<?> submitPayment(int bookingId, String note, String paymentMethod) {
-        Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new RuntimeException("Booking not found"));
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElseThrow(() -> new RuntimeException("Payment info not found"));
-        if (booking.getPromotionCode() != null) {
-            promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now()).ifPresent(promo -> {
-                promo.setUsageCount(promo.getUsageCount() + 1);
-                promotionRepo.save(promo);
-            });
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
+                .orElseThrow(() -> new RuntimeException("Payment info not found"));
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
         }
-        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
+
+        // TĂNG USAGE COUNT CHO CẢ 2 MÃ
+        // 1. Tăng count mã Owner
+        if (booking.getPromotionCode() != null) {
+            promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now())
+                    .ifPresent(promo -> {
+                        promo.setUsageCount(promo.getUsageCount() + 1);
+                        promotionRepo.save(promo);
+                    });
+        }
+
+        // 2. Tăng count mã Admin
+        if (booking.getAdminPromotionCode() != null) {
+            promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now())
+                    .ifPresent(promo -> {
+                        promo.setUsageCount(promo.getUsageCount() + 1);
+                        promotionRepo.save(promo);
+                    });
+        }
 
         payment.setPaymentMethod(paymentMethod);
         payment.setTotalAmount(booking.getTotalPrice());
         payment.setPaymentStatus(PaymentStatus.APPROVED);
         payment.setPaymentDate(LocalDateTime.now());
         payment.setConfirmedDate(LocalDateTime.now());
+
         String trxRef = "TRX_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         payment.setTransactionReference(trxRef);
         payment.setNote(note);
@@ -52,6 +75,7 @@ public class PaymentService {
         bookingRepo.save(booking);
 
         sendConfirmationEmail(booking, trxRef);
+
         return ApiResponse.success("Thanh toán thành công!", new PaymentResponseDTO(payment, null));
     }
 

@@ -554,11 +554,10 @@ public class BookingService {
     }
 
     // =====================================================
-    // ÁP DỤNG MÃ GIẢM GIÁ
+    // ÁP DỤNG MÃ GIẢM GIÁ (LOGIC CỘNG DỒN: OWNER TRƯỚC -> ADMIN SAU)
     // =====================================================
     @Transactional
     public BookingResponseDTO applyPromotion(int bookingId, String code) {
-        // 1. Tìm Booking
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
@@ -566,62 +565,110 @@ public class BookingService {
             throw new RuntimeException("Chỉ có thể áp dụng mã cho đơn hàng chưa thanh toán.");
         }
 
-        // 2. Tính lại GIÁ GỐC (Original Price) để tránh lỗi áp dụng chồng mã
-        // Giá gốc = Giá hiện tại + Giá đã giảm trước đó (nếu có)
-        BigDecimal currentTotal = booking.getTotalPrice();
-        BigDecimal currentDiscount = booking.getDiscountAmount() == null ? BigDecimal.ZERO : booking.getDiscountAmount();
-        BigDecimal originalPrice = currentTotal.add(currentDiscount);
-
-        // 3. Tìm và Validate Promotion
-        // Hàm findValidPromotion đã có sẵn trong PromotionRepository (kiểm tra ngày, status, limit)
+        // 1. Tìm thông tin mã (Validate cơ bản: tồn tại, còn hạn, active)
         Promotion promotion = promotionRepo.findValidPromotion(code, LocalDateTime.now())
-                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ, đã hết hạn hoặc hết lượt sử dụng."));
+                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ hoặc đã hết hạn."));
 
-        // 4. Validate điều kiện: Giá trị đơn tối thiểu
-        if (promotion.getMinBookingAmount() != null
-                && originalPrice.compareTo(promotion.getMinBookingAmount()) < 0) {
-            throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu để dùng mã này ("
-                    + String.format("%,.0f", promotion.getMinBookingAmount()) + " VND)");
+        // 2. Phân loại mã (Admin hay Owner) và lưu vào Booking
+        if (promotion.getProperty() == null) {
+            // >>> Mã ADMIN
+            booking.setAdminPromotionCode(code);
+        } else {
+            // >>> Mã OWNER
+            // Validate: Mã này có phải của khách sạn này không?
+            if (promotion.getProperty().getPropertyId() != booking.getProperty().getPropertyId()) {
+                throw new RuntimeException("Mã giảm giá này không áp dụng cho khách sạn hiện tại.");
+            }
+            booking.setPromotionCode(code);
         }
 
-        // 5. Tính toán Discount
-        BigDecimal discount = BigDecimal.ZERO;
+        // 3. Tính toán lại toàn bộ giá (Recalculate)
+        calculateAndSetBookingPrice(booking);
 
-        if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-            // Giảm tiền mặt
-            discount = promotion.getDiscountValue();
-        } else {
-            // Giảm theo %
-            discount = originalPrice.multiply(promotion.getDiscountValue()).divide(BigDecimal.valueOf(100));
+        Booking saved = bookingRepo.save(booking);
 
-            // Kiểm tra số tiền giảm tối đa (Max Discount)
-            if (promotion.getMaxDiscountAmount() != null
-                    && discount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
-                discount = promotion.getMaxDiscountAmount();
+        // 4. Đồng bộ giá sang bảng Payment
+        updatePaymentAmount(saved);
+
+        return convertToDTO(saved);
+    }
+
+    // --- Helper: Tính toán giá theo thứ tự ưu tiên ---
+    private void calculateAndSetBookingPrice(Booking booking) {
+        // A. Tính giá gốc (Base Price) từ phòng và số đêm
+        long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
+        if (nights <= 0) nights = 1;
+        BigDecimal basePrice = booking.getRoom().getPricePerNight().multiply(BigDecimal.valueOf(nights));
+
+        BigDecimal currentPrice = basePrice;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+
+        // B. BƯỚC 1: Áp dụng mã OWNER (nếu có)
+        if (booking.getPromotionCode() != null) {
+            // Lấy lại info promo từ DB để chắc chắn
+            Promotion ownerPromo = promotionRepo.findByCode(booking.getPromotionCode()).orElse(null);
+
+            if (ownerPromo != null) {
+                // Check điều kiện giá trị đơn tối thiểu (dựa trên Base Price)
+                if (checkMinAmount(ownerPromo, basePrice)) {
+                    BigDecimal discount1 = calculateDiscount(basePrice, ownerPromo); // Giảm trên giá gốc
+
+                    // Cập nhật giá
+                    currentPrice = currentPrice.subtract(discount1);
+                    totalDiscount = totalDiscount.add(discount1);
+                }
             }
         }
 
-        // Đảm bảo không giảm quá giá trị đơn (không âm tiền)
-        if (discount.compareTo(originalPrice) > 0) {
-            discount = originalPrice;
+        // C. BƯỚC 2: Áp dụng mã ADMIN (nếu có) -> Tính trên GIÁ ĐÃ GIẢM (currentPrice)
+        if (booking.getAdminPromotionCode() != null) {
+            Promotion adminPromo = promotionRepo.findByCode(booking.getAdminPromotionCode()).orElse(null);
+
+            if (adminPromo != null) {
+                // Check điều kiện min amount (dựa trên giá hiện tại sau khi đã trừ mã Owner)
+                if (checkMinAmount(adminPromo, currentPrice)) {
+                    BigDecimal discount2 = calculateDiscount(currentPrice, adminPromo); // Giảm trên giá còn lại
+
+                    currentPrice = currentPrice.subtract(discount2);
+                    totalDiscount = totalDiscount.add(discount2);
+                }
+            }
         }
 
-        // 6. Cập nhật Booking
-        BigDecimal newTotal = originalPrice.subtract(discount);
+        // D. Set giá trị cuối cùng vào Booking (Không âm)
+        if (currentPrice.compareTo(BigDecimal.ZERO) < 0) currentPrice = BigDecimal.ZERO;
 
-        booking.setPromotionCode(code);
-        booking.setDiscountAmount(discount);
-        booking.setTotalPrice(newTotal);
+        booking.setTotalPrice(currentPrice);
+        booking.setDiscountAmount(totalDiscount);
+    }
 
-        // Cập nhật cả bảng Payment (vì Payment lưu totalAmount)
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+    // --- Helper: Tính tiền giảm ---
+    private BigDecimal calculateDiscount(BigDecimal amountToApply, Promotion promo) {
+        BigDecimal discount;
+        if (promo.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discount = promo.getDiscountValue();
+        } else {
+            // Giảm theo %
+            discount = amountToApply.multiply(promo.getDiscountValue()).divide(BigDecimal.valueOf(100));
+            // Check Max Discount
+            if (promo.getMaxDiscountAmount() != null && discount.compareTo(promo.getMaxDiscountAmount()) > 0) {
+                discount = promo.getMaxDiscountAmount();
+            }
+        }
+        // Không giảm quá số tiền hiện tại
+        return discount.compareTo(amountToApply) > 0 ? amountToApply : discount;
+    }
+
+    private boolean checkMinAmount(Promotion promo, BigDecimal amount) {
+        return promo.getMinBookingAmount() == null || amount.compareTo(promo.getMinBookingAmount()) >= 0;
+    }
+
+    private void updatePaymentAmount(Booking booking) {
+        Payment payment = paymentRepo.findByBooking_BookingId(booking.getBookingId()).orElse(null);
         if (payment != null) {
-            payment.setTotalAmount(newTotal);
+            payment.setTotalAmount(booking.getTotalPrice());
             paymentRepo.save(payment);
         }
-
-        Booking saved = bookingRepo.save(booking);
-        return convertToDTO(saved);
     }
 
     // ============================================================
