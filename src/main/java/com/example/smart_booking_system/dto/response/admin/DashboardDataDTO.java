@@ -15,7 +15,7 @@ import java.util.List;
 public class DashboardDataDTO {
     // 1. Thẻ thống kê (Stat Cards)
     private BigDecimal totalRevenue;
-    private long totalUsers;
+    private long totalUsers;        // ✅ Sửa lỗi: AdminController cần trường này
     private long totalProperties;
     private long newBookings24h;
 
@@ -26,12 +26,13 @@ public class DashboardDataDTO {
     private List<PieChartData> revenueByType;  // Cơ cấu doanh thu (Pie chart)
 
     // 3. Danh sách (Lists/Tables)
-    private List<TopHotelDTO> topHotels;
+    private List<TopHotelDTO> topHotels;       // ✅ Sửa lỗi: AdminController cần class này
     private List<RecentBookingDTO> recentBookings;
 
     // --- Inner Classes cho cấu trúc con ---
     @Data
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class ChartData {
         private String name; // Ví dụ: "T1", "T2"
         private Number value;
@@ -39,6 +40,7 @@ public class DashboardDataDTO {
 
     @Data
     @AllArgsConstructor
+    @NoArgsConstructor
     public static class PieChartData {
         private String name;  // Ví dụ: "HOTEL", "VILLA"
         private Number value;
@@ -46,7 +48,9 @@ public class DashboardDataDTO {
 
     @Data
     @Builder
-    public static class TopHotelDTO {
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class TopHotelDTO { // ✅ Class con mà AdminController đang tìm kiếm
         private String name;
         private BigDecimal revenue;
         private long bookings;
@@ -54,12 +58,14 @@ public class DashboardDataDTO {
 
     @Data
     @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class RecentBookingDTO {
         private int id;
         private String customerName;
         private String propertyName;
         private BigDecimal price;
         private String status;
-        private String date; // Trả về String cho dễ hiển thị
+        private String date;
     }
 }
