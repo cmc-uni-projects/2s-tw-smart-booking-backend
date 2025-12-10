@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -210,26 +211,48 @@ public class PromotionService {
 
     public PromotionResponseDTO suggestBestPromotion(String userId, Integer propertyId, BigDecimal bookingAmount) {
         if (!userRepository.existsById(userId)) throw new ResourceNotFoundException("User not found");
+
+        // 1. Tính toán Rank người dùng
         BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
         if (totalSpent == null) totalSpent = BigDecimal.ZERO;
         int currentPoints = totalSpent.divide(BigDecimal.valueOf(1000)).intValue();
         MembershipRank userRank = BookingService.calculateRankFromPoints(currentPoints);
-        List<Promotion> activePromotions;
+
+        // 2. Lấy danh sách TẤT CẢ khuyến mãi đang chạy (Gộp cả Admin và Owner)
+        List<Promotion> allPromotions = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 2.1. Luôn lấy mã Global (Admin)
+        List<Promotion> adminPromos = promotionRepository.findByPropertyIsNull().stream()
+                .filter(p -> p.getStatus() == PromotionStatus.ACTIVE
+                        && p.getStartDate().isBefore(now)
+                        && p.getEndDate().isAfter(now))
+                .collect(Collectors.toList());
+        allPromotions.addAll(adminPromos);
+
+        // 2.2. Nếu đang xem phòng cụ thể, lấy thêm mã của Property (Owner)
         if (propertyId != null) {
-            activePromotions = promotionRepository.findPromotionsForProperty(propertyId, LocalDateTime.now());
-        } else {
-            activePromotions = promotionRepository.findByPropertyIsNull().stream()
+            List<Promotion> ownerPromos = promotionRepository.findByProperty_PropertyId(propertyId).stream()
                     .filter(p -> p.getStatus() == PromotionStatus.ACTIVE
-                            && p.getStartDate().isBefore(LocalDateTime.now())
-                            && p.getEndDate().isAfter(LocalDateTime.now()))
+                            && p.getStartDate().isBefore(now)
+                            && p.getEndDate().isAfter(now))
                     .collect(Collectors.toList());
+            allPromotions.addAll(ownerPromos);
         }
-        Promotion bestPromotion = activePromotions.stream()
+
+        // 3. Lọc theo điều kiện & Tìm mã tốt nhất (Discount cao nhất)
+        Promotion bestPromotion = allPromotions.stream()
+                // Check hạng thành viên
                 .filter(p -> isRankEligible(userRank, p.getMinMembershipRank()))
+                // Check giá trị đơn tối thiểu
                 .filter(p -> p.getMinBookingAmount() == null || bookingAmount.compareTo(p.getMinBookingAmount()) >= 0)
+                // Check giới hạn lượt dùng (Optional - nếu bạn muốn kỹ hơn)
+                .filter(p -> p.getUsageLimit() == null || p.getUsageCount() < p.getUsageLimit())
+                // Sắp xếp: Số tiền giảm giảm dần (Cao nhất lên đầu)
                 .sorted(Comparator.comparing((Promotion p) -> calculateDiscountAmount(p, bookingAmount)).reversed())
                 .findFirst()
                 .orElse(null);
+
         return bestPromotion != null ? new PromotionResponseDTO(bestPromotion) : null;
     }
 
@@ -260,9 +283,12 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<PromotionResponseDTO> getAllGlobalPromotions() {
-        return promotionRepository.findByPropertyIsNull().stream()
-                .filter(p -> p.getStatus() != PromotionStatus.DELETED)
-                .map(PromotionResponseDTO::new).collect(Collectors.toList());
+        // Thay vì gọi findAll(), gọi hàm mới với JOIN FETCH
+        List<Promotion> promotions = promotionRepository.findAllWithProperty();
+
+        return promotions.stream()
+                .map(PromotionResponseDTO::new) // PromotionResponseDTO sẽ tự động map PropertyDTO
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

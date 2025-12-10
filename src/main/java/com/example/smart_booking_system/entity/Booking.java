@@ -42,7 +42,10 @@ public class Booking {
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     @Column(length = 50)
-    private String promotionCode;
+    private String promotionCode;       // Lưu mã của OWNER
+
+    @Column(length = 50)
+    private String adminPromotionCode;  // Lưu mã của ADMIN
 
     @Column(precision = 15, scale = 2)
     private BigDecimal penaltyAmount;
