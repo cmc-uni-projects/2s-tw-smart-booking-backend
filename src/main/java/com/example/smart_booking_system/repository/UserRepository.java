@@ -84,5 +84,11 @@ public interface UserRepository extends JpaRepository<User, String> {
             @Param("status") String status,
             Pageable pageable
     );
+    @Query("SELECT FUNCTION('MONTH', u.createdAt) as month, COUNT(u) as count " +
+            "FROM User u " +
+            "WHERE FUNCTION('YEAR', u.createdAt) = :year " +
+            "GROUP BY FUNCTION('MONTH', u.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', u.createdAt) ASC")
+    List<Object[]> getMonthlyUserGrowth(@Param("year") int year);
 }
 
