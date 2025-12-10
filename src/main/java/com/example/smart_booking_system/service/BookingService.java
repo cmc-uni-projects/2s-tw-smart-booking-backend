@@ -498,6 +498,8 @@ public class BookingService {
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
         dto.setCreatedAt(b.getCreatedAt());
+        dto.setAdminPromotionCode(b.getAdminPromotionCode());
+        dto.setOwnerPromotionCode(b.getPromotionCode());
         dto.setReviewed(ratingRepository.existsByBookingId_BookingId(b.getBookingId()));
         dto.setDiscountAmount(b.getDiscountAmount() != null ? b.getDiscountAmount() : BigDecimal.ZERO);
         dto.setPromotionCode(b.getPromotionCode());

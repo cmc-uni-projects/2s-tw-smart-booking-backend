@@ -15,6 +15,8 @@ import com.example.smart_booking_system.repository.BookingRepository;
 import com.example.smart_booking_system.repository.PromotionRepository;
 import com.example.smart_booking_system.repository.PropertyRepository;
 import com.example.smart_booking_system.repository.UserRepository;
+import com.example.smart_booking_system.dto.BookingResponseDTO;
+import com.example.smart_booking_system.entity.Booking;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,7 @@ public class PromotionService {
     private final UserRepository userRepository;
     private final PropertyRepository propertyRepository;
     private final AuthService authService;
+    private final BookingService bookingService;
 
     // 1. TẠO MỚI
     public PromotionResponseDTO createPromotion(PromotionRequestDTO req) {
@@ -309,5 +312,66 @@ public class PromotionService {
         if (p.getBannerUrl() != null && !p.getBannerUrl().isEmpty()) fileStorageService.deleteFile(p.getBannerUrl());
         p.setBannerUrl(fileStorageService.storeImageFile(file, "campaign-images"));
         return new PromotionResponseDTO(promotionRepository.save(p));
+    }
+    // 3. HỦY ÁP DỤNG KHUYẾN MÃI (Đã sửa lỗi)
+    public BookingResponseDTO cancelPromotion(Integer bookingId, String code) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
+
+        String currentOwnerCode = booking.getPromotionCode();
+        String currentAdminCode = booking.getAdminPromotionCode();
+
+        // Kiểm tra xem mã gửi lên có khớp với mã nào trong booking không
+        boolean isOwnerCode = code.equalsIgnoreCase(currentOwnerCode);
+        boolean isAdminCode = code.equalsIgnoreCase(currentAdminCode);
+
+        if (!isOwnerCode && !isAdminCode) {
+            // Mã này không tồn tại trong đơn hàng, trả về luôn
+            return new BookingResponseDTO(booking);
+        }
+
+        // 1. Khôi phục giá gốc (Base Price)
+        BigDecimal currentDiscount = booking.getDiscountAmount() != null ? booking.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal originalPrice = booking.getTotalPrice().add(currentDiscount);
+
+        // 2. Xóa mã tương ứng
+        if (isOwnerCode) {
+            booking.setPromotionCode(null);
+            currentOwnerCode = null; // Cập nhật biến tạm để tính toán bên dưới
+        }
+        if (isAdminCode) {
+            booking.setAdminPromotionCode(null);
+            currentAdminCode = null; // Cập nhật biến tạm
+        }
+
+        // 3. Tính toán lại Discount cho mã CÒN LẠI (nếu có)
+        BigDecimal newDiscountTotal = BigDecimal.ZERO;
+
+        // Helper function để tính tiền (bạn có thể tách ra nếu muốn gọn)
+        if (currentOwnerCode != null) {
+            Promotion p = promotionRepository.findByCode(currentOwnerCode).orElse(null);
+            if (p != null) {
+                newDiscountTotal = newDiscountTotal.add(calculateDiscountAmount(p, originalPrice));
+            }
+        }
+        if (currentAdminCode != null) {
+            Promotion p = promotionRepository.findByCode(currentAdminCode).orElse(null);
+            if (p != null) {
+                newDiscountTotal = newDiscountTotal.add(calculateDiscountAmount(p, originalPrice));
+            }
+        }
+
+        // 4. Cập nhật lại Booking
+        // Đảm bảo không giảm quá giá trị đơn hàng
+        if (newDiscountTotal.compareTo(originalPrice) > 0) {
+            newDiscountTotal = originalPrice;
+        }
+
+        booking.setDiscountAmount(newDiscountTotal);
+        booking.setTotalPrice(originalPrice.subtract(newDiscountTotal));
+
+        bookingRepository.save(booking);
+
+        return new BookingResponseDTO(booking);
     }
 }

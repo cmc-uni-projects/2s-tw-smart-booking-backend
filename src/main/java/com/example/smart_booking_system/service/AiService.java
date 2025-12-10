@@ -263,7 +263,7 @@ public class AiService {
             prop.put("reviewCount", p.getReviewCount());
             prop.put("address", p.getAddress());
 
-            String bookingUrl = frontendUrl + "/hotels/" + p.getPropertyId();
+            String bookingUrl = frontendUrl + "hotels/" + p.getPropertyId();
             prop.put("bookingUrl", bookingUrl);
 
             ArrayNode roomArr = prop.putArray("rooms");
