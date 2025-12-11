@@ -577,7 +577,7 @@ public class BookingService {
     }
 
     // =====================================================
-    // ÁP DỤNG MÃ GIẢM GIÁ (LOGIC CỘNG DỒN: OWNER TRƯỚC -> ADMIN SAU)
+    // ÁP DỤNG MÃ GIẢM GIÁ
     // =====================================================
     @Transactional
     public BookingResponseDTO applyPromotion(int bookingId, String code) {
@@ -588,21 +588,26 @@ public class BookingService {
             throw new RuntimeException("Chỉ có thể áp dụng mã cho đơn hàng chưa thanh toán.");
         }
 
-        // 1. Tìm thông tin mã (Validate cơ bản: tồn tại, còn hạn, active)
-        Promotion promotion = promotionRepo.findValidPromotion(code, LocalDateTime.now())
-                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ hoặc đã hết hạn."));
+        // --- FIX LOGIC TẠI ĐÂY ---
+        // Sử dụng hàm helper để tìm đúng mã cho khách sạn này
+        Promotion promotion = findApplicablePromotion(code, booking.getProperty().getPropertyId());
+
+        if (promotion == null) {
+            throw new RuntimeException("Mã giảm giá không hợp lệ, đã hết hạn hoặc không áp dụng cho khách sạn này.");
+        }
+        // -------------------------
 
         // 2. Phân loại mã (Admin hay Owner) và lưu vào Booking
         if (promotion.getProperty() == null) {
             // >>> Mã ADMIN
-            booking.setAdminPromotionCode(code);
+            booking.setAdminPromotionCode(code.toUpperCase());
         } else {
             // >>> Mã OWNER
-            // Validate: Mã này có phải của khách sạn này không?
+            // Logic cũ đã kiểm tra ID ở helper, nhưng check lại cho chắc chắn
             if (promotion.getProperty().getPropertyId() != booking.getProperty().getPropertyId()) {
                 throw new RuntimeException("Mã giảm giá này không áp dụng cho khách sạn hiện tại.");
             }
-            booking.setPromotionCode(code);
+            booking.setPromotionCode(code.toUpperCase());
         }
 
         // 3. Tính toán lại toàn bộ giá (Recalculate)
@@ -615,7 +620,6 @@ public class BookingService {
 
         return convertToDTO(saved);
     }
-
     // --- Helper: Tính toán giá theo thứ tự ưu tiên --
 
     private void calculateAndSetBookingPrice(Booking booking) {
@@ -627,20 +631,24 @@ public class BookingService {
         // 2. Lấy thông tin 2 mã (nếu có)
         Promotion ownerPromo = null;
         if (booking.getPromotionCode() != null) {
-            ownerPromo = promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now()).orElse(null);
-            // Validate thêm: Mã phải thuộc property này
-            if (ownerPromo != null && (ownerPromo.getProperty() == null || ownerPromo.getProperty().getPropertyId() != booking.getProperty().getPropertyId())) {
-                ownerPromo = null;
-            }
+            // --- FIX: Tìm chính xác mã của Property ID này ---
+            List<Promotion> ownerPromos = promotionRepo.findValidPromotionsList(booking.getPromotionCode(), LocalDateTime.now());
+            ownerPromo = ownerPromos.stream()
+                    .filter(p -> p.getProperty() != null && p.getProperty().getPropertyId() == booking.getProperty().getPropertyId())
+                    .findFirst()
+                    .orElse(null);
+            // ------------------------------------------------
         }
 
         Promotion adminPromo = null;
         if (booking.getAdminPromotionCode() != null) {
-            adminPromo = promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now()).orElse(null);
-            // Validate thêm: Mã admin phải có property == null
-            if (adminPromo != null && adminPromo.getProperty() != null) {
-                adminPromo = null;
-            }
+            // --- FIX: Tìm chính xác mã Admin (Property == null) ---
+            List<Promotion> adminPromos = promotionRepo.findValidPromotionsList(booking.getAdminPromotionCode(), LocalDateTime.now());
+            adminPromo = adminPromos.stream()
+                    .filter(p -> p.getProperty() == null)
+                    .findFirst()
+                    .orElse(null);
+            // ------------------------------------------------------
         }
 
         // 3. Tính toán theo 2 kịch bản (Scenario)
@@ -876,6 +884,30 @@ public class BookingService {
                 logger.error("❌ Lỗi gửi email nhắc nhở ngay lập tức: {}", e.getMessage());
             }
         }
+    }
+
+    // Hàm helper mới: Tìm đúng mã khuyến mãi khớp với khách sạn hoặc là mã Admin
+    private Promotion findApplicablePromotion(String code, Integer propertyId) {
+        // Sử dụng findValidPromotionsList thay vì findValidPromotion (dựa trên PromotionService đã có)
+        List<Promotion> promotions = promotionRepo.findValidPromotionsList(code.toUpperCase(), LocalDateTime.now());
+
+        if (promotions.isEmpty()) {
+            return null;
+        }
+
+        // 1. Ưu tiên tìm mã khớp chính xác Property ID
+        Promotion specificPromo = promotions.stream()
+                .filter(p -> p.getProperty() != null && p.getProperty().getPropertyId() == propertyId)
+                .findFirst()
+                .orElse(null);
+
+        if (specificPromo != null) return specificPromo;
+
+        // 2. Nếu không có mã riêng, tìm mã Global (Admin)
+        return promotions.stream()
+                .filter(p -> p.getProperty() == null)
+                .findFirst()
+                .orElse(null);
     }
 }
 

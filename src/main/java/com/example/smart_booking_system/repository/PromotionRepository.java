@@ -74,26 +74,13 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     @Query("""
         SELECT p FROM Promotion p
-        WHERE p.code = :code
-        AND (p.property IS NULL OR p.property.propertyId = :propertyId)
-        AND p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
+        WHERE p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE
         AND p.startDate <= :now
         AND p.endDate >= :now
         AND (p.usageLimit IS NULL OR COALESCE(p.usageCount, 0) < p.usageLimit)
-        ORDER BY p.property.propertyId DESC 
+        AND (p.property IS NULL OR p.property.propertyId = :propertyId)
     """)
-        // ORDER BY DESC để ưu tiên mã riêng của khách sạn trước mã toàn sàn (nếu trùng code)
-    List<Promotion> findValidPromotionsForPropertyRaw(
-            @Param("code") String code,
-            @Param("propertyId") Integer propertyId,
-            @Param("now") LocalDateTime now
-    );
-
-    // Wrapper để Service gọi dễ dàng hơn
-    default Optional<Promotion> findValidPromotionForBooking(String code, Integer propertyId, LocalDateTime now) {
-        List<Promotion> list = findValidPromotionsForPropertyRaw(code, propertyId, now);
-        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
-    }
+    List<Promotion> findPromotionsForProperty(@Param("propertyId") int propertyId, @Param("now") LocalDateTime now);
 
     @Query("SELECT p FROM Promotion p WHERE p.property.owner.userId = :userId AND p.status != com.example.smart_booking_system.enums.PromotionStatus.DELETED ORDER BY p.createdAt DESC")
     List<Promotion> findAllByOwnerId(@Param("userId") String userId);
