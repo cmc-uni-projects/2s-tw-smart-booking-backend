@@ -681,6 +681,48 @@ public class BookingService {
 
         return currentPrice;
     }
+
+    @Transactional
+    public BookingResponseDTO removePromotion(int bookingId, String codeToRemove) {
+        // 1. Tìm Booking
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new RuntimeException("Chỉ được bỏ mã với đơn chưa thanh toán.");
+        }
+
+        // 2. Xác định xem mã muốn xóa là Owner hay Admin để set về null
+        boolean changed = false;
+
+        // Check mã Owner
+        if (codeToRemove.equalsIgnoreCase(booking.getPromotionCode())) {
+            booking.setPromotionCode(null);
+            changed = true;
+        }
+
+        // Check mã Admin
+        if (codeToRemove.equalsIgnoreCase(booking.getAdminPromotionCode())) {
+            booking.setAdminPromotionCode(null);
+            changed = true;
+        }
+
+        if (!changed) {
+            throw new RuntimeException("Mã khuyến mãi này không tồn tại trong đơn hàng.");
+        }
+
+        // 3. TÁI SỬ DỤNG LOGIC TÍNH TIỀN (Quan trọng)
+        // Gọi hàm này, nó sẽ tự động lấy các mã còn lại (nếu có) và tính lại theo Best Price Strategy
+        calculateAndSetBookingPrice(booking);
+
+        // 4. Lưu và cập nhật Payment
+        updatePaymentAmount(booking); // Đồng bộ giá sang bảng Payment
+        Booking saved = bookingRepo.save(booking);
+
+        return convertToDTO(saved);
+    }
+
+
     // --- Helper: Tính tiền giảm ---
     private BigDecimal calculateDiscount(BigDecimal amountToApply, Promotion promo) {
         BigDecimal discount;

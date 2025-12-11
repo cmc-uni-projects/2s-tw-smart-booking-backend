@@ -151,15 +151,4 @@ public class PromotionController {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
-    //Cancel Promotion
-    @PostMapping("/cancel")
-    public ResponseEntity<ApiResponse<BookingResponseDTO>> cancelPromotion(
-            @RequestParam Integer bookingId,
-            @RequestParam String code) {
-
-        BookingResponseDTO result = promotionService.cancelPromotion(bookingId, code);
-
-        // SỬA Ở ĐÂY: Dùng ApiResponse.success(...) thay vì new ApiResponse(...)
-        return ResponseEntity.ok(ApiResponse.success("Đã hủy áp dụng mã khuyến mãi.", result));
-    }
 }
