@@ -41,25 +41,27 @@ public class PaymentService {
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
             return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
         }
-
-        // TĂNG USAGE COUNT CHO CẢ 2 MÃ
-        // 1. Tăng count mã Owner
+// 1. Xử lý mã Owner (Tăng count và kiểm tra Atomic)
         if (booking.getPromotionCode() != null) {
-            promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now())
-                    .ifPresent(promo -> {
-                        promo.setUsageCount(promo.getUsageCount() + 1);
-                        promotionRepo.save(promo);
-                    });
+            // Gọi hàm custom query vừa viết thêm bên PromotionRepository
+            int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getPromotionCode());
+
+            // Nếu trả về 0 -> Nghĩa là không update được (Hết lượt hoặc mã lỗi)
+            if (updatedRows == 0) {
+                // Ném lỗi RuntimeException để @Transactional tự động Rollback lại toàn bộ quá trình thanh toán
+                throw new RuntimeException("Rất tiếc, mã giảm giá '" + booking.getPromotionCode() + "' vừa hết lượt sử dụng.");
+            }
         }
 
-        // 2. Tăng count mã Admin
+        // 2. Xử lý mã Admin (Tương tự)
         if (booking.getAdminPromotionCode() != null) {
-            promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now())
-                    .ifPresent(promo -> {
-                        promo.setUsageCount(promo.getUsageCount() + 1);
-                        promotionRepo.save(promo);
-                    });
+            int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getAdminPromotionCode());
+            if (updatedRows == 0) {
+                throw new RuntimeException("Rất tiếc, mã giảm giá hệ thống '" + booking.getAdminPromotionCode() + "' vừa hết lượt sử dụng.");
+            }
         }
+
+
 
         payment.setPaymentMethod(paymentMethod);
         payment.setTotalAmount(booking.getTotalPrice());
