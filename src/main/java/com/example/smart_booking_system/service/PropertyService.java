@@ -33,4 +33,5 @@ public interface PropertyService {
     List<PropertyDetailDTO> searchProperties(String keyword, Integer guests, LocalDate checkIn, LocalDate checkOut); // Mới
 
     boolean checkNameAvailability(String propertyName);
+    boolean togglePropertyStatus(Integer propertyId, String ownerId);
 }
