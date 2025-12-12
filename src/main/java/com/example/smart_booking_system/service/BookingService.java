@@ -667,14 +667,17 @@ public class BookingService {
         BigDecimal currentPrice = startPrice;
 
         // Áp dụng mã thứ nhất
-        if (first != null && checkMinAmount(first, currentPrice)) {
+        // [FIX]: Dùng startPrice (giá gốc) để check điều kiện min amount
+        if (first != null && checkMinAmount(first, startPrice)) {
             BigDecimal discount = calculateDiscount(currentPrice, first);
             currentPrice = currentPrice.subtract(discount);
             if (currentPrice.compareTo(BigDecimal.ZERO) < 0) currentPrice = BigDecimal.ZERO;
         }
 
-        // Áp dụng mã thứ hai (trên giá đã giảm của mã 1)
-        if (second != null && checkMinAmount(second, currentPrice)) {
+        // Áp dụng mã thứ hai
+        // [FIX QUAN TRỌNG]: Phải dùng startPrice (giá gốc) để check điều kiện min amount
+        // Code cũ dùng 'currentPrice' (giá đã giảm) -> Dễ bị trượt điều kiện minAmount của Owner
+        if (second != null && checkMinAmount(second, startPrice)) {
             BigDecimal discount = calculateDiscount(currentPrice, second);
             currentPrice = currentPrice.subtract(discount);
             if (currentPrice.compareTo(BigDecimal.ZERO) < 0) currentPrice = BigDecimal.ZERO;
@@ -682,7 +685,6 @@ public class BookingService {
 
         return currentPrice;
     }
-
     @Transactional
     public BookingResponseDTO removePromotion(int bookingId, String codeToRemove) {
         Booking booking = bookingRepo.findById(bookingId)
@@ -749,8 +751,16 @@ public class BookingService {
     private void updatePaymentAmount(Booking booking) {
         Payment payment = paymentRepo.findByBooking_BookingId(booking.getBookingId()).orElse(null);
         if (payment != null) {
+            // Cách 1: Chỉ set giá trị và save, nhưng đảm bảo Payment entity được load trong cùng Transaction
+            // để nó nhận diện được Booking instance mới nhất.
+            // Do chúng ta đang dùng @Transactional ở hàm cha, nên payment.getBooking()
+            // VỀ LÝ THUYẾT sẽ trỏ cùng 1 instance với 'booking'.
+
+            // Tuy nhiên, để an toàn tuyệt đối, ta set lại TotalAmount thủ công
             payment.setTotalAmount(booking.getTotalPrice());
             paymentRepo.save(payment);
+
+            logger.info("✅ Đã cập nhật Payment amount thành: {}", booking.getTotalPrice());
         }
     }
 
