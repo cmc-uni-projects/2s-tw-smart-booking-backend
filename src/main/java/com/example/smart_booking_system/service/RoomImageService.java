@@ -59,13 +59,18 @@ public class RoomImageService {
 
         List<RoomImageResponseDTO> result = new ArrayList<>();
 
+        // ⭐ LƯU ĐÚNG STRUCTURE: properties/{propertyId}/rooms/{roomId}
+        String folder = "properties/" + room.getPropertyId().getPropertyId()
+                + "/rooms/" + roomId;
+
         for (MultipartFile file : files) {
 
-            String key = fileStorageService.storeImageFile(file, "rooms"); // lưu key vào DB
+            // ⭐ Lưu file vào đúng folder cấu trúc
+            String key = fileStorageService.storeImageFile(file, folder);
 
             RoomImage ri = new RoomImage();
             ri.setRoom(room);
-            ri.setImageUrl(key);   // LƯU KEY
+            ri.setImageUrl(key);
             ri.setActive(true);
 
             RoomImage saved = roomImageRepository.save(ri);
@@ -108,7 +113,7 @@ public class RoomImageService {
             throw new BadRequestException("This image does not belong to this room");
         }
 
-        fileStorageService.deleteFile(img.getImageUrl()); // dùng key
+        fileStorageService.deleteFile(img.getImageUrl()); // dùng key đầy đủ
 
         img.setActive(false);
         roomImageRepository.save(img);
