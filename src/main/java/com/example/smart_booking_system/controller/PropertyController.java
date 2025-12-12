@@ -66,28 +66,38 @@ public class PropertyController {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             String ownerId = userDetails.getUserId();
 
-            // Dùng ObjectMapper để chuyển đổi String JSON thành DTO
+            if (propertyImages == null || propertyImages.size() < 3) {
+                return ResponseEntity.badRequest().body(
+                        ApiResponse.error("Bạn phải tải lên ít nhất 3 ảnh cho chỗ nghỉ")
+                );
+            }
+
+            // Parse JSON từ FE
             ObjectMapper objectMapper = new ObjectMapper();
-            PropertyApplicationSubmitDTO dto = objectMapper.readValue(propertyDataJson, PropertyApplicationSubmitDTO.class);
+            PropertyApplicationSubmitDTO dto =
+                    objectMapper.readValue(propertyDataJson, PropertyApplicationSubmitDTO.class);
 
-            // Gọi Service
-            PropertyDetailDTO newProperty = propertyService.submitPropertyApplication(dto, propertyImages, ownerId);
+            // Gọi Service xử lý toàn bộ luồng
+            PropertyDetailDTO newProperty =
+                    propertyService.submitPropertyApplication(dto, propertyImages, ownerId);
 
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Nộp đơn đăng ký cơ sở thành công", newProperty));
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    ApiResponse.success("Nộp đơn đăng ký cơ sở thành công", newProperty)
+            );
 
-        } catch (IllegalArgumentException | com.fasterxml.jackson.core.JsonProcessingException e) {
-            // Lỗi từ DTO validation hoặc JSON parse
-            return ResponseEntity
-                    .badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Dữ liệu JSON không hợp lệ"));
+
         } catch (Exception e) {
-            return ResponseEntity
-                    .internalServerError()
-                    .body(ApiResponse.error("Lỗi khi nộp đơn: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(
+                    ApiResponse.error("Lỗi khi nộp đơn: " + e.getMessage())
+            );
         }
     }
+
 
     @GetMapping("/search")
     public ResponseEntity<List<PropertyDetailDTO>> searchProperties(

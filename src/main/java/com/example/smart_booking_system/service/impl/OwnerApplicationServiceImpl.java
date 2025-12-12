@@ -35,11 +35,12 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     private final EmailService emailService;
     private final RoleRepository roleRepository;
 
-    // ✅ Thêm FileStorageService
+    // 🔥 Dùng để upload + generate signed URL
     private final FileStorageService fileStorageService;
 
     @Override
     public OwnerApplicationDTO submitApplication(OwnerApplicationSubmitDTO submitDTO, String applicantUsername) {
+
         User applicant = userRepository.findByEmail(applicantUsername)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + applicantUsername));
 
@@ -53,7 +54,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setPersonalIdCard(submitDTO.getPersonalIdCard());
 
         // ============================
-        // 📌 UPLOAD ẢNH — CHỈ PHẦN NÀY ĐƯỢC SỬA
+        // 📌 UPLOAD ẢNH (Giữ nguyên logic upload)
         // ============================
         String frontUrl = fileStorageService.storeImageFile(
                 submitDTO.getCardFrontImage(),
@@ -73,11 +74,10 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setCardFrontImage(frontUrl);
         application.setCardBackImage(backUrl);
         application.setBusinessLicenseImage(licenseUrl);
-        // ============================
 
         OwnerApplication savedApp = applicationRepository.save(application);
 
-        // Email giữ nguyên logic
+        // Email giữ nguyên
         try {
             String subject = "Xác nhận nộp đơn đăng ký làm chủ khách sạn";
             String templateName = "email/application-submitted-confirmation";
@@ -107,14 +107,15 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     @Override
     @Transactional(readOnly = true)
     public List<OwnerApplicationDTO> getApplicationsByStatus(ApplicationStatus status) {
-        List<OwnerApplication> applications = applicationRepository.findByStatusWithApplicant(status);
-        return applications.stream()
+        return applicationRepository.findByStatusWithApplicant(status)
+                .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OwnerApplicationDTO reviewApplication(Long applicationId, OwnerApplicationReviewDTO reviewDTO, String adminUsername) {
+
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new EntityNotFoundException("Admin not found: " + adminUsername));
 
@@ -126,7 +127,9 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         }
 
         ApplicationStatus newStatus = reviewDTO.getStatus();
-        if (newStatus == null) throw new IllegalArgumentException("Trạng thái mới không được để trống.");
+        if (newStatus == null)
+            throw new IllegalArgumentException("Trạng thái mới không được để trống.");
+
         if (newStatus != ApplicationStatus.APPROVED && newStatus != ApplicationStatus.REJECTED)
             throw new IllegalArgumentException("Chỉ được chuyển sang APPROVED hoặc REJECTED.");
 
@@ -140,6 +143,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         if (newStatus == ApplicationStatus.APPROVED) {
             Role ownerRole = roleRepository.findByRoleName("OWNER")
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy ROLE_OWNER"));
+
             applicant.addRole(ownerRole);
             userRepository.save(applicant);
         }
@@ -153,15 +157,32 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         return convertToDTO(savedApp);
     }
 
+    // ============================================================
+    // 🔥 FIX QUAN TRỌNG: Trả về Signed URL cho 3 ảnh
+    // ============================================================
     private OwnerApplicationDTO convertToDTO(OwnerApplication app) {
+
         OwnerApplicationDTO dto = new OwnerApplicationDTO();
         dto.setId(app.getId());
         dto.setStatus(app.getStatus());
         dto.setPermanentAddress(app.getPermanentAddress());
         dto.setHometownAddress(app.getHometownAddress());
-        dto.setCardFrontImage(app.getCardFrontImage());
-        dto.setCardBackImage(app.getCardBackImage());
-        dto.setBusinessLicenseImage(app.getBusinessLicenseImage());
+
+        // ============================
+        // 🔥 Ảnh trả về signed URL để FE load được
+        // ============================
+        dto.setCardFrontImage(
+                fileStorageService.generateSignedUrl(app.getCardFrontImage())
+        );
+
+        dto.setCardBackImage(
+                fileStorageService.generateSignedUrl(app.getCardBackImage())
+        );
+
+        dto.setBusinessLicenseImage(
+                fileStorageService.generateSignedUrl(app.getBusinessLicenseImage())
+        );
+
         dto.setBusinessLicenseNumber(app.getBusinessLicenseNumber());
         dto.setApplicantDob(app.getPersonalDob());
         dto.setPersonalIdCard(app.getPersonalIdCard());
@@ -171,13 +192,20 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         if (app.getUserId() != null) {
             User applicant = app.getUserId();
+
             dto.setApplicantId(applicant.getUserId());
             dto.setApplicantFullName(applicant.getFullName());
             dto.setApplicantEmail(applicant.getEmail());
             dto.setApplicantPhoneNumber(applicant.getPhoneNumber());
 
-            if (applicant.getUserDetail() != null) {
-                dto.setApplicantAvatar(applicant.getUserDetail().getProfilePhotoUrl());
+            if (applicant.getUserDetail() != null &&
+                    applicant.getUserDetail().getProfilePhotoUrl() != null) {
+
+                dto.setApplicantAvatar(
+                        fileStorageService.generateSignedUrl(
+                                applicant.getUserDetail().getProfilePhotoUrl()
+                        )
+                );
             }
         }
 
@@ -189,6 +217,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     }
 
     private void sendReviewNotificationEmail(User applicant, OwnerApplication application) {
+
         String applicantEmail = applicant.getEmail();
         String applicantName = applicant.getFullName();
         String adminReason = application.getAdminReason();
@@ -196,16 +225,18 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         Context context = new Context();
         context.setVariable("applicantName", applicantName);
-        context.setVariable("reason", (adminReason != null && !adminReason.isEmpty()) ? adminReason : "N/A");
+        context.setVariable("reason", adminReason != null && !adminReason.isEmpty() ? adminReason : "N/A");
 
         String subject, templateName;
 
         if (status == ApplicationStatus.APPROVED) {
             subject = "Chúc mừng! Đơn đăng ký làm chủ khách sạn của bạn đã được DUYỆT";
             templateName = "email/application-approved";
+
         } else if (status == ApplicationStatus.REJECTED) {
             subject = "Thông báo: Đơn đăng ký làm chủ khách sạn của bạn đã bị TỪ CHỐI";
             templateName = "email/application-rejected";
+
         } else {
             return;
         }

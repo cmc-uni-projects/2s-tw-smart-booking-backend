@@ -1,62 +1,66 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.PropertyImageResponseDTO;
+import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.PropertyImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.smart_booking_system.dto.response.ApiResponse;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/propertyImage")
+@RequestMapping("/api/v1/property-images")
 @RequiredArgsConstructor
 public class PropertyImageController {
 
     private final PropertyImageService propertyImageService;
 
 
-        @PostMapping("/upload-multiple/{propertyId}")
+    @PostMapping("/{propertyId}/upload")
     public ResponseEntity<?> uploadMultiple(
             @PathVariable int propertyId,
-            @RequestParam("file") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files
+    ) {
 
-        return ResponseEntity.ok(
-                propertyImageService.uploadMultiplePropertyImages(propertyId, files)
-        );
+        List<PropertyImageResponseDTO> result =
+                propertyImageService.uploadMultiplePropertyImages(propertyId, files);
+
+        return ResponseEntity.ok(ApiResponse.success("Upload thành công", result));
     }
 
 
     @GetMapping("/{propertyId}")
     public ResponseEntity<?> getByProperty(@PathVariable int propertyId) {
 
-        return ResponseEntity.ok(
-                propertyImageService.getImagesByPropertyId(propertyId)
-        );
+        List<PropertyImageResponseDTO> images =
+                propertyImageService.getImagesByPropertyId(propertyId);
+
+        return ResponseEntity.ok(ApiResponse.success(images));
     }
 
-    @DeleteMapping("/delete/{propertyId}/{imageId}")
+
+
+    @DeleteMapping("/{propertyId}/{imageId}")
     public ResponseEntity<?> delete(
             @PathVariable int propertyId,
-            @PathVariable int imageId) {
-
-        propertyImageService.deletePropertyImage(propertyId, imageId);
-        return ResponseEntity.ok("Deleted");
-    }
-
-    @PutMapping("/{propertyId}/{imageId}/set-cover")
-    public ResponseEntity<?> setCoverImage(
-            @PathVariable int propertyId, // Lấy từ path cha nếu có, hoặc request param
             @PathVariable int imageId
     ) {
-        try {
-            propertyImageService.setCoverImage(propertyId, imageId);
-            return ResponseEntity.ok(ApiResponse.success("Đã đặt ảnh bìa thành công", null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+
+        propertyImageService.deletePropertyImage(propertyId, imageId);
+
+        return ResponseEntity.ok(ApiResponse.success("Đã xóa ảnh"));
+    }
+
+
+    @PutMapping("/{propertyId}/{imageId}/cover")
+    public ResponseEntity<?> setCoverImage(
+            @PathVariable int propertyId,
+            @PathVariable int imageId
+    ) {
+        propertyImageService.setCoverImage(propertyId, imageId);
+        return ResponseEntity.ok(ApiResponse.success("Đặt ảnh bìa thành công"));
     }
 
 }

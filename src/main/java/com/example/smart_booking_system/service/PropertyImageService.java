@@ -27,7 +27,9 @@ public class PropertyImageService {
         this.fileStorageService = fileStorageService;
     }
 
-    // ============ SET COVER ============ //
+    // =============================
+    // SET COVER
+    // =============================
     public void setCoverImage(int propertyId, int imageId) {
         PropertyImage img = propertyImageRepository.findById(imageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Image not found"));
@@ -42,8 +44,11 @@ public class PropertyImageService {
         propertyImageRepository.save(img);
     }
 
-    // ============ UPLOAD MULTIPLE ============ //
-    public List<PropertyImageResponseDTO> uploadMultiplePropertyImages(int propertyId, List<MultipartFile> files) {
+    // =============================
+    // UPLOAD MULTIPLE
+    // =============================
+    public List<PropertyImageResponseDTO> uploadMultiplePropertyImages(int propertyId,
+                                                                       List<MultipartFile> files) {
 
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new BadRequestException("Property not found"));
@@ -54,7 +59,7 @@ public class PropertyImageService {
 
         return files.stream().map(file -> {
 
-            String key = fileStorageService.storeImageFile(file, "properties");
+            String key = fileStorageService.storeImageFile(file, "properties/" + propertyId);
 
             PropertyImage pi = new PropertyImage();
             pi.setProperty(property);
@@ -66,15 +71,17 @@ public class PropertyImageService {
             return new PropertyImageResponseDTO(
                     saved.getPropertyImageId(),
                     propertyId,
-                    fileStorageService.generateSignedUrl(saved.getImageUrl()), // signed
-                    saved.isCover(),
-                    saved.isActive()
+                    fileStorageService.generateSignedUrl(saved.getImageUrl()), // 🔥 signed URL
+                    saved.isActive(),
+                    saved.isCover()
             );
 
         }).toList();
     }
 
-    // ============ GET LIST ============ //
+    // =============================
+    // GET LIST IMAGES (SIGNED URL)
+    // =============================
     public List<PropertyImageResponseDTO> getImagesByPropertyId(int propertyId) {
 
         List<PropertyImage> list = propertyImageRepository.findActiveImagesByPropertyId(propertyId);
@@ -83,14 +90,16 @@ public class PropertyImageService {
                 new PropertyImageResponseDTO(
                         img.getPropertyImageId(),
                         propertyId,
-                        fileStorageService.generateSignedUrl(img.getImageUrl()), // signed
-                        img.isCover(),
-                        img.isActive()
+                        fileStorageService.generateSignedUrl(img.getImageUrl()), // 🔥 signed URL
+                        img.isActive(),
+                        img.isCover()
                 )
         ).toList();
     }
 
-    // ============ DELETE ============ //
+    // =============================
+    // DELETE FILE
+    // =============================
     public void deletePropertyImage(int propertyId, int imageId) {
 
         PropertyImage img = propertyImageRepository.findById(imageId)
@@ -100,6 +109,7 @@ public class PropertyImageService {
             throw new BadRequestException("This image does not belong to this property");
         }
 
+        // Delete from cloud
         fileStorageService.deleteFile(img.getImageUrl());
 
         img.setActive(false);
