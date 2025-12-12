@@ -38,8 +38,6 @@ public class RatingService {
 
     private static final int PAGE_SIZE = 10;
 
-    // --- Helper Methods ---
-
     private Rating attachImages(Rating rating) {
         if (rating == null) return null;
         List<RatingImage> imgs = ratingImageRepository.getImagesByRatingId(rating.getRatingId());
@@ -72,8 +70,6 @@ public class RatingService {
         return RatingType.NEGATIVE;
     }
 
-    // --- Main Logic ---
-
     @Transactional
     public Rating createRating(RatingRequestDTO dto, List<MultipartFile> files) {
         if (ratingRepository.existsByBookingId_BookingId(dto.getBookingId())) {
@@ -104,7 +100,10 @@ public class RatingService {
 
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
-                String fileUrl = fileStorageService.storeImageFile(file, "ratingImage");
+
+                // ✅ FIX ĐÚNG LỖI DUY NHẤT: đổi ratingImage → ratingImages
+                String fileUrl = fileStorageService.storeImageFile(file, "ratingImages");
+
                 RatingImage img = new RatingImage();
                 img.setRating(savedRating);
                 img.setImageUrl(fileUrl);
@@ -135,7 +134,10 @@ public class RatingService {
             rating.getImages().clear();
 
             for (MultipartFile file : files) {
-                String fileUrl = fileStorageService.storeImageFile(file, "ratingImage");
+
+                // ✅ FIX ĐÚNG CHỖ CẦN SỬA
+                String fileUrl = fileStorageService.storeImageFile(file, "ratingImages");
+
                 RatingImage img = new RatingImage();
                 img.setRating(rating);
                 img.setImageUrl(fileUrl);
@@ -170,8 +172,6 @@ public class RatingService {
         ratingRepository.deleteById(id);
         updatePropertyStats(propertyId);
     }
-
-    // --- Getters & Pagination ---
 
     private Page<Rating> paginate(List<Rating> list, int page) {
         int start = page * PAGE_SIZE;
@@ -266,14 +266,11 @@ public class RatingService {
         return paginate(ratingRepository.getRatingByUserId(userId), page);
     }
 
-    // ✅ ĐÃ SỬA: Chuyển đổi String sang Enum trước khi gọi Repository
     public Page<Rating> getRatingByType(String ratingTypeStr, int page) {
         try {
-            // Chuyển chuỗi (ví dụ "POSITIVE") thành Enum RatingType.POSITIVE
             RatingType type = RatingType.valueOf(ratingTypeStr.toUpperCase());
             return paginate(ratingRepository.getRatingByRatingType(type), page);
         } catch (IllegalArgumentException e) {
-            // Xử lý nếu chuỗi không khớp với bất kỳ Enum nào
             throw new RuntimeException("Loại đánh giá không hợp lệ: " + ratingTypeStr);
         }
     }
