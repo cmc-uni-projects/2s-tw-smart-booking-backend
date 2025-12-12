@@ -613,7 +613,7 @@ public class BookingService {
         // 3. Tính toán lại toàn bộ giá (Recalculate)
         calculateAndSetBookingPrice(booking);
 
-        Booking saved = bookingRepo.save(booking);
+        Booking saved = bookingRepo.saveAndFlush(booking);
 
         // 4. Đồng bộ giá sang bảng Payment
         updatePaymentAmount(saved);
@@ -623,39 +623,35 @@ public class BookingService {
     // --- Helper: Tính toán giá theo thứ tự ưu tiên --
 
     private void calculateAndSetBookingPrice(Booking booking) {
-        // 1. Tính giá gốc (Base Price)
+        // 1. Tính giá gốc
         long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
         if (nights <= 0) nights = 1;
         BigDecimal basePrice = booking.getRoom().getPricePerNight().multiply(BigDecimal.valueOf(nights));
 
-        // 2. Lấy thông tin 2 mã (nếu có)
+        LocalDateTime now = LocalDateTime.now(); // Lấy giờ hiện tại
+
+        // 2. Lấy thông tin 2 mã (SỬA ĐOẠN NÀY)
         Promotion ownerPromo = null;
         if (booking.getPromotionCode() != null) {
-            // --- FIX: Tìm chính xác mã của Property ID này ---
-            List<Promotion> ownerPromos = promotionRepo.findValidPromotionsList(booking.getPromotionCode(), LocalDateTime.now());
-            ownerPromo = ownerPromos.stream()
-                    .filter(p -> p.getProperty() != null && p.getProperty().getPropertyId() == booking.getProperty().getPropertyId())
-                    .findFirst()
-                    .orElse(null);
-            // ------------------------------------------------
+            // Dùng hàm mới trong Repo để tìm chính xác
+            ownerPromo = promotionRepo.findValidPromotionForProperty(
+                    booking.getPromotionCode(),
+                    booking.getProperty().getPropertyId(),
+                    now
+            ).orElse(null);
         }
 
         Promotion adminPromo = null;
         if (booking.getAdminPromotionCode() != null) {
-            // --- FIX: Tìm chính xác mã Admin (Property == null) ---
-            List<Promotion> adminPromos = promotionRepo.findValidPromotionsList(booking.getAdminPromotionCode(), LocalDateTime.now());
-            adminPromo = adminPromos.stream()
-                    .filter(p -> p.getProperty() == null)
-                    .findFirst()
-                    .orElse(null);
-            // ------------------------------------------------------
+            // Dùng hàm mới trong Repo để tìm chính xác
+            adminPromo = promotionRepo.findValidAdminPromotion(
+                    booking.getAdminPromotionCode(),
+                    now
+            ).orElse(null);
         }
 
-        // 3. Tính toán theo 2 kịch bản (Scenario)
-        // Kịch bản A: Owner trước -> Admin sau
+        // 3. Tính toán theo 2 kịch bản (Scenario) - Giữ nguyên logic cũ của bạn
         BigDecimal priceScenarioA = calculateSequence(basePrice, ownerPromo, adminPromo);
-
-        // Kịch bản B: Admin trước -> Owner sau
         BigDecimal priceScenarioB = calculateSequence(basePrice, adminPromo, ownerPromo);
 
         // 4. Chọn giá thấp nhất (Best Price)
@@ -667,6 +663,9 @@ public class BookingService {
         // 5. Lưu kết quả
         booking.setTotalPrice(finalPrice);
         booking.setDiscountAmount(totalDiscount);
+
+        // Debug log để kiểm tra console
+        System.out.println("✅ Calculated Price for Booking " + booking.getBookingId() + ": " + finalPrice + " (OwnerPromo: " + (ownerPromo != null) + ", AdminPromo: " + (adminPromo != null) + ")");
     }
 
     // Hàm phụ trợ để tính theo chuỗi: Price -> Promo1 -> Promo2
@@ -725,7 +724,7 @@ public class BookingService {
 
         // 4. Lưu và cập nhật Payment
         updatePaymentAmount(booking); // Đồng bộ giá sang bảng Payment
-        Booking saved = bookingRepo.save(booking);
+        Booking saved = bookingRepo.saveAndFlush(booking);
 
         return convertToDTO(saved);
     }
