@@ -735,8 +735,14 @@ public class BookingService {
         } else {
             // Giảm theo %
             discount = amountToApply.multiply(promo.getDiscountValue()).divide(BigDecimal.valueOf(100));
-            // Check Max Discount
-            if (promo.getMaxDiscountAmount() != null && discount.compareTo(promo.getMaxDiscountAmount()) > 0) {
+
+            // [FIX LỖI TẠI ĐÂY]: Check Max Discount
+            // Logic cũ: so sánh > maxDiscountAmount. Nếu max = 0 (không giới hạn) thì discount > 0 -> bị gán về 0.
+            // Logic mới: Chỉ áp dụng trần (cap) khi maxDiscountAmount > 0.
+            if (promo.getMaxDiscountAmount() != null
+                    && promo.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0
+                    && discount.compareTo(promo.getMaxDiscountAmount()) > 0) {
+
                 discount = promo.getMaxDiscountAmount();
             }
         }
