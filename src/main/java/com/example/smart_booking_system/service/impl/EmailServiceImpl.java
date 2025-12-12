@@ -4,6 +4,7 @@ import com.example.smart_booking_system.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -147,10 +148,11 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // ==================================================
-    // ✉️ Private Helper - Gửi Email HTML
+    // ✉️ Private Helper - Gửi Email HTML (ĐÃ SỬA ĐỂ HIỆN LOGO)
     // ==================================================
     private void sendHtmlEmailInternal(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
+
         MimeMessageHelper helper = new MimeMessageHelper(
                 message,
                 MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
@@ -161,6 +163,24 @@ public class EmailServiceImpl implements EmailService {
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(htmlContent, true);
+
+        // --- 👇 PHẦN QUAN TRỌNG: FIX LỖI HIỂN THỊ TRÊN MÁY TÍNH ---
+        try {
+            // 1. Tìm file ảnh
+            String path = "static/images/logo-travelmate.png";
+            ClassPathResource logoResource = new ClassPathResource(path);
+
+            if (logoResource.exists()) {
+                // 2. Đính kèm VÀ khai báo rõ đây là "image/png"
+                // Outlook máy tính bắt buộc phải có tham số thứ 3 này mới chịu hiện ảnh
+                helper.addInline("logoImage", logoResource, "image/png");
+            } else {
+                System.err.println("⚠️ Cảnh báo: Không tìm thấy logo tại: " + path);
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi đính kèm logo: " + e.getMessage());
+        }
+        // -----------------------------------------------------------
 
         mailSender.send(message);
     }
@@ -230,6 +250,56 @@ public class EmailServiceImpl implements EmailService {
             sendHtmlEmailInternal(toEmail, "TravelMate - Hoàn tất hoàn tiền #" + bookingId, htmlContent);
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail cancellation-success: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendCheckinReminderEmail(String toEmail, String fullName, String bookingId, String propertyName, String checkInDate) {
+        try {
+            String subject = "Nhắc nhở: Bạn có lịch check-in vào ngày mai - Smart Booking";
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("propertyName", propertyName);
+            context.setVariable("checkInDate", checkInDate);
+            // Link xem chi tiết booking
+            context.setVariable("bookingUrl", getFrontendBaseUrl() + "customer/bookings");
+
+            // Đảm bảo bạn đã tạo file template checkin-reminder.html
+            String htmlContent = templateEngine.process("email/checkin-reminder", context);
+
+            // Gọi hàm gửi email nội bộ
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            // Log lỗi nhưng không ném exception để tránh làm gián đoạn vòng lặp gửi email cho người khác
+            System.err.println("❌ Lỗi gửi email nhắc nhở check-in cho booking " + bookingId + ": " + e.getMessage());
+        }
+    }
+
+    // Gửi email cảm ơn sau khi Check-out
+    @Override
+    public void sendThankYouEmail(String toEmail, String fullName, String bookingId, String propertyName) {
+        try {
+            String subject = "Cảm ơn bạn đã lựa chọn " + propertyName + " - Smart Booking";
+
+
+            String reviewUrl = getFrontendBaseUrl() + "customer/bookings";
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("propertyName", propertyName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("reviewUrl", reviewUrl);
+
+            // Sử dụng template: src/main/resources/templates/email/checkout-thankyou.html
+            String htmlContent = templateEngine.process("email/checkout-thankyou", context);
+
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send thank you email: " + e.getMessage());
         }
     }
 }

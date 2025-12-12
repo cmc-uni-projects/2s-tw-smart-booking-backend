@@ -16,4 +16,10 @@ public class BookingScheduler {
     public void checkExpiredBookings() {
         bookingService.scanAndCancelExpiredBookings();
     }
+
+    @Scheduled(cron = "0 0 8 * * *")
+    public void sendCheckinReminders() {
+        System.out.println("⏰ Bắt đầu quét và gửi email nhắc nhở check-in...");
+        bookingService.sendCheckinReminders();
+    }
 }

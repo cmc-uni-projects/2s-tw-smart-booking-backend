@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.time.LocalDate; // <-- THÊM IMPORT NÀY
+import lombok.ToString; // ✅ Import mới
+import lombok.EqualsAndHashCode; // ✅ Import mới
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,18 +22,19 @@ public class UserDetail {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer userdetailId;
 
+    // ✅ SỬA: Ngắt vòng lặp toString với User
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "userId", nullable = false, unique = true)
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User user;
 
     @Column(length = 50)
     private String gender;
 
-    // === BẮT ĐẦU CODE MỚI ===
     @Column
-    private LocalDate dateOfBirth; // <-- THÊM TRƯỜNG NÀY
-    // === KẾT THÚC CODE MỚI ===
+    private LocalDate dateOfBirth;
 
     @Column(length = 512)
     private String profilePhotoUrl;

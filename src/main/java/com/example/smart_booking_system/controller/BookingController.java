@@ -145,4 +145,5 @@ public class BookingController {
     public ResponseEntity<ApiResponse> getRoomAvailability(@PathVariable int roomId) {
         List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
+
 }

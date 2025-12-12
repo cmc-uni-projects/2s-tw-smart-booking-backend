@@ -1,6 +1,8 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -69,4 +71,24 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("SELECT u FROM User u WHERE LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<User> searchUsers(@Param("keyword") String keyword);
+
+    // --- QUERY MỚI CHO ADMIN ---
+    @Query("SELECT u FROM User u " +
+            "LEFT JOIN u.roles r " +
+            "WHERE (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:roleName IS NULL OR :roleName = '' OR r.roleName = :roleName) " +
+            "AND (:status IS NULL OR :status = '' OR u.status = :status)")
+    Page<User> findUsersWithFilter(
+            @Param("keyword") String keyword,
+            @Param("roleName") String roleName,
+            @Param("status") String status,
+            Pageable pageable
+    );
+    @Query("SELECT FUNCTION('MONTH', u.createdAt) as month, COUNT(u) as count " +
+            "FROM User u " +
+            "WHERE FUNCTION('YEAR', u.createdAt) = :year " +
+            "GROUP BY FUNCTION('MONTH', u.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', u.createdAt) ASC")
+    List<Object[]> getMonthlyUserGrowth(@Param("year") int year);
 }
+

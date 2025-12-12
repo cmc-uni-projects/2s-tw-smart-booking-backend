@@ -9,12 +9,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
+
 
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     // existing overlapping check
     @Query("""
-       SELECT b FROM Booking b
+
+            SELECT b FROM Booking b
        WHERE b.room.roomId = :roomId
          AND b.status IN (
              com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
@@ -60,4 +63,115 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
         )
     """)
     BigDecimal calculateTotalSpentByUser(@Param("userId") String userId);
+
+    List<Booking> findByCheckInDateAndStatus(LocalDate checkInDate, BookingStatus status);
+
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
+    BigDecimal calculateTotalRevenue();
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.createdAt >= :startTime")
+    long countNewBookings(@Param("startTime") LocalDateTime startTime);
+
+    // ✅ FIX: ORDER BY FUNCTION('MONTH', b.checkInDate) thay vì ORDER BY month
+    @Query("SELECT FUNCTION('MONTH', b.checkInDate) as month, SUM(b.totalPrice) as revenue " +
+            "FROM Booking b " +
+            "WHERE FUNCTION('YEAR', b.checkInDate) = :year " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY FUNCTION('MONTH', b.checkInDate) " +
+            "ORDER BY FUNCTION('MONTH', b.checkInDate) ASC")
+    List<Object[]> getMonthlyRevenue(@Param("year") int year);
+
+    // ✅ FIX: ORDER BY FUNCTION('MONTH', b.createdAt) thay vì ORDER BY month
+    @Query("SELECT FUNCTION('MONTH', b.createdAt) as month, COUNT(b) as count " +
+            "FROM Booking b " +
+            "WHERE FUNCTION('YEAR', b.createdAt) = :year " +
+            "GROUP BY FUNCTION('MONTH', b.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', b.createdAt) ASC")
+    List<Object[]> getMonthlyBookingCount(@Param("year") int year);
+
+    @Query("SELECT b.property.propertyName, SUM(b.totalPrice) as revenue, COUNT(b) as bookings " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY b.property.propertyId, b.property.propertyName " +
+            "ORDER BY revenue DESC")
+    List<Object[]> getTopPerformingHotels(Pageable pageable);
+
+    @Query("SELECT b.property.propertyType, SUM(b.totalPrice) " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY b.property.propertyType")
+    List<Object[]> getRevenueByPropertyType();
+
+    List<Booking> findTop10ByOrderByCreatedAtDesc();
+
+
+
+
+    // ========================================================================
+    // 🔥 OWNER DASHBOARD QUERIES
+    // ========================================================================
+
+    // 1. Check-in hôm nay (Của Owner)
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND b.checkInDate = :today " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN)")
+    long countCheckInsByOwner(@Param("ownerId") String ownerId, @Param("today") LocalDate today);
+
+    // 2. Check-out hôm nay (Của Owner)
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND b.checkOutDate = :today " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.CHECKED_IN)")
+    long countCheckOutsByOwner(@Param("ownerId") String ownerId, @Param("today") LocalDate today);
+
+    // 3. Doanh thu hôm nay (Tính trên booking được TẠO trong ngày)
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND CAST(b.createdAt AS LocalDate) = :today " +
+            "AND b.status != com.example.smart_booking_system.enums.BookingStatus.CANCELLED")
+    BigDecimal calculateRevenueTodayByOwner(@Param("ownerId") String ownerId, @Param("today") LocalDate today);
+
+    // 4. Tổng doanh thu toàn thời gian
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED)")
+    BigDecimal calculateTotalRevenueByOwner(@Param("ownerId") String ownerId);
+
+    // 5. Booking mới trong 24h
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND b.createdAt >= :startTime")
+    long countNewBookingsByOwner(@Param("ownerId") String ownerId, @Param("startTime") LocalDateTime startTime);
+
+    // 6. Biểu đồ doanh thu theo tháng
+    @Query("SELECT FUNCTION('MONTH', b.checkInDate) as month, SUM(b.totalPrice) as revenue " +
+            "FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND FUNCTION('YEAR', b.checkInDate) = :year " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY FUNCTION('MONTH', b.checkInDate) " +
+            "ORDER BY FUNCTION('MONTH', b.checkInDate) ASC")
+    List<Object[]> getMonthlyRevenueByOwner(@Param("ownerId") String ownerId, @Param("year") int year);
+
+    // 7. Biểu đồ số lượng booking theo tháng
+    @Query("SELECT FUNCTION('MONTH', b.createdAt) as month, COUNT(b) as count " +
+            "FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND FUNCTION('YEAR', b.createdAt) = :year " +
+            "GROUP BY FUNCTION('MONTH', b.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', b.createdAt) ASC")
+    List<Object[]> getMonthlyBookingCountByOwner(@Param("ownerId") String ownerId, @Param("year") int year);
+
+    // 8. Booking gần đây
+    @Query("SELECT b FROM Booking b WHERE b.property.owner.userId = :ownerId ORDER BY b.createdAt DESC LIMIT 10")
+    List<Booking> findRecentBookingsByOwner(@Param("ownerId") String ownerId);
+
+    // 9. Cơ cấu doanh thu theo loại hình
+    @Query("SELECT b.property.propertyType, SUM(b.totalPrice) " +
+            "FROM Booking b " +
+            "WHERE b.property.owner.userId = :ownerId " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "GROUP BY b.property.propertyType")
+    List<Object[]> getRevenueByPropertyTypeByOwner(@Param("ownerId") String ownerId);
 }
