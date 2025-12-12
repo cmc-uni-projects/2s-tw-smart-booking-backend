@@ -10,13 +10,16 @@ import com.example.smart_booking_system.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserDetailService {
@@ -24,6 +27,9 @@ public class UserDetailService {
     private final UserRepository userRepository;
     private final UserDetailRepository userDetailRepository;
     private final FileStorageService fileStorageService;
+
+    @Value("${file.static-url-prefix}")
+    private String staticUrlPrefix;
 
     public UserDetailService(UserRepository userRepository,
                              UserDetailRepository userDetailRepository,
@@ -34,10 +40,60 @@ public class UserDetailService {
     }
 
     // ==============================================================
-    // LẤY USER DETAIL
+    // GET USER DETAIL (FILE 1)
     // ==============================================================
     @Transactional
     public UserDetailResponseDTO getUserDetail(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElseGet(() -> {
+                    UserDetail newUserDetail = new UserDetail();
+                    newUserDetail.setUser(user);
+                    return userDetailRepository.save(newUserDetail);
+                });
+
+        UserDetailResponseDTO responseDTO = new UserDetailResponseDTO();
+
+        // Lấy từ User
+        responseDTO.setUserId(user.getUserId());
+        responseDTO.setEmail(user.getEmail());
+        responseDTO.setFullName(user.getFullName());
+        responseDTO.setPhoneNumber(user.getPhoneNumber());
+        responseDTO.setPoints(user.getPoints());
+        responseDTO.setMembershipRank(user.getMembershipRank());
+
+        // Lấy từ UserDetail
+        responseDTO.setUserdetailId(userDetail.getUserdetailId());
+        responseDTO.setGender(userDetail.getGender());
+        responseDTO.setDateOfBirth(userDetail.getDateOfBirth());
+        responseDTO.setProfilePhotoUrl(userDetail.getProfilePhotoUrl());
+        responseDTO.setAddress(userDetail.getAddress());
+        responseDTO.setCity(userDetail.getCity());
+        responseDTO.setCountry(userDetail.getCountry());
+
+        // Notification Email
+        responseDTO.setNotificationEmail(
+                user.getNotificationEmail() != null ? user.getNotificationEmail() : user.getEmail()
+        );
+
+        // Social Accounts
+        List<UserDetailResponseDTO.SocialAccountDTO> socialDTOs = user.getSocialAccounts().stream()
+                .map(acc -> new UserDetailResponseDTO.SocialAccountDTO(acc.getProvider().toString(), acc.getEmail()))
+                .collect(Collectors.toList());
+        responseDTO.setSocialAccounts(socialDTOs);
+
+        return responseDTO;
+    }
+
+    // ==============================================================
+    // GET USER DETAIL (FILE 2 - PHẦN KHÁC BIỆT GIỮ LẠI)
+    //  → Logic khác: trả về signedURL nếu có
+    // ==============================================================
+    @Transactional
+    public UserDetailResponseDTO getUserDetailSigned(String email) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
@@ -65,7 +121,6 @@ public class UserDetailService {
         dto.setCity(userDetail.getCity());
         dto.setCountry(userDetail.getCountry());
 
-        // Ảnh đại diện – TRẢ VỀ SIGNED URL nếu có
         if (StringUtils.hasText(userDetail.getProfilePhotoUrl())) {
             dto.setProfilePhotoUrl(
                     fileStorageService.generateSignedUrl(userDetail.getProfilePhotoUrl())
@@ -76,19 +131,23 @@ public class UserDetailService {
     }
 
     // ==============================================================
-    // CẬP NHẬT THÔNG TIN USER
+    // UPDATE USER DETAIL (FILE 1)
     // ==============================================================
     @Transactional
     public UserDetailResponseDTO updateUserDetail(String email, UserDetailRequestDTO req) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
-
         UserDetail detail = userDetailRepository.findByUser(user)
                 .orElseThrow(() -> new ResourceNotFoundException("UserDetail not found for user: " + email));
 
         user.setFullName(req.getFullName());
         user.setPhoneNumber(req.getPhoneNumber());
+
+        if (StringUtils.hasText(req.getNotificationEmail())) {
+            user.setNotificationEmail(req.getNotificationEmail());
+        }
+
         userRepository.save(user);
 
         detail.setGender(req.getGender());
@@ -99,14 +158,54 @@ public class UserDetailService {
 
         userDetailRepository.save(detail);
 
-        return getUserDetail(email);
+        return this.getUserDetail(email);
     }
 
     // ==============================================================
-    // UPLOAD ẢNH ĐẠI DIỆN (R2 PRIVATE + SIGNED URL)
+    // UPLOAD PROFILE PHOTO (FILE 1)
     // ==============================================================
     @Transactional
     public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        UserDetail userDetail = userDetailRepository.findByUser(user)
+                .orElseGet(() -> {
+                    UserDetail newUserDetail = new UserDetail();
+                    newUserDetail.setUser(user);
+                    return userDetailRepository.save(newUserDetail);
+                });
+
+        String oldUrl = userDetail.getProfilePhotoUrl();
+        if (StringUtils.hasText(oldUrl)) {
+            try {
+                int index = oldUrl.indexOf(staticUrlPrefix);
+                if (index != -1) {
+                    String relativePath = oldUrl.substring(index + staticUrlPrefix.length() + 1);
+                    fileStorageService.deleteFile(relativePath);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String fileName = fileStorageService.storeImageFile(file, "userdetail");
+
+        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path(staticUrlPrefix + "/")
+                .path(fileName)
+                .toUriString();
+
+        userDetail.setProfilePhotoUrl(fileDownloadUri);
+        userDetailRepository.save(userDetail);
+
+        return this.getUserDetail(user.getEmail());
+    }
+
+    // ==============================================================
+    // UPLOAD PROFILE PHOTO (FILE 2 - KHÁC BIỆT GIỮ LẠI)
+    // ==============================================================
+    @Transactional
+    public UserDetailResponseDTO uploadProfilePhotoR2(String userId, MultipartFile file) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
@@ -118,23 +217,20 @@ public class UserDetailService {
                     return userDetailRepository.save(newDetail);
                 });
 
-        // 🗑️ XÓA ẢNH CŨ TRÊN R2 (nếu có)
         if (StringUtils.hasText(detail.getProfilePhotoUrl())) {
-            fileStorageService.deleteFile(detail.getProfilePhotoUrl()); // key = đường dẫn trong R2
+            fileStorageService.deleteFile(detail.getProfilePhotoUrl());
         }
 
-        // 📤 UPLOAD ẢNH MỚI
         String key = fileStorageService.storeImageFile(file, "userdetail");
 
-        // Lưu KEY vào DB, KHÔNG lưu full URL
         detail.setProfilePhotoUrl(key);
         userDetailRepository.save(detail);
 
-        return getUserDetail(user.getEmail());
+        return getUserDetailSigned(user.getEmail());
     }
 
     // ==============================================================
-    // KIỂM TRA HỒ SƠ ĐẦY ĐỦ CHƯA
+    // CHECK PROFILE (FILE 1 + FILE 2 GIỐNG NHAU → GIỮ 1 BẢN)
     // ==============================================================
     @Transactional(readOnly = true)
     public ProfileStatusResponse checkProfileCompleteness(String email) {
