@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.service.impl;
 
 import com.example.smart_booking_system.service.EmailService;
+import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.dto.request.application.OwnerApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.request.admin.OwnerApplicationReviewDTO;
 import com.example.smart_booking_system.dto.response.admin.OwnerApplicationDTO;
@@ -14,9 +15,11 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.thymeleaf.context.Context;
 import java.time.format.DateTimeFormatter;
 import com.example.smart_booking_system.repository.RoleRepository;
@@ -32,26 +35,49 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     private final EmailService emailService;
     private final RoleRepository roleRepository;
 
+    // ✅ Thêm FileStorageService
+    private final FileStorageService fileStorageService;
+
     @Override
     public OwnerApplicationDTO submitApplication(OwnerApplicationSubmitDTO submitDTO, String applicantUsername) {
         User applicant = userRepository.findByEmail(applicantUsername)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + applicantUsername));
 
         OwnerApplication application = new OwnerApplication();
-
         application.setUserId(applicant);
 
         application.setPermanentAddress(submitDTO.getPermanentAddress());
         application.setHometownAddress(submitDTO.getHometownAddress());
-        application.setCardFrontImage(submitDTO.getCardFrontImage());
-        application.setCardBackImage(submitDTO.getCardBackImage());
-        application.setBusinessLicenseImage(submitDTO.getBusinessLicenseImage());
         application.setBusinessLicenseNumber(submitDTO.getBusinessLicenseNumber());
         application.setPersonalDob(submitDTO.getPersonalDob());
         application.setPersonalIdCard(submitDTO.getPersonalIdCard());
 
+        // ============================
+        // 📌 UPLOAD ẢNH — CHỈ PHẦN NÀY ĐƯỢC SỬA
+        // ============================
+        String frontUrl = fileStorageService.storeImageFile(
+                submitDTO.getCardFrontImage(),
+                "owner-applications/card-front"
+        );
+
+        String backUrl = fileStorageService.storeImageFile(
+                submitDTO.getCardBackImage(),
+                "owner-applications/card-back"
+        );
+
+        String licenseUrl = fileStorageService.storeImageFile(
+                submitDTO.getBusinessLicenseImage(),
+                "owner-applications/business-license"
+        );
+
+        application.setCardFrontImage(frontUrl);
+        application.setCardBackImage(backUrl);
+        application.setBusinessLicenseImage(licenseUrl);
+        // ============================
+
         OwnerApplication savedApp = applicationRepository.save(application);
 
+        // Email giữ nguyên logic
         try {
             String subject = "Xác nhận nộp đơn đăng ký làm chủ khách sạn";
             String templateName = "email/application-submitted-confirmation";
@@ -67,7 +93,6 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         } catch (Exception e) {
             System.err.println("Lỗi gửi email xác nhận nộp đơn: " + e.getMessage());
-
         }
 
         return convertToDTO(savedApp);
@@ -76,7 +101,6 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     @Override
     @Transactional(readOnly = true)
     public List<OwnerApplicationDTO> getPendingOwnerApplications() {
-        // Hàm này chỉ cần gọi hàm getApplicationsByStatus của bạn
         return this.getApplicationsByStatus(ApplicationStatus.PENDING);
     }
 
@@ -93,20 +117,18 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     public OwnerApplicationDTO reviewApplication(Long applicationId, OwnerApplicationReviewDTO reviewDTO, String adminUsername) {
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new EntityNotFoundException("Admin not found: " + adminUsername));
+
         OwnerApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new EntityNotFoundException("Application not found: " + applicationId));
+
         if (application.getStatus() != ApplicationStatus.PENDING) {
             throw new IllegalStateException("Đơn này đã được xử lý rồi.");
         }
 
         ApplicationStatus newStatus = reviewDTO.getStatus();
-        if (newStatus == null) {
-            throw new IllegalArgumentException("Trạng thái mới không được để trống.");
-        }
-
-        if (newStatus != ApplicationStatus.APPROVED && newStatus != ApplicationStatus.REJECTED) {
-            throw new IllegalArgumentException("Chỉ được phép cập nhật trạng thái thành APPROVED hoặc REJECTED.");
-        }
+        if (newStatus == null) throw new IllegalArgumentException("Trạng thái mới không được để trống.");
+        if (newStatus != ApplicationStatus.APPROVED && newStatus != ApplicationStatus.REJECTED)
+            throw new IllegalArgumentException("Chỉ được chuyển sang APPROVED hoặc REJECTED.");
 
         application.setAdminReason(reviewDTO.getReason());
         application.setStatus(newStatus);
@@ -116,11 +138,8 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         User applicant = application.getUserId();
 
         if (newStatus == ApplicationStatus.APPROVED) {
-            if (applicant == null) throw new EntityNotFoundException("Không tìm thấy người nộp đơn.");
-
             Role ownerRole = roleRepository.findByRoleName("OWNER")
-                    .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy ROLE_OWNER"));
-
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ROLE_OWNER"));
             applicant.addRole(ownerRole);
             userRepository.save(applicant);
         }
@@ -165,6 +184,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         if (app.getReviewedBy() != null) {
             dto.setReviewedByAdminName(app.getReviewedBy().getFullName());
         }
+
         return dto;
     }
 
@@ -179,6 +199,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         context.setVariable("reason", (adminReason != null && !adminReason.isEmpty()) ? adminReason : "N/A");
 
         String subject, templateName;
+
         if (status == ApplicationStatus.APPROVED) {
             subject = "Chúc mừng! Đơn đăng ký làm chủ khách sạn của bạn đã được DUYỆT";
             templateName = "email/application-approved";
