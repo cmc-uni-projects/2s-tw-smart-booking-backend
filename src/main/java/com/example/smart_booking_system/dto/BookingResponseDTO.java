@@ -73,11 +73,7 @@ public class BookingResponseDTO {
         // -------------------------------------------
 
         // Logic cũ (giữ nguyên để không lỗi chỗ khác)
-        if (booking.getAdminPromotionCode() != null) {
-            this.promotionCode = booking.getAdminPromotionCode();
-        } else {
-            this.promotionCode = booking.getPromotionCode();
-        }
+        this.promotionCode = booking.getPromotionCode();
 
         this.checkInDate = booking.getCheckInDate();
         this.checkOutDate = booking.getCheckOutDate();
