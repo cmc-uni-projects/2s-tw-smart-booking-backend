@@ -32,6 +32,7 @@ public class PaymentService {
     // =================================================================
     @Transactional
     public ApiResponse<?> submitPayment(int bookingId, String note, String paymentMethod) {
+        // 1. Kiểm tra dữ liệu
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -42,8 +43,8 @@ public class PaymentService {
             return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
         }
 
-        // TĂNG USAGE COUNT CHO CẢ 2 MÃ
-        // 1. Tăng count mã Owner
+        // 2. Xử lý logic khuyến mãi (Promotion Count)
+        // Tăng count mã Owner
         if (booking.getPromotionCode() != null) {
             promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now())
                     .ifPresent(promo -> {
@@ -51,8 +52,7 @@ public class PaymentService {
                         promotionRepo.save(promo);
                     });
         }
-
-        // 2. Tăng count mã Admin
+        // Tăng count mã Admin
         if (booking.getAdminPromotionCode() != null) {
             promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now())
                     .ifPresent(promo -> {
@@ -61,6 +61,7 @@ public class PaymentService {
                     });
         }
 
+        // 3. Cập nhật thông tin thanh toán
         payment.setPaymentMethod(paymentMethod);
         payment.setTotalAmount(booking.getTotalPrice());
         payment.setPaymentStatus(PaymentStatus.APPROVED);
@@ -72,24 +73,48 @@ public class PaymentService {
         payment.setNote(note);
         paymentRepo.save(payment);
 
+        // 4. Cập nhật trạng thái Booking
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepo.save(booking);
 
+        // 5. Gửi Email xác nhận (Giữ nguyên logic cũ của bạn)
         sendConfirmationEmail(booking, trxRef);
+
+        // 6. [LOGIC MỚI] Gửi thông báo (Notification)
         try {
+            String relatedId = String.valueOf(booking.getBookingId());
+            String priceFormatted = String.format("%,.0f", booking.getTotalPrice());
+
+            // --- A. Gửi cho OWNER (Dùng Type: BOOKING_RECEIVED) ---
             User owner = booking.getProperty().getOwner();
             if (owner != null) {
                 notificationService.sendNotification(
-                        owner,
+                        owner.getUserId(), // [SỬA] Lấy String ID
                         "Thanh toán thành công #" + booking.getBookingId(),
-                        "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + String.format("%,.0f", booking.getTotalPrice()) + " VNĐ. Đơn hàng đã được xác nhận!",
-                        NotificationType.SUCCESS, // Màu xanh
-                        String.valueOf(booking.getBookingId())
+                        "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + priceFormatted + " VNĐ. Đơn hàng đã được xác nhận!",
+                        NotificationType.BOOKING_RECEIVED, // [SỬA] Dùng type dành cho Owner
+                        relatedId
                 );
             }
+
+            // --- B. [BỔ SUNG] Gửi cho CUSTOMER (Dùng Type: PAYMENT_SUCCESS) ---
+            // Khách hàng cũng cần biết mình đã thanh toán thành công
+            User customer = booking.getUser();
+            if (customer != null) {
+                notificationService.sendNotification(
+                        customer.getUserId(),
+                        "Thanh toán thành công",
+                        "Bạn đã thanh toán thành công " + priceFormatted + " VNĐ cho đơn đặt phòng tại " + booking.getProperty().getPropertyName(),
+                        NotificationType.PAYMENT_SUCCESS, // [SỬA] Dùng type dành cho Customer
+                        relatedId
+                );
+            }
+
         } catch (Exception e) {
+            // Log lỗi notification không được làm ảnh hưởng transaction chính
             System.err.println("Lỗi gửi thông báo thanh toán: " + e.getMessage());
         }
+
         return ApiResponse.success("Thanh toán thành công!", new PaymentResponseDTO(payment, null));
     }
 
@@ -122,6 +147,7 @@ public class PaymentService {
     // ✅ SỬA: Hàm xử lý hoàn tiền (Admin duyệt)
     @Transactional
     public ApiResponse<?> processRefund(int refundRequestId, boolean isApproved, String adminNote) {
+        // 1. Kiểm tra dữ liệu
         RefundRequest refund = refundRepo.findById(refundRequestId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn tiền"));
 
@@ -133,12 +159,14 @@ public class PaymentService {
             return ApiResponse.error("Yêu cầu này đã được xử lý trước đó.");
         }
 
+        // 2. Cập nhật trạng thái
         if (isApproved) {
             refund.setStatus(RefundRequestStatus.APPROVED);
             payment.setPaymentStatus(PaymentStatus.REFUNDED);
             payment.setRefundedAmount(refund.getAmount());
         } else {
             refund.setStatus(RefundRequestStatus.REJECTED);
+            // Nếu từ chối hoàn tiền, trạng thái thanh toán quay về đã thanh toán (APPROVED)
             payment.setPaymentStatus(PaymentStatus.APPROVED);
         }
 
@@ -147,33 +175,66 @@ public class PaymentService {
         refundRepo.save(refund);
         paymentRepo.save(payment);
 
-        // ✅ LOGIC GỬI EMAIL & THÔNG BÁO (Chỉ khi duyệt)
+        // 3. ✅ GỬI EMAIL & THÔNG BÁO
         try {
+            String relatedId = String.valueOf(booking.getBookingId());
+            String amountFormatted = String.format("%,.0f", refund.getAmount());
+
+            // --- A. TRƯỜNG HỢP DUYỆT (APPROVED) ---
             if (isApproved) {
-                // 1. Gửi Email cho khách (Giữ nguyên)
+                // 1. Gửi Email cho khách (Logic cũ của bạn)
                 String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
                 String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
 
                 emailService.sendCancellationSuccessEmail(
                         emailTo,
                         nameTo,
-                        String.valueOf(booking.getBookingId()),
-                        String.format("%,.0f", refund.getAmount()), // Số tiền hoàn
+                        relatedId,
+                        amountFormatted, // Số tiền hoàn
                         String.format("%,.0f", booking.getPenaltyAmount()) // Phí phạt
                 );
 
-                // 2. 🔥 [NEW] GỬI THÔNG BÁO CHO OWNER: ĐÃ HOÀN TIỀN
+                // 2. [FIX] Gửi thông báo cho OWNER
                 User owner = booking.getProperty().getOwner();
                 if (owner != null) {
                     notificationService.sendNotification(
-                            owner,
-                            "Đã hoàn tiền booking #" + booking.getBookingId(),
-                            "Yêu cầu hoàn tiền đã được Admin chấp thuận. Số tiền hoàn: " + String.format("%,.0f", refund.getAmount()) + " VNĐ.",
-                            NotificationType.WARNING, // Màu vàng (tiền đi ra/cảnh báo thay đổi số dư)
-                            String.valueOf(booking.getBookingId())
+                            owner.getUserId(), // [SỬA] Lấy String ID
+                            "Hoàn tiền Booking #" + booking.getBookingId(),
+                            "Admin đã chấp thuận hoàn tiền " + amountFormatted + " VNĐ cho khách hàng. Số dư của bạn sẽ được cập nhật.",
+                            NotificationType.BOOKING_CANCELLED_BY_GUEST, // [SỬA] Dùng Type của Owner (Vì hoàn tiền thường đi kèm hủy)
+                            relatedId
+                    );
+                }
+
+                // 3. [MỚI] Gửi thông báo cho CUSTOMER (Quan trọng)
+                // Khách cần biết yêu cầu của mình đã được duyệt
+                User customer = booking.getUser();
+                if (customer != null) {
+                    notificationService.sendNotification(
+                            customer.getUserId(),
+                            "Yêu cầu hoàn tiền được duyệt",
+                            "Yêu cầu hoàn tiền " + amountFormatted + " VNĐ cho đơn #" + booking.getBookingId() + " đã được chấp thuận.",
+                            NotificationType.REFUND_PROCESSED, // [SỬA] Dùng Type của Customer
+                            relatedId
                     );
                 }
             }
+
+            // --- B. TRƯỜNG HỢP TỪ CHỐI (REJECTED) ---
+            else {
+                // Nên báo cho khách biết tại sao bị từ chối
+                User customer = booking.getUser();
+                if (customer != null) {
+                    notificationService.sendNotification(
+                            customer.getUserId(),
+                            "Yêu cầu hoàn tiền bị từ chối",
+                            "Admin đã từ chối hoàn tiền cho đơn #" + booking.getBookingId() + ". Lý do: " + adminNote,
+                            NotificationType.GENERAL, // Dùng type chung vì không có Type REJECTED_REFUND
+                            relatedId
+                    );
+                }
+            }
+
         } catch (Exception e) {
             System.err.println("Lỗi gửi email/thông báo hoàn tiền: " + e.getMessage());
         }
