@@ -52,6 +52,8 @@ public class PropertyDetailDTO {
     private List<PropertyAmenityResponseDTO> amenities;
     private List<RoomResponseDTO> rooms;
 
+    private boolean active;
+
     public PropertyDetailDTO(Property property) {
         this.propertyId = property.getPropertyId();
         this.propertyName = property.getPropertyName();
@@ -73,6 +75,8 @@ public class PropertyDetailDTO {
         this.reviewCount = property.getReviewCount();
         this.propertyStatus = property.getPropertyStatus();
         this.createdAt = property.getCreatedAt();
+
+        this.active = property.isActive();
 
         if (property.getOwner() != null) {
             this.ownerId = property.getOwner().getUserId();
