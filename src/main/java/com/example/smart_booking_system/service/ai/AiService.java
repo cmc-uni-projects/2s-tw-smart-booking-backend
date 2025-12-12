@@ -83,7 +83,7 @@ public class AiService {
        Hà Giang là điểm đến tuyệt vời với cảnh sắc hùng vĩ. 
        Dưới đây là những nơi nổi bật mà bạn nên ghé thăm:
 
-       PAYLOAD (JSON only):
+       (JSON only):
        {
          "city": "Hà Giang",
          "places": [
