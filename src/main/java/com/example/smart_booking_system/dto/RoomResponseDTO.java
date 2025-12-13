@@ -19,6 +19,7 @@ public class RoomResponseDTO {
     private String roomName;
     private RoomCategory roomCategory;
     private BigDecimal pricePerNight;
+    private BigDecimal weekendPrice;
     private int capacity;
     private String description;
     private RoomStatus roomStatus;
@@ -35,6 +36,7 @@ public class RoomResponseDTO {
         this.roomName = room.getRoomName();
         this.roomCategory = room.getRoomCategory();
         this.pricePerNight = room.getPricePerNight();
+        this.weekendPrice = room.getWeekendPrice();
         this.capacity = room.getCapacity();
         this.description = room.getDescription();
         this.roomStatus = room.getRoomStatus();
