@@ -217,9 +217,9 @@ public class BookingService {
 
             bookingRepo.save(booking);
 
-            // -> Thông báo cho KHÁCH: Hủy thành công
+            // Thông báo cho KHÁCH
             notificationService.sendNotification(
-                    booking.getUser().getUserId(), // String ID
+                    booking.getUser().getUserId(),
                     "Hủy đặt phòng thành công",
                     "Đơn đặt phòng #" + booking.getBookingId() + " đã được hủy thành công. Bạn không bị tính phí.",
                     NotificationType.BOOKING_CANCELLED,
@@ -229,7 +229,7 @@ public class BookingService {
             return convertToDTO(booking);
         }
 
-        // --- TRƯỜNG HỢP 2: ĐÃ THANH TOÁN (Tính toán hoàn tiền) ---
+        // --- TRƯỜNG HỢP 2: ĐÃ THANH TOÁN (Tính toán phí phạt & hoàn tiền) ---
         PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
         LocalDate checkInDate = booking.getCheckInDate();
@@ -239,7 +239,7 @@ public class BookingService {
 
         long daysUntilCheckIn = ChronoUnit.DAYS.between(today, checkInDate);
 
-        // Logic tính phí phạt (Giữ nguyên của bạn)
+        // Logic tính phí phạt
         if (daysUntilCheckIn <= 1) {
             penaltyAmount = booking.getTotalPrice();
             refundAmount = BigDecimal.ZERO;
@@ -270,26 +270,9 @@ public class BookingService {
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
 
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+        // (ĐÃ BỎ ĐOẠN TỰ ĐỘNG TẠO REFUND REQUEST Ở ĐÂY THEO YÊU CẦU CỦA BẠN)
 
-        // 4. TỰ ĐỘNG TẠO YÊU CẦU HOÀN TIỀN
-        /*if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment != null && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
-            if (!refundRepo.existsByBooking(booking)) {
-                RefundRequest refund = new RefundRequest();
-                refund.setBooking(booking);
-                refund.setAmount(refundAmount);
-                refund.setStatus(RefundRequestStatus.PENDING);
-                refund.setReason("Khách hủy phòng (Hệ thống tự động tạo)");
-                refund.setRequestDate(LocalDateTime.now());
-                refundRepo.save(refund);
-
-                payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
-                paymentRepo.save(payment);
-                hasRefundRequest = true;
-            }
-        }
-*/
-        // 5. Gửi Email thông báo
+        // 3. Gửi Email thông báo
         try {
             String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
             String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
@@ -302,34 +285,35 @@ public class BookingService {
         }
 
         // ========================================================================
-        // 🔥 [CẬP NHẬT] GỬI THÔNG BÁO (NOTIFICATION)
+        // 🔥 CẬP NHẬT GỬI THÔNG BÁO (NOTIFICATION)
         // ========================================================================
         try {
-            // 1. Gửi cho CUSTOMER (Quan trọng nhất)
+            // 1. Gửi cho CUSTOMER
             String customerMsg;
-            if (hasRefundRequest) {
-                customerMsg = "Đơn #" + booking.getBookingId() + " đã hủy. Yêu cầu hoàn tiền "
-                        + String.format("%,.0f", refundAmount) + " VNĐ đã được tạo và đang chờ Admin xử lý.";
+            // Logic mới: Dựa vào số tiền hoàn tính được để thông báo
+            if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                customerMsg = "Đơn #" + booking.getBookingId() + " đã hủy. Số tiền hoàn dự kiến: "
+                        + String.format("%,.0f", refundAmount) + " VNĐ. Vui lòng liên hệ hỗ trợ nếu cần thêm thông tin.";
             } else {
                 customerMsg = "Đơn #" + booking.getBookingId() + " đã hủy. Rất tiếc, bạn không được hoàn tiền do quá hạn hủy miễn phí.";
             }
 
             notificationService.sendNotification(
-                    booking.getUser().getUserId(), // String ID
+                    booking.getUser().getUserId(),
                     "Đã hủy đặt phòng",
                     customerMsg,
-                    NotificationType.BOOKING_CANCELLED, // Type dành cho Customer
+                    NotificationType.BOOKING_CANCELLED,
                     relatedId
             );
 
-            // 2. Gửi cho OWNER (Vẫn cần báo để họ biết phòng trống)
+            // 2. Gửi cho OWNER
             User owner = booking.getProperty().getOwner();
             if (owner != null) {
                 notificationService.sendNotification(
-                        owner.getUserId(), // String ID
+                        owner.getUserId(),
                         "Khách đã hủy phòng #" + booking.getBookingId(),
                         "Khách hàng đã hủy đơn đặt phòng. Lịch phòng đã được mở lại.",
-                        NotificationType.BOOKING_CANCELLED_BY_GUEST, // Type dành cho Owner
+                        NotificationType.BOOKING_CANCELLED_BY_GUEST,
                         relatedId
                 );
             }
