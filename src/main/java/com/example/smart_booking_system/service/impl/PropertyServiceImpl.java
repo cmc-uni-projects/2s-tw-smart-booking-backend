@@ -10,6 +10,7 @@ import com.example.smart_booking_system.dto.request.property.PropertyApplication
 import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
 import com.example.smart_booking_system.service.EmailService;
@@ -528,5 +529,31 @@ public class PropertyServiceImpl implements PropertyService {
                 : "Cơ sở bị từ chối";
 
         emailService.sendHtmlEmail(owner.getEmail(), subject, template, context);
+    }
+
+    @Override
+    public boolean togglePropertyStatus(Integer propertyId, String ownerId) {
+        // 1. Tìm Property theo ID
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cơ sở lưu trú"));
+
+        // 2. Kiểm tra quyền sở hữu (Owner phải là người sở hữu property này)
+        if (!property.getOwner().getUserId().equals(ownerId)) {
+            throw new ForbiddenException("Bạn không có quyền chỉnh sửa cơ sở này");
+        }
+
+        // 3. Kiểm tra trạng thái duyệt
+        if (property.getPropertyStatus() != PropertyStatus.APPROVE) {
+            throw new IllegalArgumentException("Cơ sở phải được Admin duyệt (APPROVE) mới có thể thay đổi trạng thái hoạt động.");
+        }
+
+        // 4. Đảo ngược trạng thái active
+        boolean newStatus = !property.isActive();
+        property.setActive(newStatus);
+        property.setUpdatedAt(LocalDate.now());
+
+        propertyRepository.save(property);
+
+        return newStatus;
     }
 }

@@ -41,4 +41,6 @@ public interface PropertyService {
                                              LocalDate checkOut);
 
     boolean checkNameAvailability(String propertyName);
+
+    boolean togglePropertyStatus(Integer propertyId, String ownerId);
 }
