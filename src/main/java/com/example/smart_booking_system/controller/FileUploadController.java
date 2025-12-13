@@ -3,14 +3,12 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.response.FileUploadResponse;
 import com.example.smart_booking_system.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -19,30 +17,37 @@ public class FileUploadController {
 
     private final FileStorageService fileStorageService;
 
-
-    @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix;
-
     @PostMapping("/upload")
-    public ResponseEntity<FileUploadResponse> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadFiles(@RequestParam("files") List<MultipartFile> files) {
 
-        // Gọi hàm 1 tham số (lưu vào thư mục gốc)
-        String fileName = fileStorageService.storeImageFile(file);
+        if (files == null || files.isEmpty()) {
+            return ResponseEntity.badRequest().body("Không có file nào được upload!");
+        }
 
+        List<FileUploadResponse> responses = new ArrayList<>();
 
-        // Tạo URL công khai cho file (ví dụ: http://.../images/abc.png)
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path(staticUrlPrefix + "/") // Dùng prefix (ví dụ: /images/)
-                .path(fileName)              // Tên file (ví dụ: abc.png)
-                .toUriString();
+        for (MultipartFile file : files) {
 
-        FileUploadResponse response = new FileUploadResponse(
-                fileDownloadUri,
-                fileName,
-                file.getSize(),
-                file.getContentType()
-        );
+            // 1️⃣ Upload file vào R2 → trả về key
+            String key = fileStorageService.storeImageFile(file);
 
-        return ResponseEntity.ok(response);
+            // 2️⃣ Tạo Signed URL (giống Cloudinary secure_url)
+            String signedUrl = fileStorageService.generateSignedUrl(key);
+
+            responses.add(new FileUploadResponse(
+                    signedUrl,          // url hiển thị ảnh (giống Cloudinary secure_url)
+                    key,                // key để lưu vào DB
+                    file.getSize(),
+                    file.getContentType()
+            ));
+        }
+
+        // Trả về dạng Cloudinary: upload một file → trả object
+        if (responses.size() == 1) {
+            return ResponseEntity.ok(responses.get(0));
+        }
+
+        // Upload nhiều file → trả về list
+        return ResponseEntity.ok(responses);
     }
 }
