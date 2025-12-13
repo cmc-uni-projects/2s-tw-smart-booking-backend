@@ -83,4 +83,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     @Query("SELECT p FROM Promotion p WHERE p.property.owner.userId = :userId AND p.status != com.example.smart_booking_system.enums.PromotionStatus.DELETED ORDER BY p.createdAt DESC")
     List<Promotion> findAllByOwnerId(@Param("userId") String userId);
+
+    @Query("SELECT p FROM Promotion p LEFT JOIN FETCH p.property ORDER BY p.promotionId DESC")
+    List<Promotion> findAllWithProperty();
 }

@@ -33,6 +33,7 @@ public class BookingService {
     private final PromotionRepository promotionRepo;
     private final RatingRepository ratingRepository;
     private final RefundRequestRepository refundRepo;
+    private final NotificationService notificationService;
     private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
 
     // ================================
@@ -41,10 +42,9 @@ public class BookingService {
     @Transactional
     public BookingResponseDTO createBooking(BookingRequestDTO req) {
 
-        // --- 1) Kiểm tra tồn tại cơ bản ---
+        // --- 1) Kiểm tra tồn tại cơ bản (Giữ nguyên) ---
         User user = userRepo.findById(req.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found: " + req.getUserId()));
-
 
         Property property = propertyRepo.findById(req.getPropertyId())
                 .orElseThrow(() -> new RuntimeException("Property not found: " + req.getPropertyId()));
@@ -104,7 +104,7 @@ public class BookingService {
 
         // --- 7) TẠO BOOKING & LƯU THÔNG TIN KHÁCH ---
         Booking booking = new Booking();
-        booking.setUser(user);          // Tài khoản đặt
+        booking.setUser(user);
         booking.setProperty(property);
         booking.setRoom(room);
         booking.setCheckInDate(req.getCheckInDate());
@@ -112,17 +112,15 @@ public class BookingService {
         booking.setGuestCount(req.getGuestCount());
         booking.setTotalPrice(total);
         booking.setPenaltyAmount(BigDecimal.ZERO);
-        booking.setRefundAmount(BigDecimal.ZERO); // Init bằng 0 thay vì total
+        booking.setRefundAmount(BigDecimal.ZERO);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
 
-        // 🔥 [LOGIC MỚI] Xử lý thông tin người ở
+        // Xử lý thông tin người ở
         if (req.isBookingForSelf()) {
-            // Nếu đặt cho mình: Lấy thông tin từ User Detail trong DB (đảm bảo chính xác)
             booking.setCustomerName(user.getFullName());
             booking.setCustomerPhone(user.getPhoneNumber());
             booking.setCustomerEmail(user.getEmail());
         } else {
-            // Nếu đặt hộ: Lấy thông tin người dùng nhập từ Form
             if (req.getContactName() == null || req.getContactPhone() == null) {
                 throw new RuntimeException("Contact info is required when booking for others");
             }
@@ -143,16 +141,48 @@ public class BookingService {
         payment.setCreatedAt(LocalDateTime.now());
         paymentRepo.save(payment);
 
-        // Gửi email xác nhận đã nhận yêu cầu (Pending Payment)
+        // --- 9) Logic Gửi Email (Giữ nguyên) ---
         try {
             emailService.sendPaymentReminderEmail(
-                    booking.getCustomerEmail(), // Gửi vào email người ở (hoặc user.getEmail() tuỳ logic)
+                    booking.getCustomerEmail(),
                     booking.getCustomerName(),
                     String.valueOf(booking.getBookingId()),
                     booking.getTotalPrice().toString()
             );
         } catch (Exception e) {
             System.err.println("Lỗi gửi email: " + e.getMessage());
+        }
+
+        // ========================================================================
+        // 🔥 [CẬP NHẬT] GỬI THÔNG BÁO (NOTIFICATION)
+        // ========================================================================
+        try {
+            String relatedId = String.valueOf(booking.getBookingId());
+            String propertyName = property.getPropertyName();
+
+            // 1. Gửi cho OWNER (Người nhận được đơn)
+            User owner = property.getOwner();
+            if (owner != null) {
+                notificationService.sendNotification(
+                        owner.getUserId(), // [SỬA] Truyền String ID
+                        "Đơn đặt phòng mới #" + booking.getBookingId(),
+                        "Khách hàng " + booking.getCustomerName() + " vừa đặt phòng tại " + propertyName + ". Trạng thái: Chờ thanh toán.",
+                        NotificationType.BOOKING_RECEIVED, // [SỬA] Dùng Type của Owner
+                        relatedId
+                );
+            }
+
+            // 2. Gửi cho CUSTOMER (Người đặt) - Để họ biết đã tạo đơn thành công và cần thanh toán
+            notificationService.sendNotification(
+                    user.getUserId(), // [SỬA] Truyền String ID
+                    "Đặt phòng thành công - Chờ thanh toán",
+                    "Bạn vừa đặt phòng tại " + propertyName + ". Vui lòng hoàn tất thanh toán để giữ phòng.",
+                    NotificationType.BOOKING_SUCCESS, // [SỬA] Dùng Type của Customer (Tạm coi là success bước giữ chỗ)
+                    relatedId
+            );
+
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo (không ảnh hưởng booking): " + e.getMessage());
         }
 
         return convertToDTO(booking);
@@ -163,6 +193,7 @@ public class BookingService {
     // ================================
     @Transactional
     public BookingResponseDTO cancelBooking(int bookingId) {
+        // 1. Kiểm tra tồn tại
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found: " + bookingId));
 
@@ -170,24 +201,35 @@ public class BookingService {
             throw new RuntimeException("Booking already cancelled");
         }
 
-        // Nếu chưa thanh toán -> Hủy ngay lập tức, không tính phạt, không hoàn tiền
+        String relatedId = String.valueOf(booking.getBookingId());
+
+        // --- TRƯỜNG HỢP 1: CHƯA THANH TOÁN (Hủy ngay) ---
         if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setPenaltyAmount(BigDecimal.ZERO);
             booking.setRefundAmount(BigDecimal.ZERO);
 
-            // Cập nhật trạng thái Payment sang FAILED (nếu đã tạo record payment)
             Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
             if (payment != null) {
                 payment.setPaymentStatus(PaymentStatus.REJECTED);
                 paymentRepo.save(payment);
             }
 
-            Booking saved = bookingRepo.save(booking);
-            return convertToDTO(saved);
+            bookingRepo.save(booking);
+
+            // Thông báo cho KHÁCH
+            notificationService.sendNotification(
+                    booking.getUser().getUserId(),
+                    "Hủy đặt phòng thành công",
+                    "Đơn đặt phòng #" + booking.getBookingId() + " đã được hủy thành công. Bạn không bị tính phí.",
+                    NotificationType.BOOKING_CANCELLED,
+                    relatedId
+            );
+
+            return convertToDTO(booking);
         }
 
-        // --- 1. Logic tính toán hoàn tiền (Lấy từ code gốc của bạn) ---
+        // --- TRƯỜNG HỢP 2: ĐÃ THANH TOÁN (Tính toán phí phạt & hoàn tiền) ---
         PropertyPolicies policies = policiesRepo.findByPropertyId(booking.getProperty().getPropertyId());
         LocalDate today = LocalDate.now();
         LocalDate checkInDate = booking.getCheckInDate();
@@ -197,13 +239,12 @@ public class BookingService {
 
         long daysUntilCheckIn = ChronoUnit.DAYS.between(today, checkInDate);
 
+        // Logic tính phí phạt
         if (daysUntilCheckIn <= 1) {
-            // Trường hợp 1: Sát ngày (<= 1 ngày) -> Phạt 100%
             penaltyAmount = booking.getTotalPrice();
             refundAmount = BigDecimal.ZERO;
         } else {
             boolean isFreeCancellation = false;
-            // Check chính sách miễn phí của Property
             if (policies != null && Boolean.TRUE.equals(policies.isAllowFreeCancellation())) {
                 Integer freeDays = policies.getFreeCancellationDays();
                 if (freeDays == null) freeDays = 0;
@@ -215,59 +256,70 @@ public class BookingService {
             }
 
             if (isFreeCancellation) {
-                // Trường hợp 2: Miễn phí -> Hoàn 100%
                 penaltyAmount = BigDecimal.ZERO;
                 refundAmount = booking.getTotalPrice();
             } else {
-                // Trường hợp 3: Ngoài chính sách -> Phạt 30%
-                penaltyAmount = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.30));
+                penaltyAmount = booking.getTotalPrice().multiply(BigDecimal.valueOf(0.30)); // Phí 30%
                 refundAmount = booking.getTotalPrice().subtract(penaltyAmount);
             }
         }
 
-        // 3. Cập nhật Booking
+        // Cập nhật Booking
         booking.setPenaltyAmount(penaltyAmount);
         booking.setRefundAmount(refundAmount);
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
 
-        // 4. TỰ ĐỘNG TẠO YÊU CẦU HOÀN TIỀN (Nếu có tiền hoàn và đã thanh toán)
-        if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
+        // (ĐÃ BỎ ĐOẠN TỰ ĐỘNG TẠO REFUND REQUEST Ở ĐÂY THEO YÊU CẦU CỦA BẠN)
 
-            if (!refundRepo.existsByBooking(booking)) {
-                RefundRequest refund = new RefundRequest();
-                refund.setBooking(booking);
-                refund.setAmount(refundAmount);
-                refund.setStatus(RefundRequestStatus.PENDING); // Chờ Admin duyệt
-                refund.setReason("Khách hủy phòng (Hệ thống tự động tạo)");
-                refund.setRequestDate(LocalDateTime.now());
-
-                // Lưu RefundRequest (không cần bank info vì user ko nhập)
-                refundRepo.save(refund);
-
-                // Cập nhật Payment -> REFUND_REQUESTED
-                payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
-                paymentRepo.save(payment);
-            }
-        }
-
-        // 5. Gửi Email thông báo "Chờ duyệt"
+        // 3. Gửi Email thông báo
         try {
-            // Ưu tiên gửi cho email khách hàng nhập trong booking
             String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
             String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
-
             emailService.sendCancellationRequestReceivedEmail(
-                    emailTo,
-                    nameTo,
-                    String.valueOf(booking.getBookingId()),
-                    booking.getTotalPrice(),
-                    penaltyAmount,
-                    refundAmount
+                    emailTo, nameTo, String.valueOf(booking.getBookingId()),
+                    booking.getTotalPrice(), penaltyAmount, refundAmount
             );
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail cancel: " + e.getMessage());
+        }
+
+        // ========================================================================
+        // 🔥 CẬP NHẬT GỬI THÔNG BÁO (NOTIFICATION)
+        // ========================================================================
+        try {
+            // 1. Gửi cho CUSTOMER
+            String customerMsg;
+            // Logic mới: Dựa vào số tiền hoàn tính được để thông báo
+            if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                customerMsg = "Đơn #" + booking.getBookingId() + " đã hủy. Số tiền hoàn dự kiến: "
+                        + String.format("%,.0f", refundAmount) + " VNĐ. Vui lòng liên hệ hỗ trợ nếu cần thêm thông tin.";
+            } else {
+                customerMsg = "Đơn #" + booking.getBookingId() + " đã hủy. Rất tiếc, bạn không được hoàn tiền do quá hạn hủy miễn phí.";
+            }
+
+            notificationService.sendNotification(
+                    booking.getUser().getUserId(),
+                    "Đã hủy đặt phòng",
+                    customerMsg,
+                    NotificationType.BOOKING_CANCELLED,
+                    relatedId
+            );
+
+            // 2. Gửi cho OWNER
+            User owner = booking.getProperty().getOwner();
+            if (owner != null) {
+                notificationService.sendNotification(
+                        owner.getUserId(),
+                        "Khách đã hủy phòng #" + booking.getBookingId(),
+                        "Khách hàng đã hủy đơn đặt phòng. Lịch phòng đã được mở lại.",
+                        NotificationType.BOOKING_CANCELLED_BY_GUEST,
+                        relatedId
+                );
+            }
+
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo: " + e.getMessage());
         }
 
         return convertToDTO(booking);
@@ -477,6 +529,8 @@ public class BookingService {
         dto.setPenaltyAmount(b.getPenaltyAmount());
         dto.setRefundAmount(b.getRefundAmount());
         dto.setCreatedAt(b.getCreatedAt());
+        dto.setAdminPromotionCode(b.getAdminPromotionCode());
+        dto.setOwnerPromotionCode(b.getPromotionCode());
         dto.setReviewed(ratingRepository.existsByBookingId_BookingId(b.getBookingId()));
         dto.setDiscountAmount(b.getDiscountAmount() != null ? b.getDiscountAmount() : BigDecimal.ZERO);
         dto.setPromotionCode(b.getPromotionCode());
@@ -554,11 +608,10 @@ public class BookingService {
     }
 
     // =====================================================
-    // ÁP DỤNG MÃ GIẢM GIÁ
+    // ÁP DỤNG MÃ GIẢM GIÁ (LOGIC CỘNG DỒN: OWNER TRƯỚC -> ADMIN SAU)
     // =====================================================
     @Transactional
     public BookingResponseDTO applyPromotion(int bookingId, String code) {
-        // 1. Tìm Booking
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
@@ -566,75 +619,127 @@ public class BookingService {
             throw new RuntimeException("Chỉ có thể áp dụng mã cho đơn hàng chưa thanh toán.");
         }
 
-        // 2. Tính lại GIÁ GỐC (Original Price) để tránh lỗi áp dụng chồng mã
-        // Giá gốc = Giá hiện tại + Giá đã giảm trước đó (nếu có)
-        BigDecimal currentTotal = booking.getTotalPrice();
-        BigDecimal currentDiscount = booking.getDiscountAmount() == null ? BigDecimal.ZERO : booking.getDiscountAmount();
-        BigDecimal originalPrice = currentTotal.add(currentDiscount);
-
-        // 3. Tìm và Validate Promotion
-        // Hàm findValidPromotion đã có sẵn trong PromotionRepository (kiểm tra ngày, status, limit)
+        // 1. Tìm thông tin mã (Validate cơ bản: tồn tại, còn hạn, active)
         Promotion promotion = promotionRepo.findValidPromotion(code, LocalDateTime.now())
-                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ, đã hết hạn hoặc hết lượt sử dụng."));
+                .orElseThrow(() -> new RuntimeException("Mã giảm giá không hợp lệ hoặc đã hết hạn."));
 
-        // 4. Validate điều kiện: Giá trị đơn tối thiểu
-        if (promotion.getMinBookingAmount() != null
-                && originalPrice.compareTo(promotion.getMinBookingAmount()) < 0) {
-            throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu để dùng mã này ("
-                    + String.format("%,.0f", promotion.getMinBookingAmount()) + " VND)");
+        // 2. Phân loại mã (Admin hay Owner) và lưu vào Booking
+        if (promotion.getProperty() == null) {
+            // >>> Mã ADMIN
+            booking.setAdminPromotionCode(code);
+        } else {
+            // >>> Mã OWNER
+            // Validate: Mã này có phải của khách sạn này không?
+            if (promotion.getProperty().getPropertyId() != booking.getProperty().getPropertyId()) {
+                throw new RuntimeException("Mã giảm giá này không áp dụng cho khách sạn hiện tại.");
+            }
+            booking.setPromotionCode(code);
         }
 
-        // 5. Tính toán Discount
-        BigDecimal discount = BigDecimal.ZERO;
+        // 3. Tính toán lại toàn bộ giá (Recalculate)
+        calculateAndSetBookingPrice(booking);
 
-        if (promotion.getDiscountType() == DiscountType.FIXED_AMOUNT) {
-            // Giảm tiền mặt
-            discount = promotion.getDiscountValue();
-        } else {
-            // Giảm theo %
-            discount = originalPrice.multiply(promotion.getDiscountValue()).divide(BigDecimal.valueOf(100));
+        Booking saved = bookingRepo.save(booking);
 
-            // Kiểm tra số tiền giảm tối đa (Max Discount)
-            if (promotion.getMaxDiscountAmount() != null
-                    && discount.compareTo(promotion.getMaxDiscountAmount()) > 0) {
-                discount = promotion.getMaxDiscountAmount();
+        // 4. Đồng bộ giá sang bảng Payment
+        updatePaymentAmount(saved);
+
+        return convertToDTO(saved);
+    }
+
+    // --- Helper: Tính toán giá theo thứ tự ưu tiên ---
+    // --- Helper: Tính toán giá theo thứ tự ưu tiên ---
+    private void calculateAndSetBookingPrice(Booking booking) {
+        // A. Tính giá gốc (Base Price) từ phòng và số đêm
+        long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
+        if (nights <= 0) nights = 1;
+        BigDecimal basePrice = booking.getRoom().getPricePerNight().multiply(BigDecimal.valueOf(nights));
+
+        BigDecimal currentPrice = basePrice;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+
+        // B. BƯỚC 1: Áp dụng mã OWNER (nếu có)
+        if (booking.getPromotionCode() != null) {
+            // [SỬA]: Dùng findValidPromotion để check kỹ ngày Start/End/Active ngay tại đây
+            Promotion ownerPromo = promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now()).orElse(null);
+
+            if (ownerPromo != null) {
+                // Check thêm điều kiện mã phải thuộc về khách sạn này (Double check)
+                if (ownerPromo.getProperty() != null && ownerPromo.getProperty().getPropertyId() == booking.getProperty().getPropertyId()) {
+                    if (checkMinAmount(ownerPromo, basePrice)) {
+                        BigDecimal discount1 = calculateDiscount(basePrice, ownerPromo); // Giảm trên giá gốc
+
+                        // Cập nhật giá
+                        currentPrice = currentPrice.subtract(discount1);
+                        totalDiscount = totalDiscount.add(discount1);
+                    }
+                }
             }
         }
 
-        // Đảm bảo không giảm quá giá trị đơn (không âm tiền)
-        if (discount.compareTo(originalPrice) > 0) {
-            discount = originalPrice;
+        // C. BƯỚC 2: Áp dụng mã ADMIN (nếu có) -> Tính trên GIÁ ĐÃ GIẢM (currentPrice)
+        if (booking.getAdminPromotionCode() != null) {
+            // [SỬA]: Dùng findValidPromotion cho mã Admin luôn
+            Promotion adminPromo = promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now()).orElse(null);
+
+            if (adminPromo != null) {
+                // Check mã Admin (property null)
+                if (adminPromo.getProperty() == null) {
+                    if (checkMinAmount(adminPromo, currentPrice)) {
+                        BigDecimal discount2 = calculateDiscount(currentPrice, adminPromo); // Giảm trên giá còn lại
+
+                        currentPrice = currentPrice.subtract(discount2);
+                        totalDiscount = totalDiscount.add(discount2);
+                    }
+                }
+            }
         }
 
-        // 6. Cập nhật Booking
-        BigDecimal newTotal = originalPrice.subtract(discount);
+        // D. Set giá trị cuối cùng vào Booking (Không âm)
+        if (currentPrice.compareTo(BigDecimal.ZERO) < 0) currentPrice = BigDecimal.ZERO;
 
-        booking.setPromotionCode(code);
-        booking.setDiscountAmount(discount);
-        booking.setTotalPrice(newTotal);
+        booking.setTotalPrice(currentPrice);
+        booking.setDiscountAmount(totalDiscount);
+    }
+    // --- Helper: Tính tiền giảm ---
+    private BigDecimal calculateDiscount(BigDecimal amountToApply, Promotion promo) {
+        BigDecimal discount;
+        if (promo.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+            discount = promo.getDiscountValue();
+        } else {
+            // Giảm theo %
+            discount = amountToApply.multiply(promo.getDiscountValue()).divide(BigDecimal.valueOf(100));
+            // Check Max Discount
+            if (promo.getMaxDiscountAmount() != null && discount.compareTo(promo.getMaxDiscountAmount()) > 0) {
+                discount = promo.getMaxDiscountAmount();
+            }
+        }
+        // Không giảm quá số tiền hiện tại
+        return discount.compareTo(amountToApply) > 0 ? amountToApply : discount;
+    }
 
-        // Cập nhật cả bảng Payment (vì Payment lưu totalAmount)
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
+    private boolean checkMinAmount(Promotion promo, BigDecimal amount) {
+        return promo.getMinBookingAmount() == null || amount.compareTo(promo.getMinBookingAmount()) >= 0;
+    }
+
+    private void updatePaymentAmount(Booking booking) {
+        Payment payment = paymentRepo.findByBooking_BookingId(booking.getBookingId()).orElse(null);
         if (payment != null) {
-            payment.setTotalAmount(newTotal);
+            payment.setTotalAmount(booking.getTotalPrice());
             paymentRepo.save(payment);
         }
-
-        Booking saved = bookingRepo.save(booking);
-        return convertToDTO(saved);
     }
 
     // ============================================================
     // 🔥 [NEW] XỬ LÝ THANH TOÁN THÀNH CÔNG (Được gọi từ PaymentController/Service)
     // ============================================================
-    @Transactional
+    @Transactional // Nên thêm Transactional nếu chưa có ở class level
     public void confirmBookingPayment(int bookingId) {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
         // 1. Kiểm tra trạng thái hợp lệ
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            // Có thể log warning nếu đơn đã confirm rồi
             logger.warn("Booking {} đã được xử lý trước đó. Trạng thái hiện tại: {}", bookingId, booking.getStatus());
             return;
         }
@@ -642,18 +747,18 @@ public class BookingService {
         // 2. Cập nhật trạng thái Booking -> CONFIRMED
         booking.setStatus(BookingStatus.CONFIRMED);
 
-        // 3. Cập nhật trạng thái Payment -> PAID/APPROVED (Đồng bộ dữ liệu)
+        // 3. Cập nhật trạng thái Payment -> PAID/APPROVED
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
         if (payment != null) {
-            payment.setPaymentStatus(PaymentStatus.APPROVED); // Hoặc PAID tuỳ enum của bạn
-            payment.setPaymentDate(LocalDateTime.now()); // Lưu thời gian thanh toán
+            payment.setPaymentStatus(PaymentStatus.APPROVED);
+            payment.setPaymentDate(LocalDateTime.now());
             paymentRepo.save(payment);
         }
 
         bookingRepo.save(booking);
         logger.info("✅ Booking {} đã được xác nhận thanh toán thành công.", bookingId);
 
-        // 4. Gửi email xác nhận đặt phòng (Booking Confirmation)
+        // 4. Gửi email xác nhận đặt phòng (Giữ nguyên logic cũ)
         try {
             String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
             String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
@@ -662,8 +767,44 @@ public class BookingService {
             logger.error("Lỗi gửi email xác nhận booking: {}", e.getMessage());
         }
 
-        // 5. 🔥 [LOGIC MỚI] Kiểm tra xem có cần gửi mail nhắc nhở check-in NGAY LẬP TỨC không?
-        // (Dành cho khách đặt sát ngày: Ví dụ đặt hôm nay đi luôn, hoặc đặt hôm nay đi ngày mai)
+        // ========================================================================
+        // 🔥 [CẬP NHẬT] GỬI THÔNG BÁO (NOTIFICATION)
+        // ========================================================================
+        try {
+            String relatedId = String.valueOf(booking.getBookingId());
+            String propertyName = booking.getProperty().getPropertyName();
+            String priceFormatted = String.format("%,.0f", booking.getTotalPrice());
+
+            // A. Gửi cho OWNER (Người nhận tiền/đơn)
+            User owner = booking.getProperty().getOwner();
+            if (owner != null) {
+                notificationService.sendNotification(
+                        owner.getUserId(), // [SỬA] Lấy String ID
+                        "Thanh toán thành công #" + booking.getBookingId(),
+                        "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + priceFormatted + " VNĐ. Đơn hàng đã được xác nhận!",
+                        NotificationType.BOOKING_RECEIVED, // [SỬA] Dùng Type của Owner
+                        relatedId
+                );
+            }
+
+            // B. [MỚI] Gửi cho CUSTOMER (Người đặt)
+            // Đây là thông báo quan trọng nhất để khách biết mình đã có phòng
+            User customer = booking.getUser();
+            if (customer != null) {
+                notificationService.sendNotification(
+                        customer.getUserId(), // [SỬA] Lấy String ID
+                        "Đặt phòng thành công!",
+                        "Chúc mừng! Đơn phòng #" + booking.getBookingId() + " tại " + propertyName + " đã được xác nhận. Chúc bạn có kỳ nghỉ vui vẻ!",
+                        NotificationType.BOOKING_SUCCESS, // [SỬA] Dùng Type của Customer (Màu xanh)
+                        relatedId
+                );
+            }
+
+        } catch (Exception e) {
+            logger.error("Lỗi gửi thông báo thanh toán: {}", e.getMessage());
+        }
+
+        // 5. Kiểm tra gửi mail nhắc nhở check-in ngay lập tức (Giữ nguyên)
         checkAndSendImmediateReminder(booking);
     }
 

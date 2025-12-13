@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.request.RefundSubmitDTO;
+import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,9 +31,16 @@ public class PaymentController {
     @GetMapping("/my-history")
     public ResponseEntity<?> getMyHistory() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        // Giả sử principal trả về userId hoặc username
-        String userId = auth.getName();
-        // Nếu bạn dùng CustomUserDetails thì ép kiểu: ((CustomUserDetails) auth.getPrincipal()).getUserId()
+
+        // ✅ SỬA LẠI ĐOẠN NÀY
+        String userId;
+        if (auth.getPrincipal() instanceof CustomUserDetails) {
+            // Lấy ID thật sự từ token (đã được map vào CustomUserDetails)
+            userId = ((CustomUserDetails) auth.getPrincipal()).getUserId();
+        } else {
+            // Fallback nếu có lỗi (thường ít khi vào đây nếu đã qua filter)
+            userId = auth.getName();
+        }
 
         return ResponseEntity.ok(paymentService.getUserTransactionHistory(userId));
     }

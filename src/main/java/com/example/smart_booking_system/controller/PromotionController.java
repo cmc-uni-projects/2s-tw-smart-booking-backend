@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
@@ -149,5 +150,16 @@ public class PromotionController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
+    }
+    //Cancel Promotion
+    @PostMapping("/cancel")
+    public ResponseEntity<ApiResponse<BookingResponseDTO>> cancelPromotion(
+            @RequestParam Integer bookingId,
+            @RequestParam String code) {
+
+        BookingResponseDTO result = promotionService.cancelPromotion(bookingId, code);
+
+        // SỬA Ở ĐÂY: Dùng ApiResponse.success(...) thay vì new ApiResponse(...)
+        return ResponseEntity.ok(ApiResponse.success("Đã hủy áp dụng mã khuyến mãi.", result));
     }
 }

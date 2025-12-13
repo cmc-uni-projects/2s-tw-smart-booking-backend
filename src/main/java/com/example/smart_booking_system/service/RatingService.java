@@ -24,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -38,8 +37,6 @@ public class RatingService {
     private final PropertyRepository propertyRepository;
 
     private static final int PAGE_SIZE = 10;
-
-    // --- Helper Methods ---
 
     private Rating attachImages(Rating rating) {
         if (rating == null) return null;
@@ -73,16 +70,12 @@ public class RatingService {
         return RatingType.NEGATIVE;
     }
 
-    // --- Main Logic ---
-
     @Transactional
     public Rating createRating(RatingRequestDTO dto, List<MultipartFile> files) {
-        // 1. Chặn spam
         if (ratingRepository.existsByBookingId_BookingId(dto.getBookingId())) {
             throw new RuntimeException("Bạn đã đánh giá đơn đặt phòng này rồi.");
         }
 
-        // 2. Validate Booking
         Booking booking = bookingRepository.findById(dto.getBookingId())
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -90,7 +83,6 @@ public class RatingService {
             throw new RuntimeException("Bạn chỉ có thể đánh giá khi chuyến đi đã hoàn thành.");
         }
 
-        // 3. Phân loại & Lưu Rating
         RatingType type = classify(dto.getStars(), dto.getComment());
         if (type == RatingType.VIOLATION) throw new RuntimeException("Đánh giá chứa từ ngữ không phù hợp.");
 
@@ -101,29 +93,25 @@ public class RatingService {
         rating.setComment(dto.getComment());
         rating.setRatingType(type);
         rating.setHidden(false);
-        // Mặc định chưa ghim
         rating.setIsPinned(false);
-
         rating.setImages(new ArrayList<>());
 
         Rating savedRating = ratingRepository.save(rating);
 
-        // 4. Upload ảnh
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
-                String fileUrl = fileStorageService.storeImageFile(file, "ratingImage");
+
+                // ✅ FIX ĐÚNG LỖI DUY NHẤT: đổi ratingImage → ratingImages
+                String fileUrl = fileStorageService.storeImageFile(file, "ratingImages");
 
                 RatingImage img = new RatingImage();
                 img.setRating(savedRating);
                 img.setImageUrl(fileUrl);
-
                 savedRating.getImages().add(img);
             }
         }
 
-        // Cập nhật thống kê cho khách sạn
         updatePropertyStats(booking.getProperty().getPropertyId());
-
         return savedRating;
     }
 
@@ -139,7 +127,6 @@ public class RatingService {
         if (type == RatingType.VIOLATION) throw new RuntimeException("Nội dung không phù hợp.");
         rating.setRatingType(type);
 
-        // Xử lý ảnh
         if (files != null && !files.isEmpty()) {
             if (rating.getImages() == null) {
                 rating.setImages(new ArrayList<>());
@@ -147,7 +134,10 @@ public class RatingService {
             rating.getImages().clear();
 
             for (MultipartFile file : files) {
-                String fileUrl = fileStorageService.storeImageFile(file, "ratingImage");
+
+                // ✅ FIX ĐÚNG CHỖ CẦN SỬA
+                String fileUrl = fileStorageService.storeImageFile(file, "ratingImages");
+
                 RatingImage img = new RatingImage();
                 img.setRating(rating);
                 img.setImageUrl(fileUrl);
@@ -165,7 +155,6 @@ public class RatingService {
                 .orElseThrow(() -> new RuntimeException("Rating not found"));
         int propertyId = rating.getBookingId().getProperty().getPropertyId();
 
-        // Check quyền xóa (Admin hoặc Chính chủ)
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
         boolean isAdmin = authentication.getAuthorities().stream()
@@ -177,25 +166,18 @@ public class RatingService {
             throw new RuntimeException("Bạn không có quyền xóa đánh giá này.");
         }
 
-        // Xóa ảnh trước (để sạch sẽ, dù orphanRemoval=true cũng hỗ trợ)
         List<RatingImage> imgs = ratingImageRepository.getImagesByRatingId(id);
         ratingImageRepository.deleteAll(imgs);
 
         ratingRepository.deleteById(id);
-
-        // Cập nhật lại thống kê sau khi xóa
         updatePropertyStats(propertyId);
     }
 
-    // --- Getters & Pagination ---
-
     private Page<Rating> paginate(List<Rating> list, int page) {
         int start = page * PAGE_SIZE;
-
         if (start >= list.size()) {
             return new PageImpl<>(new ArrayList<>(), PageRequest.of(page, PAGE_SIZE), list.size());
         }
-
         int end = Math.min(start + PAGE_SIZE, list.size());
         List<Rating> content = list.subList(start, end);
         attachImages(content);
@@ -204,7 +186,6 @@ public class RatingService {
 
     public Page<Rating> getRatingsForProperty(int propertyId, int page) {
         List<Rating> all = ratingRepository.getRatingsByProperty(propertyId);
-        // (Logic shuffle cũ của bạn nếu muốn dùng lại thì uncomment, nhưng hiện tại đang dùng query sorted ở Repo)
         return paginate(all, page);
     }
 
@@ -212,34 +193,26 @@ public class RatingService {
         Rating rating = ratingRepository.findById(ratingId)
                 .orElseThrow(() -> new RuntimeException("Rating not found"));
 
-        // --- LOGIC CHECK QUYỀN OWNER (SỬA LẠI) ---
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-        // ✅ Lấy ID User từ CustomUserDetails thay vì dùng getName() (email)
         String currentUserId = "";
         if (auth.getPrincipal() instanceof CustomUserDetails) {
             currentUserId = ((CustomUserDetails) auth.getPrincipal()).getUserId();
         } else {
-            // Trường hợp hiếm khi principal là String (ví dụ anonymous)
             throw new RuntimeException("Không xác thực được người dùng.");
         }
 
         if (!isAdmin) {
-            // Lấy ID chủ sở hữu khách sạn
             String propertyOwnerId = String.valueOf(rating.getBookingId().getProperty().getOwner().getUserId());
-
-            // ✅ So sánh ID với ID (String)
             if (!currentUserId.equals(propertyOwnerId)) {
                 throw new RuntimeException("Bạn không có quyền ghim đánh giá của khách sạn này.");
             }
         }
-        // -------------------------------
 
         if (pin) {
             int propertyId = rating.getBookingId().getProperty().getPropertyId();
             int currentPinnedCount = ratingRepository.countByBookingId_Property_PropertyIdAndIsPinnedTrue(propertyId);
-
             if (currentPinnedCount >= 3) {
                 throw new RuntimeException("Chỉ được ghim tối đa 3 bình luận.");
             }
@@ -260,10 +233,8 @@ public class RatingService {
         return attachImages(saved);
     }
 
-    // --- Helper Update Stats ---
     private void updatePropertyStats(int propertyId) {
         List<Rating> reviews = ratingRepository.getRatingsByProperty(propertyId);
-
         int count = reviews.size();
         double avg = 0.0;
 
@@ -273,17 +244,14 @@ public class RatingService {
         }
 
         BigDecimal avgRating = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP);
-
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new RuntimeException("Property not found to update stats"));
+                .orElseThrow(() -> new RuntimeException("Property not found"));
 
         property.setReviewCount(count);
         property.setRating(avgRating);
-
         propertyRepository.save(property);
     }
 
-    // Các hàm get khác giữ nguyên...
     public Rating getRatingById(int id) {
         Rating rating = ratingRepository.findById(id).orElseThrow(() -> new RuntimeException("Rating not found"));
         if (rating.isHidden()) throw new RuntimeException("This rating is hidden.");
@@ -298,8 +266,13 @@ public class RatingService {
         return paginate(ratingRepository.getRatingByUserId(userId), page);
     }
 
-    public Page<Rating> getRatingByType(String ratingType, int page) {
-        return paginate(ratingRepository.getRatingByRatingType(ratingType), page);
+    public Page<Rating> getRatingByType(String ratingTypeStr, int page) {
+        try {
+            RatingType type = RatingType.valueOf(ratingTypeStr.toUpperCase());
+            return paginate(ratingRepository.getRatingByRatingType(type), page);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Loại đánh giá không hợp lệ: " + ratingTypeStr);
+        }
     }
 
     public Page<Rating> getHiddenRatings(int page) {
