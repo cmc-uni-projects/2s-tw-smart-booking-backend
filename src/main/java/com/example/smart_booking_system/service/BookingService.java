@@ -245,7 +245,7 @@ public class BookingService {
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElse(null);
 
         // 4. TỰ ĐỘNG TẠO YÊU CẦU HOÀN TIỀN
-        if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment != null && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
+        /*if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && payment != null && payment.getPaymentStatus() == PaymentStatus.APPROVED) {
             if (!refundRepo.existsByBooking(booking)) {
                 RefundRequest refund = new RefundRequest();
                 refund.setBooking(booking);
@@ -259,7 +259,7 @@ public class BookingService {
                 paymentRepo.save(payment);
             }
         }
-
+*/
         // 5. Gửi Email thông báo
         try {
             String emailTo = booking.getCustomerEmail() != null ? booking.getCustomerEmail() : booking.getUser().getEmail();
