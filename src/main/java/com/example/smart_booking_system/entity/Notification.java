@@ -3,6 +3,7 @@ package com.example.smart_booking_system.entity;
 import com.example.smart_booking_system.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp; // Dùng annotation này tiện hơn
 
 import java.time.LocalDateTime;
 
@@ -19,29 +20,30 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User recipient; // Người nhận thông báo
-
     @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false, length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String message;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private NotificationType type;
 
-    private boolean isRead = false; // Trạng thái đã đọc/chưa đọc
+    // Quan trọng: Đặt mặc định là false
+    @Builder.Default
+    @Column(name = "is_read", nullable = false)
+    private boolean isRead = false;
 
+    // Liên kết ID của đối tượng liên quan (VD: ID Booking, ID Property...)
+    // Để khi user click vào thông báo sẽ điều hướng đúng chỗ
+    private String relatedEntityId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @CreationTimestamp
+    @Column(updatable = false)
     private LocalDateTime createdAt;
-
-    // Các trường mở rộng (Optional) để click vào nhảy đến trang chi tiết
-    private String relatedEntityId;   // Ví dụ: Booking ID
-    private String relatedEntityType; // Ví dụ: "BOOKING", "PROPERTY"
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
 }

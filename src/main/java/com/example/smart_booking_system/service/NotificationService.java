@@ -4,6 +4,7 @@ import com.example.smart_booking_system.dto.response.notification.NotificationRe
 import com.example.smart_booking_system.entity.Notification;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.NotificationType;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.NotificationRepository;
 import com.example.smart_booking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,83 +13,96 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
 
-    private final NotificationRepository notificationRepo;
-    private final UserRepository userRepo;
+    private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
-    // --- PHẦN 1: API CHO CONTROLLER ---
+    // --- ĐỊNH NGHĨA SCOPE (Giữ nguyên) ---
+    private static final List<NotificationType> CUSTOMER_TYPES = Arrays.asList(
+            NotificationType.GENERAL, NotificationType.ACCOUNT_UPDATE, NotificationType.SECURITY_ALERT,
+            NotificationType.BOOKING_SUCCESS, NotificationType.BOOKING_CANCELLED, NotificationType.BOOKING_FAILED,
+            NotificationType.PAYMENT_SUCCESS, NotificationType.REFUND_PROCESSED, NotificationType.PROMOTION,
+            NotificationType.REMINDER_CHECKIN, NotificationType.APPROVAL, NotificationType.REJECTION
+    );
 
-    // Lấy danh sách (trả về cả số lượng chưa đọc trong cùng 1 lần gọi cho tiện)
-    public Map<String, Object> getUserNotifications(String userId, Pageable pageable) {
-        Page<Notification> page = notificationRepo.findByRecipient_UserIdOrderByCreatedAtDesc(userId, pageable);
-        long unreadCount = notificationRepo.countByRecipient_UserIdAndIsReadFalse(userId);
+    private static final List<NotificationType> OWNER_TYPES = Arrays.asList(
+            NotificationType.BOOKING_RECEIVED, NotificationType.BOOKING_CANCELLED_BY_GUEST,
+            NotificationType.REVENUE_REPORT, NotificationType.PROPERTY_SUSPENDED, NotificationType.PAYOUT_SUCCESS
+    );
 
-        Page<NotificationResponseDTO> dtoPage = page.map(this::convertToDTO);
+    // --- PHẦN 1: LOGIC ĐỌC (GET) ---
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("content", dtoPage.getContent());
-        result.put("totalPages", dtoPage.getTotalPages());
-        result.put("unreadCount", unreadCount);
-
-        return result;
+    // [SỬA] Long userId -> String userId
+    public Page<NotificationResponseDTO> getUserNotifications(String userId, String scope, Pageable pageable) {
+        List<NotificationType> targetTypes = getTypesByScope(scope);
+        return notificationRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(userId, targetTypes, pageable)
+                .map(this::convertToDTO);
     }
 
-    public long getUnreadCount(String userId) {
-        return notificationRepo.countByRecipient_UserIdAndIsReadFalse(userId);
+    // [SỬA] Long userId -> String userId
+    public long getUnreadCount(String userId, String scope) {
+        return notificationRepository.countByUserIdAndIsReadFalseAndTypeIn(userId, getTypesByScope(scope));
     }
 
+    // [SỬA] Long userId -> String userId
     @Transactional
-    public void markAsRead(Long notificationId, String userId) {
-        Notification notification = notificationRepo.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+    public void markAllAsRead(String userId, String scope) {
+        notificationRepository.markAllAsReadByType(userId, getTypesByScope(scope));
+    }
 
-        if (!notification.getRecipient().getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized access to notification");
+    // [SỬA] Long userId -> String userId
+    @Transactional
+    public void markAsRead(Long id, String userId) {
+        // Kiểm tra tồn tại
+        if (!notificationRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Notification not found");
         }
-
-        notification.setRead(true);
-        notificationRepo.save(notification);
+        notificationRepository.markAsRead(id, userId);
     }
 
-    @Transactional
-    public void markAllAsRead(String userId) {
-        notificationRepo.markAllAsRead(userId);
-    }
+    // --- PHẦN 2: LOGIC GHI (CREATE/SEND) ---
 
-    // --- PHẦN 2: HÀM NỘI BỘ (Để các Service khác gọi khi muốn bắn thông báo) ---
-
+    // [SỬA] Long userId -> String userId
+    // Đây là chỗ gây ra lỗi biên dịch trước đó
     @Transactional
-    public void sendNotification(User recipient, String title, String message, NotificationType type, String relatedId) {
-        if (recipient == null) return;
+    public void sendNotification(String userId, String title, String message, NotificationType type, String relatedEntityId) {
+        // findById giờ nhận String, khớp với User entity
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found to send notification"));
 
         Notification notification = Notification.builder()
-                .recipient(recipient)
+                .user(user)
                 .title(title)
                 .message(message)
                 .type(type)
-                .relatedEntityId(relatedId)
                 .isRead(false)
+                .relatedEntityId(relatedEntityId)
                 .build();
 
-        notificationRepo.save(notification);
-        // TODO: Nếu có WebSocket, bắn event real-time tại đây
+        notificationRepository.save(notification);
     }
 
-    private NotificationResponseDTO convertToDTO(Notification n) {
+    private List<NotificationType> getTypesByScope(String scope) {
+        if ("OWNER".equalsIgnoreCase(scope)) return OWNER_TYPES;
+        if ("CUSTOMER".equalsIgnoreCase(scope)) return CUSTOMER_TYPES;
+        return Arrays.asList(NotificationType.values());
+    }
+
+    private NotificationResponseDTO convertToDTO(Notification notification) {
         return NotificationResponseDTO.builder()
-                .id(n.getId())
-                .title(n.getTitle())
-                .message(n.getMessage())
-                .type(n.getType())
-                .isRead(n.isRead())
-                .createdAt(n.getCreatedAt())
-                .relatedEntityId(n.getRelatedEntityId())
+                .id(notification.getId())
+                .title(notification.getTitle())
+                .message(notification.getMessage())
+                .type(notification.getType())
+                .isRead(notification.isRead())
+                .createdAt(notification.getCreatedAt())
+                .relatedEntityId(notification.getRelatedEntityId())
                 .build();
     }
 }
