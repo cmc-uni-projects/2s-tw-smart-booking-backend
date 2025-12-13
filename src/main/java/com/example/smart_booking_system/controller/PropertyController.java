@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
+import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.service.PropertyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -196,6 +197,27 @@ public class PropertyController {
             return ResponseEntity.status(409).body(
                     ApiResponse.error("Tên chỗ nghỉ đã tồn tại")
             );
+        }
+    }
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> togglePropertyStatus(@PathVariable Integer id, Authentication authentication) {
+        try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String ownerId = userDetails.getUserId();
+
+            boolean newStatus = propertyService.togglePropertyStatus(id, ownerId);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    newStatus ? "Đã bật hoạt động cơ sở lưu trú" : "Đã tạm ngưng cơ sở lưu trú",
+                    newStatus
+            ));
+        } catch (ForbiddenException e) {
+            return ResponseEntity.status(403).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
 
