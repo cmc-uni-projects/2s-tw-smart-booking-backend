@@ -105,11 +105,10 @@ public class BookingService {
         // Giá cơ bản phòng (Giả định là giá ngày thường: weekdayPrice)
         BigDecimal weekdayPrice = room.getPricePerNight();
 
-        // TODO: 🔥 QUAN TRỌNG: Thay thế logic tính giá cuối tuần này
-        // bằng cách lấy giá chính xác từ PriceForecastService hoặc entity Room của bạn.
-        // Ví dụ: Giả định giá cuối tuần là giá ngày thường * 1.2
-        BigDecimal weekendUpliftFactor = new BigDecimal("1.2");
-        BigDecimal weekendPrice = weekdayPrice.multiply(weekendUpliftFactor);
+
+        BigDecimal weekendPrice = room.getWeekendPrice() != null
+                ? room.getWeekendPrice()
+                : weekdayPrice;
 
         // Đảm bảo giá cuối tuần không thấp hơn giá ngày thường (trường hợp Factor < 1)
         if (weekendPrice.compareTo(weekdayPrice) < 0) {
@@ -612,37 +611,32 @@ public class BookingService {
     // 🔥 HÀM HELPER: TÍNH GIÁ GỐC THEO TỪNG ĐÊM (Có phân biệt cuối tuần)
     // Dùng cho logic áp dụng/gỡ mã giảm giá
     // ============================================================
+// Tìm hàm này ở gần cuối file BookingService.java
     private BigDecimal calculateBasePriceForBooking(Booking booking) {
-        // Logic này phải KHỚP 100% với logic đã sửa trong createBooking
         BigDecimal total = BigDecimal.ZERO;
         LocalDate currentDate = booking.getCheckInDate();
 
+        // 1. Lấy giá ngày thường
         BigDecimal weekdayPrice = booking.getRoom().getPricePerNight();
 
-        // TODO: 🔥 QUAN TRỌNG: Thay thế logic tính giá cuối tuần này
-        // bằng cách lấy giá chính xác từ PriceForecastService hoặc entity Room của bạn.
-        // Hiện tại dùng logic * 1.2 như trong createBooking
-        BigDecimal weekendUpliftFactor = new BigDecimal("1.2");
-        BigDecimal weekendPrice = weekdayPrice.multiply(weekendUpliftFactor);
-
-        // Đảm bảo giá cuối tuần không thấp hơn giá ngày thường (trường hợp Factor < 1)
-        if (weekendPrice.compareTo(weekdayPrice) < 0) {
-            weekendPrice = weekdayPrice;
-        }
+        // 2. 🔥 FIX: Lấy giá cuối tuần từ Room Entity
+        BigDecimal weekendPrice = booking.getRoom().getWeekendPrice() != null
+                ? booking.getRoom().getWeekendPrice()
+                : weekdayPrice;
 
         while (currentDate.isBefore(booking.getCheckOutDate())) {
             DayOfWeek dayOfWeek = currentDate.getDayOfWeek();
             boolean isWeekend = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
 
             if (isWeekend) {
-                total = total.add(weekendPrice);
+                total = total.add(weekendPrice); // Cộng đúng 400k
             } else {
-                total = total.add(weekdayPrice);
+                total = total.add(weekdayPrice); // Cộng 200k
             }
 
             currentDate = currentDate.plusDays(1);
         }
-        return total;
+        return total; // Kết quả sẽ chuẩn 800k
     }
 
 
