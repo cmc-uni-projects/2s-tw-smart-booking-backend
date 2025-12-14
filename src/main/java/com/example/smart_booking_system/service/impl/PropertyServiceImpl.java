@@ -10,6 +10,7 @@ import com.example.smart_booking_system.dto.request.property.PropertyApplication
 import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.enums.PropertyType;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
@@ -18,6 +19,8 @@ import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.service.PropertyService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -58,7 +61,6 @@ public class PropertyServiceImpl implements PropertyService {
     // ============================================================
     @Override
     public Property addProperty(Property property, String ownerId) {
-
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
 
@@ -83,44 +85,23 @@ public class PropertyServiceImpl implements PropertyService {
     // ============================================================
     @Override
     public PropertyDetailDTO updateProperty(int id, Property updatedProperty) {
-
         Property existing = propertyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Property not found: " + id));
 
-        if (updatedProperty.getPropertyName() != null)
-            existing.setPropertyName(updatedProperty.getPropertyName());
-
-        if (updatedProperty.getAddress() != null)
-            existing.setAddress(updatedProperty.getAddress());
-
-        if (updatedProperty.getCity() != null)
-            existing.setDistrict(updatedProperty.getCity());
-
+        if (updatedProperty.getPropertyName() != null) existing.setPropertyName(updatedProperty.getPropertyName());
+        if (updatedProperty.getAddress() != null) existing.setAddress(updatedProperty.getAddress());
+        if (updatedProperty.getCity() != null) existing.setDistrict(updatedProperty.getCity());
         if (updatedProperty.getProvince() != null) {
             existing.setCity(updatedProperty.getProvince());
             existing.setProvince(updatedProperty.getProvince());
         }
-
-        if (updatedProperty.getCountry() != null)
-            existing.setCountry(updatedProperty.getCountry());
-
-        if (updatedProperty.getWard() != null)
-            existing.setWard(updatedProperty.getWard());
-
-        if (updatedProperty.getProvinceCode() != null)
-            existing.setProvinceCode(updatedProperty.getProvinceCode());
-
-        if (updatedProperty.getDistrictCode() != null)
-            existing.setDistrictCode(updatedProperty.getDistrictCode());
-
-        if (updatedProperty.getLatitude() != null)
-            existing.setLatitude(updatedProperty.getLatitude());
-
-        if (updatedProperty.getLongitude() != null)
-            existing.setLongitude(updatedProperty.getLongitude());
-
-        if (updatedProperty.getDescription() != null)
-            existing.setDescription(updatedProperty.getDescription());
+        if (updatedProperty.getCountry() != null) existing.setCountry(updatedProperty.getCountry());
+        if (updatedProperty.getWard() != null) existing.setWard(updatedProperty.getWard());
+        if (updatedProperty.getProvinceCode() != null) existing.setProvinceCode(updatedProperty.getProvinceCode());
+        if (updatedProperty.getDistrictCode() != null) existing.setDistrictCode(updatedProperty.getDistrictCode());
+        if (updatedProperty.getLatitude() != null) existing.setLatitude(updatedProperty.getLatitude());
+        if (updatedProperty.getLongitude() != null) existing.setLongitude(updatedProperty.getLongitude());
+        if (updatedProperty.getDescription() != null) existing.setDescription(updatedProperty.getDescription());
 
         existing.setUpdatedAt(LocalDate.now());
 
@@ -128,13 +109,12 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     // ============================================================
-    // 1. SUBMIT APPLICATION
+    // SUBMIT APPLICATION
     // ============================================================
     @Override
     public PropertyDetailDTO submitPropertyApplication(PropertyApplicationSubmitDTO dto,
                                                        List<MultipartFile> images,
                                                        String ownerId) {
-
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + ownerId));
 
@@ -151,30 +131,24 @@ public class PropertyServiceImpl implements PropertyService {
         property.setWard(dto.getWard());
         property.setProvinceCode(dto.getProvinceCode());
         property.setDistrictCode(dto.getDistrictCode());
-
         property.setPhoneContact(owner.getPhoneNumber());
         property.setEmailContact(owner.getEmail());
         property.setPostalCode("70000");
-
         property.setLatitude(dto.getLatitude() != null ? dto.getLatitude() : BigDecimal.ZERO);
         property.setLongitude(dto.getLongitude() != null ? dto.getLongitude() : BigDecimal.ZERO);
-
         property.setPropertyStatus(PropertyStatus.PENDING);
         property.setActive(false);
-
         property.setCreatedAt(LocalDate.now());
         property.setUpdatedAt(LocalDate.now());
 
         Property saved = propertyRepository.save(property);
 
-        // DETAIL
         PropertyDetail detail = new PropertyDetail();
         detail.setProperty(saved);
         detail.setArea(dto.getArea());
         propertyDetailRepository.save(detail);
         saved.setPropertyDetail(detail);
 
-        // AMENITIES
         if (dto.getAmenities() != null) {
             dto.getAmenities().forEach((name, enabled) -> {
                 if (Boolean.TRUE.equals(enabled)) {
@@ -191,18 +165,14 @@ public class PropertyServiceImpl implements PropertyService {
             });
         }
 
-        // IMAGES
         if (images != null && !images.isEmpty()) {
             String folder = "properties/" + saved.getPropertyId();
-
             for (int i = 0; i < images.size(); i++) {
                 String key = fileStorageService.storeImageFile(images.get(i), folder);
-
                 PropertyImage img = new PropertyImage();
                 img.setProperty(saved);
                 img.setImageUrl(key);
                 img.setCover(i == 0);
-
                 propertyImageRepository.save(img);
             }
         }
@@ -220,27 +190,23 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     // ============================================================
-    // GET PROPERTY DETAIL (SIGNED URL)
+    // GET PROPERTY DETAIL
     // ============================================================
     @Override
     @Transactional(readOnly = true)
     public PropertyDetailDTO getPropertyDetailById(Integer id, LocalDate checkIn, LocalDate checkOut) {
-
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
         PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
 
-        // ALL IMAGES signed
         List<String> signedImages = propertyImageRepository.findByProperty_PropertyId(id)
                 .stream()
                 .map(PropertyImage::getImageUrl)
                 .map(fileStorageService::generateSignedUrl)
                 .collect(Collectors.toList());
-
         dto.setImages(signedImages);
 
-        // AMENITIES
         if (property.getPropertyAmenities() != null) {
             dto.setAmenities(
                     property.getPropertyAmenities().stream()
@@ -250,68 +216,84 @@ public class PropertyServiceImpl implements PropertyService {
             );
         }
 
-        // ROOMS
         List<RoomResponseDTO> rooms = new ArrayList<>();
-
         if (property.getRooms() != null) {
             for (Room room : property.getRooms()) {
                 if (!room.isActive()) continue;
-
                 if (checkIn != null && checkOut != null) {
                     boolean booked = !bookingRepository
                             .findConfirmedOverlappingByRoomId(room.getRoomId(), checkIn, checkOut)
                             .isEmpty();
                     if (booked) continue;
                 }
-
                 RoomResponseDTO rDto = new RoomResponseDTO(room);
-
                 List<String> roomImages = roomImageRepository.findByRoom_RoomId(room.getRoomId())
                         .stream()
                         .map(RoomImage::getImageUrl)
                         .map(fileStorageService::generateSignedUrl)
                         .collect(Collectors.toList());
                 rDto.setImages(roomImages);
-
                 List<String> ams = roomAmenityRepository.findByRoom_RoomId(room.getRoomId())
                         .stream()
                         .filter(RoomAmenity::isActive)
                         .map(ra -> ra.getAmenity().getAmenityName())
                         .collect(Collectors.toList());
                 rDto.setAmenities(ams);
-
                 rooms.add(rDto);
             }
         }
-
         dto.setRooms(rooms);
-
         return dto;
     }
 
     // ============================================================
-    // SEARCH (list view → PropertyResponseDTO)
+    // ✅ SEARCH WITH FILTER & PAGINATION
     // ============================================================
     @Override
     @Transactional(readOnly = true)
-    public List<PropertyDetailDTO> searchProperties(String keyword,
-                                                    Integer guests,
-                                                    LocalDate checkIn,
-                                                    LocalDate checkOut) {
+    public Page<PropertyDetailDTO> searchProperties(
+            String keyword,
+            List<String> cities,
+            List<PropertyType> types,
+            List<String> amenities,
+            BigDecimal minRating,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer guests,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Pageable pageable) {
 
+        // 1. Keyword
         if (keyword != null && keyword.trim().isEmpty()) {
             keyword = null;
         }
 
-        List<Property> properties = propertyRepository.searchProperties(keyword, guests, checkIn, checkOut);
+        // 2. List rỗng -> null
+        if (cities != null && cities.isEmpty()) cities = null;
+        if (types != null && types.isEmpty()) types = null;
 
-        return properties.stream()
-                .map(this::mapToPropertyDetailDTO)
-                .collect(Collectors.toList());
+        // 3. Logic Amenities
+        Long amenityCount = 0L;
+        if (amenities != null && !amenities.isEmpty()) {
+            amenityCount = (long) amenities.size();
+        } else {
+            amenities = null;
+        }
+
+        // 4. Gọi Repository
+        Page<Property> propertyPage = propertyRepository.searchPropertiesWithFilter(
+                keyword, cities, types, amenities, amenityCount,
+                minRating, minPrice, maxPrice,
+                guests, checkIn, checkOut, pageable
+        );
+
+        // 5. Map sang DTO
+        return propertyPage.map(this::mapToPropertyDetailDTO);
     }
 
     // ============================================================
-    // OWNER PROPERTIES (list → use PropertyDetailDTO)
+    // OWNER PROPERTIES
     // ============================================================
     @Override
     @Transactional(readOnly = true)
@@ -332,7 +314,7 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     // ============================================================
-    // FEATURED (list → use PropertyResponseDTO)
+    // FEATURED
     // ============================================================
     @Override
     public List<PropertyDetailDTO> getFeaturedProperties() {
@@ -343,7 +325,7 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     // ============================================================
-    // STATUS FILTER (ADMIN LIST → NEED SIGNED URL COVER)
+    // STATUS FILTER
     // ============================================================
     @Override
     public List<PropertyDetailDTO> getPropertiesByStatus(PropertyStatus status) {
@@ -358,52 +340,40 @@ public class PropertyServiceImpl implements PropertyService {
     // ============================================================
     @Override
     public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
-
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
-
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
         if (property.getPropertyStatus() != PropertyStatus.PENDING) {
             throw new IllegalStateException("Property already reviewed");
         }
-
         if (!reviewDTO.isValidForReview()) {
             throw new IllegalArgumentException("Chỉ được APPROVE hoặc REJECTED.");
         }
-
         PropertyStatus newStatus = reviewDTO.getStatus();
-
         property.setPropertyStatus(newStatus);
         property.setUpdatedAt(LocalDate.now());
         property.setActive(newStatus == PropertyStatus.APPROVE);
 
         Property saved = propertyRepository.save(property);
-
         if (property.getOwner() != null) {
             sendPropertyReviewEmail(property.getOwner(), saved, reviewDTO.getReason());
         }
-
         return mapToPropertyDetailDTO(saved);
     }
 
     // ============================================================
-    // MAPPER: DETAIL DTO (cover + images signed)
+    // MAPPER
     // ============================================================
     private PropertyDetailDTO mapToPropertyDetailDTO(Property property) {
-
         PropertyDetailDTO dto = new PropertyDetailDTO(property);
-
-        // cover image signed
         propertyImageRepository.findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId())
                 .ifPresentOrElse(
                         img -> dto.setCoverImage(fileStorageService.generateSignedUrl(img.getImageUrl())),
                         () -> propertyImageRepository.findFirstByProperty_PropertyId(property.getPropertyId())
                                 .ifPresent(img -> dto.setCoverImage(fileStorageService.generateSignedUrl(img.getImageUrl())))
                 );
-
-        // list images signed
         List<String> signed = propertyImageRepository.findByProperty_PropertyId(property.getPropertyId())
                 .stream()
                 .map(PropertyImage::getImageUrl)
@@ -411,7 +381,6 @@ public class PropertyServiceImpl implements PropertyService {
                 .collect(Collectors.toList());
         dto.setImages(signed);
 
-        // price range
         if (property.getRooms() != null && !property.getRooms().isEmpty()) {
             List<BigDecimal> prices = property.getRooms().stream()
                     .filter(Room::isActive)
@@ -422,77 +391,30 @@ public class PropertyServiceImpl implements PropertyService {
                 dto.setMaxPrice(prices.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
             }
         }
-
         return dto;
     }
 
     // ============================================================
-    // MAPPER: LIST VIEW → PropertyResponseDTO (SIGNED COVER)
-    // ============================================================
-    private PropertyResponseDTO mapToPropertyResponseDTO(Property property) {
-
-        PropertyResponseDTO dto = new PropertyResponseDTO();
-
-        dto.setPropertyId(property.getPropertyId());
-        dto.setPropertyName(property.getPropertyName());
-        dto.setPropertyType(property.getPropertyType());
-        dto.setAddress(property.getAddress());
-        dto.setCountry(property.getCountry());
-        dto.setProvince(property.getProvince());
-        dto.setCity(property.getCity());
-        dto.setWard(property.getWard());
-        dto.setProvinceCode(property.getProvinceCode());
-        dto.setDistrictCode(property.getDistrictCode());
-        dto.setPostalCode(property.getPostalCode());
-        dto.setDescription(property.getDescription());
-        dto.setPhoneContact(property.getPhoneContact());
-        dto.setEmailContact(property.getEmailContact());
-        dto.setLatitude(property.getLatitude());
-        dto.setLongitude(property.getLongitude());
-        dto.setCreatedAt(property.getCreatedAt());
-        dto.setUpdatedAt(property.getUpdatedAt());
-        dto.setPropertyStatus(property.getPropertyStatus());
-        dto.setActive(property.isActive());
-
-        // Signed cover
-        String cover = propertyImageRepository
-                .findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId())
-                .map(PropertyImage::getImageUrl)
-                .map(fileStorageService::generateSignedUrl)
-                .orElse(null);
-
-        dto.setCoverImage(cover);
-
-        return dto;
-    }
-
-    // ============================================================
-    // NEARBY (signed cover)
+    // NEARBY
     // ============================================================
     @Override
     @Transactional(readOnly = true)
     public List<PropertyMapDTO> findNearbyProperties(Double lat, Double lng, Double radius) {
-
         if (lat == null || lng == null) return new ArrayList<>();
-
         double range = radius != null ? radius : 10.0;
-
         return propertyRepository.findNearbyProperties(lat, lng, range)
                 .stream()
                 .map(property -> {
-
                     String cover = propertyImageRepository
                             .findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId())
                             .map(PropertyImage::getImageUrl)
                             .map(fileStorageService::generateSignedUrl)
                             .orElse(null);
-
                     BigDecimal minPrice = property.getRooms() != null
                             ? property.getRooms().stream()
                             .map(Room::getPricePerNight)
                             .min(BigDecimal::compareTo).orElse(BigDecimal.ZERO)
                             : BigDecimal.ZERO;
-
                     return new PropertyMapDTO(property, cover, minPrice);
                 })
                 .collect(Collectors.toList());
@@ -505,7 +427,6 @@ public class PropertyServiceImpl implements PropertyService {
         Context context = new Context();
         context.setVariable("ownerName", owner.getFullName());
         context.setVariable("propertyName", property.getPropertyName());
-
         emailService.sendHtmlEmail(
                 owner.getEmail(),
                 "Xác nhận nộp đơn",
@@ -519,41 +440,29 @@ public class PropertyServiceImpl implements PropertyService {
         context.setVariable("ownerName", owner.getFullName());
         context.setVariable("propertyName", property.getPropertyName());
         context.setVariable("reason", reason != null ? reason : "N/A");
-
         String template = property.getPropertyStatus() == PropertyStatus.APPROVE
                 ? "email/property-approved"
                 : "email/property-rejected";
-
         String subject = property.getPropertyStatus() == PropertyStatus.APPROVE
                 ? "Cơ sở được duyệt"
                 : "Cơ sở bị từ chối";
-
         emailService.sendHtmlEmail(owner.getEmail(), subject, template, context);
     }
 
     @Override
     public boolean togglePropertyStatus(Integer propertyId, String ownerId) {
-        // 1. Tìm Property theo ID
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cơ sở lưu trú"));
-
-        // 2. Kiểm tra quyền sở hữu (Owner phải là người sở hữu property này)
         if (!property.getOwner().getUserId().equals(ownerId)) {
             throw new ForbiddenException("Bạn không có quyền chỉnh sửa cơ sở này");
         }
-
-        // 3. Kiểm tra trạng thái duyệt
         if (property.getPropertyStatus() != PropertyStatus.APPROVE) {
             throw new IllegalArgumentException("Cơ sở phải được Admin duyệt (APPROVE) mới có thể thay đổi trạng thái hoạt động.");
         }
-
-        // 4. Đảo ngược trạng thái active
         boolean newStatus = !property.isActive();
         property.setActive(newStatus);
         property.setUpdatedAt(LocalDate.now());
-
         propertyRepository.save(property);
-
         return newStatus;
     }
 }

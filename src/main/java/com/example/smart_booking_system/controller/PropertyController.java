@@ -1,12 +1,16 @@
 package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
+import com.example.smart_booking_system.enums.PropertyType;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.service.PropertyService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.service.SearchHistoryService;
-import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.smart_booking_system.entity.Property;
 import org.springframework.web.bind.annotation.*;
 import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
@@ -14,14 +18,15 @@ import org.springframework.security.core.Authentication;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
-// --- Imports cho các hàm mới ---
+// --- Imports ---
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
-// --- Kết thúc Imports ---
+// --- End Imports ---
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,9 +34,13 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/properties")
 public class PropertyController {
+
     private final PropertyService propertyService;
     private final SearchHistoryService searchHistoryService;
 
+    // ============================================================
+    // ADD PROPERTY
+    // ============================================================
     @PostMapping("/add")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> addProperty(@RequestBody Property property, Authentication authentication) {
@@ -56,6 +65,9 @@ public class PropertyController {
         }
     }
 
+    // ============================================================
+    // SUBMIT APPLICATION
+    // ============================================================
     @PostMapping("/submit-application")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> submitPropertyApplication(
@@ -73,12 +85,10 @@ public class PropertyController {
                 );
             }
 
-            // Parse JSON từ FE
             ObjectMapper objectMapper = new ObjectMapper();
             PropertyApplicationSubmitDTO dto =
                     objectMapper.readValue(propertyDataJson, PropertyApplicationSubmitDTO.class);
 
-            // Gọi Service xử lý toàn bộ luồng
             PropertyDetailDTO newProperty =
                     propertyService.submitPropertyApplication(dto, propertyImages, ownerId);
 
@@ -100,16 +110,58 @@ public class PropertyController {
     }
 
 
+    // ============================================================
+    // ✅ [UPDATED] SEARCH API (FILTER + PAGINATION)
+    // ============================================================
     @GetMapping("/search")
-    public ResponseEntity<List<PropertyDetailDTO>> searchProperties(
+    public ResponseEntity<ApiResponse<Page<PropertyDetailDTO>>> searchProperties(
+            // 1. Search Text
             @RequestParam(required = false) String keyword,
+
+            // 2. Filter Params (Sidebar)
+            @RequestParam(required = false) List<String> cities,        // List thành phố
+            @RequestParam(required = false) List<PropertyType> types,   // List loại hình
+            @RequestParam(required = false) List<String> amenities,     // List tiện nghi
+            @RequestParam(required = false) BigDecimal minRating,       // Sao tối thiểu
+            @RequestParam(required = false) BigDecimal minPrice,        // Giá min
+            @RequestParam(required = false) BigDecimal maxPrice,        // Giá max
+
+            // 3. Pagination & Sort
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id,desc") String sort, // Format: field,dir (Vd: price,asc)
+
+            // 4. Basic Params (Logic cũ)
             @RequestParam(required = false, defaultValue = "1") Integer guests,
             @RequestParam(required = false) LocalDate checkIn,
             @RequestParam(required = false) LocalDate checkOut
     ) {
-        // Gọi hàm service mới
-        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests, checkIn, checkOut));
+        // Xử lý Sort String (vd: "price,asc" -> Sort Object)
+        String[] sortParams = sort.split(",");
+        String sortField = sortParams[0];
+        Sort.Direction sortDir = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc")
+                ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+        // Lưu ý: Sort "price" cần xử lý đặc biệt vì price nằm ở bảng Room (OneToMany).
+        // Tạm thời nếu sort=price thì để unsorted hoặc sort theo ID để tránh lỗi SQL.
+        // Bạn có thể mở rộng Service để handle sort theo giá sau.
+        Sort sortObj = sortField.equals("price") ? Sort.unsorted() : Sort.by(sortDir, sortField);
+
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+
+        // Gọi Service mới
+        Page<PropertyDetailDTO> result = propertyService.searchProperties(
+                keyword, cities, types, amenities,
+                minRating, minPrice, maxPrice,
+                guests, checkIn, checkOut, pageable
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm thành công", result));
     }
+
+    // ============================================================
+    // UPDATE
+    // ============================================================
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateProperty(
@@ -127,6 +179,9 @@ public class PropertyController {
         }
     }
 
+    // ============================================================
+    // OTHER GET APIs
+    // ============================================================
     @GetMapping("/featured")
     public ResponseEntity<List<PropertyDetailDTO>> getFeaturedProperties() {
         List<PropertyDetailDTO> properties = propertyService.getFeaturedProperties();
@@ -152,8 +207,6 @@ public class PropertyController {
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> getMyActiveProperties(Authentication authentication) {
         try {
-            String ownerId = authentication.getName(); // Hoặc lấy từ CustomUserDetails
-            // Note: Nếu authentication.getName() trả về email, hãy dùng logic userDetails.getUserId() như cũ
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
             return ResponseEntity.ok(ApiResponse.success(
@@ -176,9 +229,9 @@ public class PropertyController {
 
     @GetMapping("/nearby")
     public ResponseEntity<List<PropertyMapDTO>> findNearby(
-                                                            @RequestParam Double lat,
-                                                            @RequestParam Double lng,
-                                                            @RequestParam(required = false, defaultValue = "10") Double radius
+            @RequestParam Double lat,
+            @RequestParam Double lng,
+            @RequestParam(required = false, defaultValue = "10") Double radius
     ) {
         return ResponseEntity.ok(propertyService.findNearbyProperties(lat, lng, radius));
     }
@@ -188,17 +241,12 @@ public class PropertyController {
         boolean isAvailable = propertyService.checkNameAvailability(name);
 
         if (isAvailable) {
-            // ✅ Dùng hàm success(message, data) có sẵn
-            return ResponseEntity.ok(
-                    ApiResponse.success("Tên hợp lệ", true)
-            );
+            return ResponseEntity.ok(ApiResponse.success("Tên hợp lệ", true));
         } else {
-            // ✅ Dùng hàm error(message) có sẵn
-            return ResponseEntity.status(409).body(
-                    ApiResponse.error("Tên chỗ nghỉ đã tồn tại")
-            );
+            return ResponseEntity.status(409).body(ApiResponse.error("Tên chỗ nghỉ đã tồn tại"));
         }
     }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> togglePropertyStatus(@PathVariable Integer id, Authentication authentication) {
@@ -220,5 +268,4 @@ public class PropertyController {
             return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
-
 }

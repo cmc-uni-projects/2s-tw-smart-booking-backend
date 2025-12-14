@@ -6,8 +6,12 @@ import com.example.smart_booking_system.dto.response.property.PropertyDetailDTO;
 import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.enums.PropertyType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -35,10 +39,20 @@ public interface PropertyService {
 
     List<PropertyMapDTO> findNearbyProperties(Double lat, Double lng, Double radius);
 
-    List<PropertyDetailDTO> searchProperties(String keyword,
-                                             Integer guests,
-                                             LocalDate checkIn,
-                                             LocalDate checkOut);
+    // ✅ UPDATE: Method Search đầy đủ filter & phân trang (Phải khớp chính xác với ServiceImpl)
+    Page<PropertyDetailDTO> searchProperties(
+            String keyword,
+            List<String> cities,
+            List<PropertyType> types,
+            List<String> amenities,
+            BigDecimal minRating,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer guests,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Pageable pageable
+    );
 
     boolean checkNameAvailability(String propertyName);
 
