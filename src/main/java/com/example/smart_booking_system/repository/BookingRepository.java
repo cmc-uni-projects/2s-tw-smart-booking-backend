@@ -176,4 +176,96 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "GROUP BY b.property.propertyType")
     List<Object[]> getRevenueByPropertyTypeByOwner(@Param("ownerId") String ownerId);
 
+    // ==============================
+// ADMIN DASHBOARD FILTER QUERIES
+// ==============================
+
+    // 1) Tổng doanh thu có lọc
+    @Query("""
+    SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b
+    WHERE b.status IN (
+        com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+        com.example.smart_booking_system.enums.BookingStatus.COMPLETED
+    )
+    AND (:year IS NULL OR FUNCTION('YEAR', b.checkInDate) = :year)
+    AND (:month IS NULL OR FUNCTION('MONTH', b.checkInDate) = :month)
+    AND (:city IS NULL OR LOWER(b.property.city) LIKE LOWER(CONCAT('%', :city, '%')))
+    AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)
+""")
+    BigDecimal calculateFilteredRevenue(@Param("year") Integer year,
+                                        @Param("month") Integer month,
+                                        @Param("city") String city,
+                                        @Param("ownerId") String ownerId);
+
+    // 2) Đếm booking mới (theo createdAt) có lọc
+    @Query("""
+    SELECT COUNT(b) FROM Booking b
+    WHERE (:year IS NULL OR FUNCTION('YEAR', b.createdAt) = :year)
+    AND (:month IS NULL OR FUNCTION('MONTH', b.createdAt) = :month)
+    AND (:city IS NULL OR LOWER(b.property.city) LIKE LOWER(CONCAT('%', :city, '%')))
+    AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)
+""")
+    long countFilteredBookings(@Param("year") Integer year,
+                               @Param("month") Integer month,
+                               @Param("city") String city,
+                               @Param("ownerId") String ownerId);
+
+    // 3) Doanh thu theo tháng (hiện 12 tháng) - lọc theo year + city + ownerId
+    @Query("""
+    SELECT FUNCTION('MONTH', b.checkInDate) as month, COALESCE(SUM(b.totalPrice), 0) as revenue
+    FROM Booking b
+    WHERE b.status IN (
+        com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+        com.example.smart_booking_system.enums.BookingStatus.COMPLETED
+    )
+    AND FUNCTION('YEAR', b.checkInDate) = :year
+    AND (:city IS NULL OR LOWER(b.property.city) LIKE LOWER(CONCAT('%', :city, '%')))
+    AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)
+    GROUP BY FUNCTION('MONTH', b.checkInDate)
+    ORDER BY FUNCTION('MONTH', b.checkInDate) ASC
+""")
+    List<Object[]> getFilteredMonthlyRevenue(@Param("year") int year,
+                                             @Param("city") String city,
+                                             @Param("ownerId") String ownerId);
+
+    // 4) Booking theo tháng (12 tháng) - lọc theo year + city + ownerId
+    @Query("""
+    SELECT FUNCTION('MONTH', b.createdAt) as month, COUNT(b) as count
+    FROM Booking b
+    WHERE FUNCTION('YEAR', b.createdAt) = :year
+    AND (:city IS NULL OR LOWER(b.property.city) LIKE LOWER(CONCAT('%', :city, '%')))
+    AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)
+    GROUP BY FUNCTION('MONTH', b.createdAt)
+    ORDER BY FUNCTION('MONTH', b.createdAt) ASC
+""")
+    List<Object[]> getFilteredMonthlyBookingCount(@Param("year") int year,
+                                                  @Param("city") String city,
+                                                  @Param("ownerId") String ownerId);
+
+    // 5) Doanh thu theo loại hình có lọc
+    @Query("""
+    SELECT b.property.propertyType, COALESCE(SUM(b.totalPrice), 0)
+    FROM Booking b
+    WHERE b.status IN (
+        com.example.smart_booking_system.enums.BookingStatus.CONFIRMED,
+        com.example.smart_booking_system.enums.BookingStatus.COMPLETED
+    )
+    AND (:year IS NULL OR FUNCTION('YEAR', b.checkInDate) = :year)
+    AND (:month IS NULL OR FUNCTION('MONTH', b.checkInDate) = :month)
+    AND (:city IS NULL OR LOWER(b.property.city) LIKE LOWER(CONCAT('%', :city, '%')))
+    AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)
+    GROUP BY b.property.propertyType
+""")
+    List<Object[]> getFilteredRevenueByPropertyType(@Param("year") Integer year,
+                                                    @Param("month") Integer month,
+                                                    @Param("city") String city,
+                                                    @Param("ownerId") String ownerId);
+    @Query("""
+    SELECT DISTINCT b.property.city
+    FROM Booking b
+    WHERE b.property.city IS NOT NULL AND TRIM(b.property.city) <> ''
+    ORDER BY b.property.city
+""")
+    List<String> findAllCitiesForDashboard();
+
 }

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.example.smart_booking_system.dto.response.admin.OwnerSelectDTO;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -90,5 +92,17 @@ public interface UserRepository extends JpaRepository<User, String> {
             "GROUP BY FUNCTION('MONTH', u.createdAt) " +
             "ORDER BY FUNCTION('MONTH', u.createdAt) ASC")
     List<Object[]> getMonthlyUserGrowth(@Param("year") int year);
+    @Query("""
+  SELECT new com.example.smart_booking_system.dto.response.admin.OwnerSelectDTO(
+      u.userId, u.fullName, u.email
+  )
+  FROM User u
+  JOIN u.roles r
+  WHERE r.roleName = 'OWNER'
+  ORDER BY u.fullName
+""")
+    List<OwnerSelectDTO> findOwnersForDashboard();
+
+
 }
 
