@@ -28,6 +28,7 @@ public class Room {
     private String description;
     private int capacity;
     private BigDecimal pricePerNight;
+    private BigDecimal weekendPrice;
     @Enumerated(EnumType.STRING)
     private RoomStatus roomStatus;
     private boolean isActive = true;

@@ -25,6 +25,9 @@ public class RoomRequestDTO {
     @Min(value = 0, message = "Giá phòng phải lớn hơn 0")
     private BigDecimal pricePerNight;
 
+    @Min(value = 0, message = "Giá cuối tuần phải lớn hơn 0")
+    private BigDecimal weekendPrice;
+
     @Min(value = 1, message = "Sức chứa phải ít nhất 1 người")
     private int capacity;
 

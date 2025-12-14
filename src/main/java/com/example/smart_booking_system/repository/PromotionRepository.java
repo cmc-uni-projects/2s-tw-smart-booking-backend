@@ -3,6 +3,7 @@ package com.example.smart_booking_system.repository;
 import com.example.smart_booking_system.entity.Promotion;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -86,4 +87,30 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
 
     @Query("SELECT p FROM Promotion p LEFT JOIN FETCH p.property ORDER BY p.promotionId DESC")
     List<Promotion> findAllWithProperty();
+
+    @Modifying
+    @Query("UPDATE Promotion p SET p.usageCount = p.usageCount + 1 " +
+            "WHERE p.code = :code " +
+            "AND p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE " + // Thêm dòng này
+            "AND (p.usageLimit IS NULL OR p.usageCount < p.usageLimit)")
+    int incrementUsageCountIfAvailable(@Param("code") String code);
+
+    // 1. Tìm mã của Owner chính xác
+    @Query("SELECT p FROM Promotion p WHERE p.code = :code " +
+            "AND p.property.propertyId = :propertyId " +
+            "AND :now BETWEEN p.startDate AND p.endDate " +
+            "AND p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE")
+    Optional<Promotion> findValidPromotionForProperty(@Param("code") String code,
+                                                      @Param("propertyId") int propertyId,
+                                                      @Param("now") LocalDateTime now);
+
+    // 2. Tìm mã của Admin chính xác
+    @Query("SELECT p FROM Promotion p WHERE p.code = :code " +
+            "AND p.property IS NULL " +
+            "AND :now BETWEEN p.startDate AND p.endDate " +
+            "AND p.status = com.example.smart_booking_system.enums.PromotionStatus.ACTIVE")
+    Optional<Promotion> findValidAdminPromotion(@Param("code") String code,
+                                                @Param("now") LocalDateTime now);
+
 }
+

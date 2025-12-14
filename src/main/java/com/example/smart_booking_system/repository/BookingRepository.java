@@ -3,6 +3,7 @@ package com.example.smart_booking_system.repository;
 import com.example.smart_booking_system.entity.Booking;
 import com.example.smart_booking_system.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
@@ -174,4 +175,5 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
             "GROUP BY b.property.propertyType")
     List<Object[]> getRevenueByPropertyTypeByOwner(@Param("ownerId") String ownerId);
+
 }

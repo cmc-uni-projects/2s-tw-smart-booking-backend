@@ -7,9 +7,9 @@ import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.*;
 import com.example.smart_booking_system.repository.*;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +26,7 @@ public class PaymentService {
     private final EmailService emailService;
     private final PromotionRepository promotionRepo;
     private final NotificationService notificationService;
+    private final EntityManager entityManager;
 
     // =================================================================
     // 1. SUBMIT PAYMENT (Khách thanh toán thành công -> Chốt đơn)
@@ -35,6 +36,11 @@ public class PaymentService {
         // 1. Kiểm tra dữ liệu
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        entityManager.refresh(booking);
+
+        // [DEBUG] In ra log để kiểm tra giá lúc bắt đầu thanh toán
+        System.out.println("DEBUG: Payment submitting for Booking " + bookingId + " - Current DB Price: " + booking.getTotalPrice());
 
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
                 .orElseThrow(() -> new RuntimeException("Payment info not found"));
@@ -46,27 +52,24 @@ public class PaymentService {
         // 2. Xử lý logic khuyến mãi (Promotion Count)
         // Tăng count mã Owner
         if (booking.getPromotionCode() != null) {
-            promotionRepo.findValidPromotion(booking.getPromotionCode(), LocalDateTime.now())
-                    .ifPresent(promo -> {
-                        promo.setUsageCount(promo.getUsageCount() + 1);
-                        promotionRepo.save(promo);
-                    });
+            int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getPromotionCode());
+            if (updatedRows == 0) throw new RuntimeException("Mã giảm giá Owner '" + booking.getPromotionCode() + "' không khả dụng.");
         }
         // Tăng count mã Admin
         if (booking.getAdminPromotionCode() != null) {
-            promotionRepo.findValidPromotion(booking.getAdminPromotionCode(), LocalDateTime.now())
-                    .ifPresent(promo -> {
-                        promo.setUsageCount(promo.getUsageCount() + 1);
-                        promotionRepo.save(promo);
-                    });
+            int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getAdminPromotionCode());
+            if (updatedRows == 0) throw new RuntimeException("Mã giảm giá Admin '" + booking.getAdminPromotionCode() + "' không khả dụng.");
         }
 
         // 3. Cập nhật thông tin thanh toán
         payment.setPaymentMethod(paymentMethod);
+
+        // 🔥 Đảm bảo lấy giá từ Booking (lúc này chắc chắn đúng nhờ saveAndFlush bên trên nếu có)
         payment.setTotalAmount(booking.getTotalPrice());
+
         payment.setPaymentStatus(PaymentStatus.APPROVED);
         payment.setPaymentDate(LocalDateTime.now());
-        payment.setConfirmedDate(LocalDateTime.now());
+        payment.setConfirmedDate(LocalDateTime.now()); // Set thêm ngày confirm nếu cần
 
         String trxRef = "TRX_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         payment.setTransactionReference(trxRef);
@@ -75,9 +78,9 @@ public class PaymentService {
 
         // 4. Cập nhật trạng thái Booking
         booking.setStatus(BookingStatus.CONFIRMED);
-        bookingRepo.save(booking);
+        bookingRepo.save(booking); // Lúc này save chỉ update status, giá giữ nguyên
 
-        // 5. Gửi Email xác nhận (Giữ nguyên logic cũ của bạn)
+        // 5. Gửi Email xác nhận
         sendConfirmationEmail(booking, trxRef);
 
         // 6. [LOGIC MỚI] Gửi thông báo (Notification)
@@ -89,10 +92,10 @@ public class PaymentService {
             User owner = booking.getProperty().getOwner();
             if (owner != null) {
                 notificationService.sendNotification(
-                        owner.getUserId(), // [SỬA] Lấy String ID
+                        owner.getUserId(), // Lấy String ID
                         "Thanh toán thành công #" + booking.getBookingId(),
                         "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + priceFormatted + " VNĐ. Đơn hàng đã được xác nhận!",
-                        NotificationType.BOOKING_RECEIVED, // [SỬA] Dùng type dành cho Owner
+                        NotificationType.BOOKING_RECEIVED, // Dùng type dành cho Owner
                         relatedId
                 );
             }
@@ -105,7 +108,7 @@ public class PaymentService {
                         customer.getUserId(),
                         "Thanh toán thành công",
                         "Bạn đã thanh toán thành công " + priceFormatted + " VNĐ cho đơn đặt phòng tại " + booking.getProperty().getPropertyName(),
-                        NotificationType.PAYMENT_SUCCESS, // [SỬA] Dùng type dành cho Customer
+                        NotificationType.PAYMENT_SUCCESS, // Dùng type dành cho Customer
                         relatedId
                 );
             }

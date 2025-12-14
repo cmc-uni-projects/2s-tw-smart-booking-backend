@@ -146,4 +146,19 @@ public class BookingController {
         List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
 
+
+    @PutMapping("/{bookingId}/remove-promotion")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')") // Cho phép cả Khách và Admin bỏ mã
+    public ResponseEntity<?> removePromotion(
+            @PathVariable int bookingId,
+            @RequestParam String code // Mã muốn bỏ (để biết bỏ mã nào)
+    ) {
+        try {
+            // Gọi sang Service để xử lý
+            BookingResponseDTO result = bookingService.removePromotion(bookingId, code);
+            return ResponseEntity.ok(ApiResponse.success("Đã gỡ bỏ mã giảm giá thành công", result));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        }
+    }
 }
