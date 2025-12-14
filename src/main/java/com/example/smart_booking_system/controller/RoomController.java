@@ -3,15 +3,18 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.example.smart_booking_system.dto.response.PriceForecastDTO;
 import com.example.smart_booking_system.service.RoomService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -96,4 +99,16 @@ public class RoomController {
         }
         return ResponseEntity.ok(ApiResponse.success("Tên hợp lệ", true));
     }
+
+    // Dự báo giá
+    @GetMapping("/{roomId}/price-forecast")
+    public ResponseEntity<?> getPriceForecast(
+            @PathVariable int roomId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(defaultValue = "14") int days
+    ) {
+        List<PriceForecastDTO> forecast = roomService.getPriceForecast(roomId, startDate, days);
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu dự báo giá thành công", forecast));
+    }
+
 }
