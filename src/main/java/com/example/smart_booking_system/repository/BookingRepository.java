@@ -174,4 +174,66 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
             "GROUP BY b.property.propertyType")
     List<Object[]> getRevenueByPropertyTypeByOwner(@Param("ownerId") String ownerId);
+
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "AND (:year IS NULL OR FUNCTION('YEAR', b.checkInDate) = :year) " +
+            "AND (:month IS NULL OR FUNCTION('MONTH', b.checkInDate) = :month) " +
+            "AND (:city IS NULL OR b.property.city LIKE %:city%) " +
+            "AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)")
+    BigDecimal calculateFilteredRevenue(@Param("year") Integer year,
+                                        @Param("month") Integer month,
+                                        @Param("city") String city,
+                                        @Param("ownerId") String ownerId);
+
+    // 2. Đếm số booking mới có lọc (Dùng cho StatCard)
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE (:year IS NULL OR FUNCTION('YEAR', b.createdAt) = :year) " +
+            "AND (:month IS NULL OR FUNCTION('MONTH', b.createdAt) = :month) " +
+            "AND (:city IS NULL OR b.property.city LIKE %:city%) " +
+            "AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId)")
+    long countFilteredBookings(@Param("year") Integer year,
+                               @Param("month") Integer month,
+                               @Param("city") String city,
+                               @Param("ownerId") String ownerId);
+
+    // 3. Biểu đồ doanh thu theo tháng (Lọc theo Năm, Khu vực, Owner)
+// Lưu ý: Biểu đồ này cần hiện 12 tháng nên ta không lọc theo :month ở đây mà chỉ lọc theo year
+    @Query("SELECT FUNCTION('MONTH', b.checkInDate) as month, SUM(b.totalPrice) as revenue " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "AND FUNCTION('YEAR', b.checkInDate) = :year " +
+            "AND (:city IS NULL OR b.property.city LIKE %:city%) " +
+            "AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId) " +
+            "GROUP BY FUNCTION('MONTH', b.checkInDate) " +
+            "ORDER BY FUNCTION('MONTH', b.checkInDate) ASC")
+    List<Object[]> getFilteredMonthlyRevenue(@Param("year") int year,
+                                             @Param("city") String city,
+                                             @Param("ownerId") String ownerId);
+
+    // 4. Biểu đồ số lượng booking theo tháng
+    @Query("SELECT FUNCTION('MONTH', b.createdAt) as month, COUNT(b) as count " +
+            "FROM Booking b " +
+            "WHERE FUNCTION('YEAR', b.createdAt) = :year " +
+            "AND (:city IS NULL OR b.property.city LIKE %:city%) " +
+            "AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId) " +
+            "GROUP BY FUNCTION('MONTH', b.createdAt) " +
+            "ORDER BY FUNCTION('MONTH', b.createdAt) ASC")
+    List<Object[]> getFilteredMonthlyBookingCount(@Param("year") int year,
+                                                  @Param("city") String city,
+                                                  @Param("ownerId") String ownerId);
+
+    // 5. Cơ cấu doanh thu theo loại hình (Có lọc)
+    @Query("SELECT b.property.propertyType, SUM(b.totalPrice) " +
+            "FROM Booking b " +
+            "WHERE b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.COMPLETED) " +
+            "AND (:year IS NULL OR FUNCTION('YEAR', b.checkInDate) = :year) " +
+            "AND (:month IS NULL OR FUNCTION('MONTH', b.checkInDate) = :month) " +
+            "AND (:city IS NULL OR b.property.city LIKE %:city%) " +
+            "AND (:ownerId IS NULL OR b.property.owner.userId = :ownerId) " +
+            "GROUP BY b.property.propertyType")
+    List<Object[]> getFilteredRevenueByPropertyType(@Param("year") Integer year,
+                                                    @Param("month") Integer month,
+                                                    @Param("city") String city,
+                                                    @Param("ownerId") String ownerId);
 }

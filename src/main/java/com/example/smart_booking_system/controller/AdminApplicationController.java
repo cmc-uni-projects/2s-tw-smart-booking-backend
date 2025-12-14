@@ -95,35 +95,54 @@ public class AdminApplicationController {
     // URL cũ: /api/v1/admin/owner-applications/dashboard-stats (Vẫn giữ path này)
     // ========================================================================
     @GetMapping("/dashboard-stats")
-    public ResponseEntity<?> getDashboardStats() {
+    public ResponseEntity<?> getDashboardStats(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String ownerId
+    ) {
         try {
-            int currentYear = LocalDate.now().getYear();
+            // 1. Xử lý tham số đầu vào (Tránh null/empty string)
+            int queryYear = (year != null) ? year : LocalDate.now().getYear();
+            String queryCity = (city != null && !city.isEmpty()) ? city : null;
+            String queryOwnerId = (ownerId != null && !ownerId.isEmpty()) ? ownerId : null;
 
-            // --- 1. Thống kê cơ bản (Cards) ---
-            BigDecimal revenue = bookingRepo.calculateTotalRevenue();
+            // --- 2. Thống kê cơ bản (StatCards) ---
+            // SỬA: Dùng hàm filtered mới thay vì hàm calculateTotalRevenue cũ
+            BigDecimal revenue = bookingRepo.calculateFilteredRevenue(queryYear, month, queryCity, queryOwnerId);
+            long newBookings = bookingRepo.countFilteredBookings(queryYear, month, queryCity, queryOwnerId);
+
+            // Các chỉ số đếm tổng user/property giữ nguyên (vì thường admin muốn xem tổng hệ thống)
             long users = userRepo.count();
             long properties = propertyRepo.count();
-            long newBookings = bookingRepo.countNewBookings(LocalDateTime.now().minusDays(1));
 
-            // --- 2. Xử lý biểu đồ (Charts) ---
-            // Helper function để điền đủ 12 tháng
-            List<DashboardDataDTO.ChartData> revenueChart = processChartData(bookingRepo.getMonthlyRevenue(currentYear));
-            List<DashboardDataDTO.ChartData> bookingTrends = processChartData(bookingRepo.getMonthlyBookingCount(currentYear));
-            List<DashboardDataDTO.ChartData> userGrowth = processChartData(userRepo.getMonthlyUserGrowth(currentYear));
+            // --- 3. Xử lý biểu đồ (Charts) ---
+            // SỬA: Dùng hàm getFilteredMonthly... thay vì getMonthly...
+            // Lưu ý: Biểu đồ đường thường hiện 12 tháng nên ta không truyền tham số 'month' vào đây
+            List<DashboardDataDTO.ChartData> revenueChart = processChartData(
+                    bookingRepo.getFilteredMonthlyRevenue(queryYear, queryCity, queryOwnerId)
+            );
+            List<DashboardDataDTO.ChartData> bookingTrends = processChartData(
+                    bookingRepo.getFilteredMonthlyBookingCount(queryYear, queryCity, queryOwnerId)
+            );
 
-            // --- 3. Biểu đồ tròn (Revenue by Property Type) ---
-            List<Object[]> typeData = bookingRepo.getRevenueByPropertyType();
+            // Biểu đồ User Growth giữ nguyên hoặc viết thêm query lọc nếu cần
+            List<DashboardDataDTO.ChartData> userGrowth = processChartData(userRepo.getMonthlyUserGrowth(queryYear));
+
+            // --- 4. Biểu đồ tròn (Revenue by Property Type) ---
+            // SỬA: Dùng hàm getFilteredRevenueByPropertyType
+            List<Object[]> typeData = bookingRepo.getFilteredRevenueByPropertyType(queryYear, month, queryCity, queryOwnerId);
             List<DashboardDataDTO.PieChartData> revenueByType = new ArrayList<>();
             if (typeData != null) {
                 for (Object[] obj : typeData) {
                     revenueByType.add(new DashboardDataDTO.PieChartData(
-                            obj[0].toString(), // Property Type (HOTEL, VILLA...)
-                            (Number) obj[1]    // Revenue
+                            obj[0].toString(),
+                            (Number) obj[1]
                     ));
                 }
             }
 
-            // --- 4. Top 5 Hotels (Danh sách xếp hạng) ---
+            // --- 5. Top 5 Hotels (Giữ nguyên logic cũ - Top toàn hệ thống) ---
             List<Object[]> topHotelsRaw = bookingRepo.getTopPerformingHotels(PageRequest.of(0, 5));
             List<DashboardDataDTO.TopHotelDTO> topHotels = new ArrayList<>();
             if (topHotelsRaw != null) {
@@ -136,7 +155,7 @@ public class AdminApplicationController {
                 }
             }
 
-            // --- 5. Booking gần đây (Bảng) ---
+            // --- 6. Booking gần đây (Giữ nguyên logic cũ) ---
             List<Booking> recentRaw = bookingRepo.findTop10ByOrderByCreatedAtDesc();
             List<DashboardDataDTO.RecentBookingDTO> recentBookings = recentRaw.stream()
                     .map(b -> DashboardDataDTO.RecentBookingDTO.builder()
@@ -149,7 +168,7 @@ public class AdminApplicationController {
                             .build())
                     .toList();
 
-            // --- 6. Đóng gói Response ---
+            // --- 7. Đóng gói Response ---
             DashboardDataDTO stats = DashboardDataDTO.builder()
                     .totalRevenue(revenue != null ? revenue : BigDecimal.ZERO)
                     .totalUsers(users)
@@ -166,7 +185,7 @@ public class AdminApplicationController {
             return ResponseEntity.ok(ApiResponse.success("Lấy thống kê Dashboard thành công", stats));
 
         } catch (Exception e) {
-            e.printStackTrace(); // Log lỗi ra console để debug
+            e.printStackTrace();
             return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi Server: " + e.getMessage()));
         }
     }
