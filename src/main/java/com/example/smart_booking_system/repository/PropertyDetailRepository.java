@@ -68,7 +68,7 @@ public interface PropertyDetailRepository extends JpaRepository<PropertyDetail, 
     WHERE 
         p.isActive = true
         AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
-        AND LOWER(p.city) = LOWER(:city)
+        AND LOWER(p.city) LIKE LOWER(CONCAT('%', :city, '%'))
         AND r.isActive = true
         AND r.capacity >= :capacity
 """)
