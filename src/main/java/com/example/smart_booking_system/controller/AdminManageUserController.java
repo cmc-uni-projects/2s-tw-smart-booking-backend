@@ -48,10 +48,12 @@ public class AdminManageUserController {
     @PatchMapping("/{userId}/status")
     public ResponseEntity<?> updateUserStatus(
             @PathVariable String userId,
-            @RequestParam String status
+            @RequestParam String status,
+            @RequestParam(required = false) String reason // Thêm tham số này
     ) {
         try {
-            adminManageUserService.updateUserStatus(userId, status);
+            // Truyền reason vào service
+            adminManageUserService.updateUserStatus(userId, status, reason);
             return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công: " + status, null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

@@ -28,4 +28,6 @@ public interface EmailService {
     void sendCheckinReminderEmail(String toEmail, String fullName, String bookingId, String propertyName, String checkInDate);
 
     void sendThankYouEmail(String toEmail, String fullName, String bookingId, String propertyName);
+
+    void sendAccountLockedEmail(String to, String name, String reason);
 }

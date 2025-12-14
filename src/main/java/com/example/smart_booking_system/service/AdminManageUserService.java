@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class AdminManageUserService {
 
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     // 1. Lấy danh sách user
     @Transactional(readOnly = true)
@@ -36,11 +37,23 @@ public class AdminManageUserService {
 
     // 3. Cập nhật trạng thái (Khóa/Mở khóa)
     @Transactional
-    public void updateUserStatus(String userId, String status) {
+    public void updateUserStatus(String userId, String status, String reason) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        user.setStatus(status.toUpperCase());
+
+        String newStatus = status.toUpperCase();
+        user.setStatus(newStatus);
         userRepository.save(user);
+
+        // Kiểm tra nếu là hành động KHÓA thì gửi mail
+        if ("BANNED".equals(newStatus) || "SUSPENDED".equals(newStatus)) {
+            if (reason == null || reason.trim().isEmpty()) {
+                // Nếu khóa mà không nhập lý do -> Gán lý do mặc định hoặc Báo lỗi tùy bạn
+                reason = "Vi phạm điều khoản sử dụng của hệ thống.";
+            }
+            // Gửi email
+            emailService.sendAccountLockedEmail(user.getEmail(), user.getFullName(), reason);
+        }
     }
 
     // --- Helper Methods ---
