@@ -302,4 +302,27 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("❌ Failed to send thank you email: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendPropertySuspensionEmail(String to, String ownerName, String propertyName, String reason) {
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        context.setVariable("reason", reason);
+
+        // Tạo file template: resources/templates/email/property-suspended.html
+        sendHtmlEmail(to, "Thông báo dừng hoạt động cơ sở lưu trú", "email/property-suspended", context);
+    }
+
+    @Override
+    public void sendRoomSuspensionEmail(String to, String ownerName, String propertyName, String roomName, String reason) {
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        context.setVariable("roomName", roomName);
+        context.setVariable("reason", reason);
+
+        // Tạo file template: resources/templates/email/room-suspended.html
+        sendHtmlEmail(to, "Thông báo dừng hoạt động phòng", "email/room-suspended", context);
+    }
 }

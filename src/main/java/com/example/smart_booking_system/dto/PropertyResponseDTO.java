@@ -38,4 +38,5 @@ public class PropertyResponseDTO {
     private LocalDate createdAt;
     private LocalDate updatedAt;
     private String coverImage;
+    private String ownerName;
 }

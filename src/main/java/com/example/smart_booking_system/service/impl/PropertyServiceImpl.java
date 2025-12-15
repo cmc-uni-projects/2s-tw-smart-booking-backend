@@ -9,15 +9,20 @@ import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
+import com.example.smart_booking_system.enums.NotificationType;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
 import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.service.FileStorageService;
+import com.example.smart_booking_system.service.NotificationService;
 import com.example.smart_booking_system.service.PropertyService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.MessagingException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,6 +41,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final NotificationService notificationService;
     private final PropertyDetailRepository propertyDetailRepository;
     private final AmenityRepository amenityRepository;
     private final PropertyAmenityRepository propertyAmenityRepository;
@@ -555,5 +561,50 @@ public class PropertyServiceImpl implements PropertyService {
         propertyRepository.save(property);
 
         return newStatus;
+    }
+    // ============================================================
+    // [NEW] SUSPEND PROPERTY (ADMIN)
+    // ============================================================
+    @Override
+    public void suspendProperty(Integer propertyId, String reason) {
+        // 1. Tìm Property
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cơ sở lưu trú với ID: " + propertyId));
+
+        // 2. Cập nhật trạng thái
+        property.setPropertyStatus(PropertyStatus.SUSPENDED);
+        property.setActive(false);
+        propertyRepository.save(property);
+
+        // 3. Lấy chủ sở hữu
+        User owner = property.getOwner();
+
+        // 4. Gửi Notification
+        // ✅ FIX LỖI: Thêm tham số thứ 5 là String.valueOf(propertyId)
+        notificationService.sendNotification(
+                owner.getUserId(),
+                "Cơ sở lưu trú bị tạm dừng hoạt động",
+                "Cơ sở '" + property.getPropertyName() + "' đã bị admin tạm dừng. Lý do: " + reason,
+                NotificationType.PROPERTY_SUSPENDED,
+                String.valueOf(property.getPropertyId()) // <--- THAM SỐ CÒN THIẾU
+        );
+
+        // 5. Gửi Email
+        emailService.sendPropertySuspensionEmail(
+                owner.getEmail(),
+                owner.getFullName(),
+                property.getPropertyName(),
+                reason
+        );
+    }
+
+    // ============================================================
+    // [NEW] GET ALL ACTIVE PROPERTIES (ADMIN)
+    // ============================================================
+    @Override
+    public Page<PropertyResponseDTO> getAllActiveProperties(Pageable pageable) {
+        // ✅ FIX LỖI: Repository đã có hàm nhận Pageable
+        return propertyRepository.findByPropertyStatus(PropertyStatus.APPROVE, pageable)
+                .map(this::mapToPropertyResponseDTO);
     }
 }

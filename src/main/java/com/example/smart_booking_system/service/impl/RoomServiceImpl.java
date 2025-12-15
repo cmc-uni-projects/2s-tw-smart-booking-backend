@@ -10,10 +10,14 @@ import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
 import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.service.RoomService;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.smart_booking_system.service.NotificationService; // [NEW]
+import com.example.smart_booking_system.service.EmailService;        // [NEW]
+import com.example.smart_booking_system.enums.NotificationType; // [NEW]
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -33,6 +37,8 @@ public class RoomServiceImpl implements RoomService {
     private final RoomAmenityRepository roomAmenityRepository;
     private final RoomImageRepository roomImageRepository;
     private final FileStorageService fileStorageService;
+    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Override
     public boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId) {
@@ -171,6 +177,44 @@ public class RoomServiceImpl implements RoomService {
         }
         return forecastList;
     }
+    // ============================================================
+    // [NEW] SUSPEND ROOM (ADMIN)
+    // ============================================================
+    @Override
+    public void suspendRoom(Integer roomId, String reason) {
+        // 1. Tìm Room
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
+
+        // 2. Cập nhật trạng thái
+        room.setRoomStatus(RoomStatus.SUSPENDED);
+        room.setActive(false);
+        roomRepository.save(room);
+
+        // 3. Lấy thông tin chủ sở hữu
+        Property property = room.getPropertyId();
+        User owner = property.getOwner();
+
+        // 4. Gửi Notification
+        // ✅ FIX LỖI: Thêm tham số thứ 5 là String.valueOf(roomId)
+        notificationService.sendNotification(
+                owner.getUserId(),
+                "Phòng tại cơ sở " + property.getPropertyName() + " bị tạm dừng",
+                "Phòng: " + room.getRoomName() + " đã bị khóa. Lý do: " + reason,
+                NotificationType.ROOM_SUSPENDED,
+                String.valueOf(room.getRoomId()) // <--- THAM SỐ CÒN THIẾU
+        );
+
+        // 5. Gửi Email
+        emailService.sendRoomSuspensionEmail(
+                owner.getEmail(),
+                owner.getFullName(),
+                property.getPropertyName(),
+                room.getRoomName(),
+                reason
+        );
+    }
+
 
     private RoomResponseDTO mapToRoomDTO(Room room) {
         RoomResponseDTO dto = new RoomResponseDTO();

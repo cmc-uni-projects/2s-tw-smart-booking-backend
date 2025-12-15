@@ -10,6 +10,9 @@ import java.util.List;
 
 public interface RoomService {
 
+
+    void suspendRoom(Integer roomId, String reason);
+
     List<RoomResponseDTO> getRoomsByPropertyId(int propertyId);
 
 
@@ -23,4 +26,5 @@ public interface RoomService {
 
     boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId);
     List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days);
+
 }
