@@ -16,6 +16,8 @@ import com.example.smart_booking_system.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -115,7 +117,17 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+
+            // Nếu tài khoản tồn tại VÀ đang bị khóa -> Báo lỗi chặn đăng ký
+            if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
+                throw new ForbiddenException("Tài khoản của bạn đã bị khóa. Không thể đăng ký lại với email này.");
+            }
+
+            // Nếu tài khoản tồn tại nhưng không bị khóa (đang Active/Inactive) -> Báo lỗi trùng email như cũ
             throw new ConflictException("Email đã được đăng ký");
         }
 
@@ -144,17 +156,25 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        // 1. Tìm user
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("Sai email hoặc mật khẩu"));
+                .orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không chính xác"));
 
+        // 2. CHECK XÁC THỰC EMAIL
+        // ❌ CŨ: throw new UnauthorizedException(...) -> Trả về 401 (Sai Logic)
+        // ✅ MỚI: throw new DisabledException(...) -> Trả về 403 (Đúng Logic Frontend cần)
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
-            throw new UnauthorizedException("Hãy xác minh email của bạn trước khi đăng nhập");
+            throw new DisabledException("Tài khoản chưa được xác thực. Vui lòng kiểm tra email!");
         }
 
+        // 3. CHECK TRẠNG THÁI KHÓA
+        // ✅ MỚI: Dùng LockedException hoặc DisabledException để trả về 403
         if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
-            throw new UnauthorizedException("Tài khoản của bạn đã bị " + user.getStatus().toLowerCase());
+            throw new LockedException("Tài khoản của bạn đã bị khóa: " + user.getStatus());
         }
 
+        // 4. Nếu qua được các bước trên thì mới check mật khẩu
+        // Nếu sai mật khẩu ở đây, nó sẽ tự ném BadCredentialsException (401)
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
