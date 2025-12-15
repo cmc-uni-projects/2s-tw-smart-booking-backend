@@ -4,15 +4,11 @@ import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
 import com.example.smart_booking_system.dto.response.PriceForecastDTO;
 import com.example.smart_booking_system.entity.*;
-import com.example.smart_booking_system.enums.AmenityType;
-import com.example.smart_booking_system.enums.NotificationType; // [NEW]
-import com.example.smart_booking_system.enums.RoomStatus;
+import com.example.smart_booking_system.enums.*;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
-import com.example.smart_booking_system.service.EmailService;        // [NEW]
-import com.example.smart_booking_system.service.FileStorageService;
-import com.example.smart_booking_system.service.NotificationService; // [NEW]
-import com.example.smart_booking_system.service.RoomService;
+import com.example.smart_booking_system.service.*;
+import com.example.smart_booking_system.util.SystemLogJsonUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +34,7 @@ public class RoomServiceImpl implements RoomService {
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final SystemLogService systemLogService;
 
     @Override
     public boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId) {
@@ -81,6 +78,16 @@ public class RoomServiceImpl implements RoomService {
 
         Room savedRoom = roomRepository.save(room);
 
+        systemLogService.log(
+                property.getOwner(),
+                LogAction.CREATE,
+                LogEntityType.ROOM,
+                String.valueOf(savedRoom.getRoomId()),
+                "Tạo phòng: " + savedRoom.getRoomName(),
+                null,
+                null
+        );
+
         if (dto.getAmenities() != null) {
             for (String amenityKey : dto.getAmenities()) {
                 amenityRepository.findByAmenityNameAndAmenityType(amenityKey, AmenityType.ROOM)
@@ -112,6 +119,8 @@ public class RoomServiceImpl implements RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
+        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+
         room.setRoomName(dto.getRoomName());
         room.setRoomCategory(dto.getRoomCategory());
         room.setPricePerNight(dto.getPricePerNight());
@@ -126,6 +135,16 @@ public class RoomServiceImpl implements RoomService {
         room.setDescription(dto.getDescription());
 
         Room savedRoom = roomRepository.save(room);
+
+        systemLogService.log(
+                room.getPropertyId().getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.ROOM,
+                String.valueOf(savedRoom.getRoomId()),
+                "Cập nhật phòng: " + savedRoom.getRoomName(),
+                oldValue,
+                SystemLogJsonUtil.roomSnapshot(savedRoom)
+        );
 
         if (newImages != null && !newImages.isEmpty()) {
             for (MultipartFile file : newImages) {
@@ -144,8 +163,21 @@ public class RoomServiceImpl implements RoomService {
     public void deleteRoom(int roomId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+
+        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+
         room.setActive(false);
         roomRepository.save(room);
+
+        systemLogService.log(
+                room.getPropertyId().getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.ROOM,
+                String.valueOf(room.getRoomId()),
+                "Ẩn phòng: " + room.getRoomName(),
+                oldValue,
+                SystemLogJsonUtil.roomSnapshot(room)
+        );
     }
 
     @Override
@@ -183,9 +215,21 @@ public class RoomServiceImpl implements RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
 
+        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+
         room.setRoomStatus(RoomStatus.SUSPENDED);
         room.setActive(false);
         roomRepository.save(room);
+
+        systemLogService.log(
+                room.getPropertyId().getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.ROOM,
+                String.valueOf(room.getRoomId()),
+                "Tạm dừng phòng: " + room.getRoomName() + " | Lý do: " + reason,
+                oldValue,
+                SystemLogJsonUtil.roomSnapshot(room)
+        );
 
         Property property = room.getPropertyId();
         User owner = property.getOwner();
@@ -220,9 +264,21 @@ public class RoomServiceImpl implements RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
+        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+
         room.setRoomStatus(RoomStatus.AVAILABLE);
         room.setActive(true);
         roomRepository.save(room);
+
+        systemLogService.log(
+                room.getPropertyId().getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.ROOM,
+                String.valueOf(room.getRoomId()),
+                "Mở lại phòng: " + room.getRoomName(),
+                oldValue,
+                SystemLogJsonUtil.roomSnapshot(room)
+        );
 
         Property property = room.getPropertyId();
         User owner = property.getOwner();
