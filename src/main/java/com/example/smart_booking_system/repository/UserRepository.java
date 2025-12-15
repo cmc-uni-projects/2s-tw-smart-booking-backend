@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import com.example.smart_booking_system.enums.MembershipRank;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -73,15 +74,20 @@ public interface UserRepository extends JpaRepository<User, String> {
     List<User> searchUsers(@Param("keyword") String keyword);
 
     // --- QUERY MỚI CHO ADMIN ---
-    @Query("SELECT u FROM User u " +
+    @Query("SELECT DISTINCT u FROM User u " +
             "LEFT JOIN u.roles r " +
-            "WHERE (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:roleName IS NULL OR :roleName = '' OR r.roleName = :roleName) " +
-            "AND (:status IS NULL OR :status = '' OR u.status = :status)")
+            "WHERE (:keyword IS NULL OR :keyword = '' OR " +
+            "       LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "       LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:role IS NULL OR :role = '' OR r.roleName = :role) " +
+            "AND (:status IS NULL OR :status = '' OR u.status = :status) " +
+            "AND NOT EXISTS (SELECT subR FROM u.roles subR WHERE subR.roleName = 'ADMIN') " +
+            "AND (:rank IS NULL OR u.membershipRank = :rank)")
     Page<User> findUsersWithFilter(
             @Param("keyword") String keyword,
-            @Param("roleName") String roleName,
+            @Param("role") String role,
             @Param("status") String status,
+            @Param("rank") MembershipRank rank, // Đã thêm tham số này
             Pageable pageable
     );
     @Query("SELECT FUNCTION('MONTH', u.createdAt) as month, COUNT(u) as count " +

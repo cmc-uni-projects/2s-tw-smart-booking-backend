@@ -27,12 +27,14 @@ public class AdminManageUserController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String role,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String rank // Thêm dòng này
     ) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<AdminUserResponseDTO> users = adminManageUserService.getAllUsers(keyword, role, status, pageable);
+        // Truyền thêm biến rank vào service
+        Page<AdminUserResponseDTO> users = adminManageUserService.getAllUsers(keyword, role, status, rank, pageable);
 
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành công", users));
     }
@@ -48,10 +50,12 @@ public class AdminManageUserController {
     @PatchMapping("/{userId}/status")
     public ResponseEntity<?> updateUserStatus(
             @PathVariable String userId,
-            @RequestParam String status
+            @RequestParam String status,
+            @RequestParam(required = false) String reason // Thêm tham số này
     ) {
         try {
-            adminManageUserService.updateUserStatus(userId, status);
+            // Truyền reason vào service
+            adminManageUserService.updateUserStatus(userId, status, reason);
             return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công: " + status, null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

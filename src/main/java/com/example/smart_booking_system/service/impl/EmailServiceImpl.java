@@ -343,4 +343,26 @@ public class EmailServiceImpl implements EmailService {
         sendHtmlEmail(to, "Phòng đã hoạt động trở lại", "email/room-reactivated", context);
     }
 
+    @Override
+    @Async
+    public void sendAccountLockedEmail(String to, String name, String reason) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            Context context = new Context();
+            context.setVariable("name", name);
+            context.setVariable("reason", reason);
+
+            String htmlContent = templateEngine.process("email/account-locked", context);
+
+            helper.setTo(to);
+            helper.setSubject("TravelMate - Thông báo khóa tài khoản");
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            System.err.println("Lỗi gửi email khóa tài khoản: " + e.getMessage());
+        }
+    }
 }
