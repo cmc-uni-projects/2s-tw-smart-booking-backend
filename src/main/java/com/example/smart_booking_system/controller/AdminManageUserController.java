@@ -27,12 +27,14 @@ public class AdminManageUserController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String role,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String rank // Thêm dòng này
     ) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<AdminUserResponseDTO> users = adminManageUserService.getAllUsers(keyword, role, status, pageable);
+        // Truyền thêm biến rank vào service
+        Page<AdminUserResponseDTO> users = adminManageUserService.getAllUsers(keyword, role, status, rank, pageable);
 
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành công", users));
     }

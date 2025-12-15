@@ -5,6 +5,7 @@ import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import com.example.smart_booking_system.enums.MembershipRank;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,8 +22,17 @@ public class AdminManageUserService {
 
     // 1. Lấy danh sách user
     @Transactional(readOnly = true)
-    public Page<AdminUserResponseDTO> getAllUsers(String keyword, String role, String status, Pageable pageable) {
-        Page<User> userPage = userRepository.findUsersWithFilter(keyword, role, status, pageable);
+    public Page<AdminUserResponseDTO> getAllUsers(String keyword, String role, String status, String rankStr, Pageable pageable) {
+        MembershipRank rank = null;
+        if (rankStr != null && !rankStr.isEmpty()) {
+            try {
+                rank = MembershipRank.valueOf(rankStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                rank = null;
+            }
+        }
+
+        Page<User> userPage = userRepository.findUsersWithFilter(keyword, role, status, rank, pageable);
 
         return userPage.map(this::convertToDTO);
     }
