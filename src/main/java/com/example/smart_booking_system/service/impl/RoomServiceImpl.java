@@ -36,13 +36,15 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId) {
-        return roomRepository.existsByPropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
+        // ✅ SỬA: Tên hàm Repository mới (theo biến property)
+        return roomRepository.existsByProperty_PropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getRoomsByPropertyId(int propertyId) {
-        List<Room> rooms = roomRepository.findByPropertyId_PropertyIdAndIsActiveTrue(propertyId);
+        // ✅ SỬA: Tên hàm Repository mới (theo biến property và active)
+        List<Room> rooms = roomRepository.findByProperty_PropertyIdAndActiveTrue(propertyId);
         return rooms.stream().map(this::mapToRoomDTO).collect(Collectors.toList());
     }
 
@@ -52,21 +54,34 @@ public class RoomServiceImpl implements RoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
         Room room = new Room();
-        room.setPropertyId(property);
+        // ✅ SỬA: setProperty thay vì setPropertyId
+        room.setProperty(property);
         room.setRoomName(dto.getRoomName());
+
+        // roomCategory và roomStatus: Nếu Entity vẫn giữ thì để nguyên, nếu xóa thì xóa dòng này
         room.setRoomCategory(dto.getRoomCategory());
+        room.setRoomStatus(RoomStatus.AVAILABLE);
+
         room.setPricePerNight(dto.getPricePerNight());
 
-        // Nếu không nhập weekendPrice, lấy bằng giá thường
+        // Logic weekendPrice
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
             room.setWeekendPrice(dto.getWeekendPrice());
         } else {
             room.setWeekendPrice(dto.getPricePerNight());
         }
 
+        // ✅ BỔ SUNG: Set các trường mới (Area, RoomAmount, CreatedDate)
+        // Nếu DTO RoomRequestDTO chưa có các trường này, bạn cần thêm vào DTO hoặc set default
+        // Ví dụ tạm thời set default hoặc lấy từ DTO nếu có
+        // room.setArea(dto.getArea());
+        // room.setRoomAmount(dto.getRoomAmount());
+        room.setCreatedDate(LocalDate.now());
+
         room.setCapacity(dto.getCapacity());
         room.setDescription(dto.getDescription());
-        room.setRoomStatus(RoomStatus.AVAILABLE);
+
+        // ✅ SỬA: setActive thay vì setIsActive (tùy lombok, thường setActive là chuẩn)
         room.setActive(true);
 
         Room savedRoom = roomRepository.save(room);
@@ -105,15 +120,21 @@ public class RoomServiceImpl implements RoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
         room.setRoomName(dto.getRoomName());
-        room.setRoomCategory(dto.getRoomCategory());
-        room.setPricePerNight(dto.getPricePerNight());
 
+        // roomCategory (nếu còn dùng)
+        room.setRoomCategory(dto.getRoomCategory());
+
+        room.setPricePerNight(dto.getPricePerNight());
 
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
             room.setWeekendPrice(dto.getWeekendPrice());
         } else {
             room.setWeekendPrice(dto.getPricePerNight());
         }
+
+        // ✅ Cập nhật thêm các trường mới nếu DTO có gửi lên
+        // room.setArea(dto.getArea());
+        // room.setRoomAmount(dto.getRoomAmount());
 
         room.setCapacity(dto.getCapacity());
         room.setDescription(dto.getDescription());
@@ -149,7 +170,7 @@ public class RoomServiceImpl implements RoomService {
         return mapToRoomDTO(room);
     }
 
-    //  Logic lấy giá theo ngày
+    // Logic lấy giá theo ngày
     @Override
     @Transactional(readOnly = true)
     public List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days) {
@@ -172,22 +193,12 @@ public class RoomServiceImpl implements RoomService {
         return forecastList;
     }
 
+    // ✅ Helper map DTO
     private RoomResponseDTO mapToRoomDTO(Room room) {
-        RoomResponseDTO dto = new RoomResponseDTO();
-        dto.setRoomId(room.getRoomId());
-        dto.setPropertyId(room.getPropertyId().getPropertyId());
-        dto.setRoomName(room.getRoomName());
-        dto.setRoomCategory(room.getRoomCategory());
-        dto.setPricePerNight(room.getPricePerNight());
+        // Dùng Constructor của DTO mà chúng ta đã sửa (có map area, active, weekendPrice...)
+        RoomResponseDTO dto = new RoomResponseDTO(room);
 
-        // Map weekendPrice
-        dto.setWeekendPrice(room.getWeekendPrice());
-
-        dto.setCapacity(room.getCapacity());
-        dto.setDescription(room.getDescription());
-        dto.setRoomStatus(room.getRoomStatus());
-        dto.setActive(room.isActive());
-
+        // Map thêm các list images và amenities (vì Constructor chỉ map list rỗng)
         List<String> imageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
                 .stream().map(RoomImage::getImageUrl).collect(Collectors.toList());
         dto.setImages(imageUrls);

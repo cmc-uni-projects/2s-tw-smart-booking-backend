@@ -18,10 +18,10 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     // ============================================================
     @Query("""
         SELECT DISTINCT p FROM Property p
-        JOIN Room r ON r.propertyId = p
+        JOIN Room r ON r.property = p
         WHERE p.isActive = true
         AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
-        AND r.isActive = true
+        AND r.active = true
         AND (:keyword IS NULL OR :keyword = '' OR (
              LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
              LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
@@ -77,7 +77,7 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     // ============================================================
 
     // Query search cũ
-    @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.propertyId = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.isActive = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.property = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.active = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Property> searchProperties(@Param("keyword") String keyword);
 
     @Query(value = """

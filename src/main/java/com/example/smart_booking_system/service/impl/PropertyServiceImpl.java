@@ -10,12 +10,14 @@ import com.example.smart_booking_system.dto.request.property.PropertyApplication
 import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.enums.PropertyType;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
 import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.service.PropertyService;
+import io.lettuce.core.AbstractRedisAsyncCommands;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final RoomImageRepository roomImageRepository;
     private final BookingRepository bookingRepository;
     private final RoomAmenityRepository roomAmenityRepository;
+    private final RoomRepository roomRepository;
+
 
     // ============================================================
     // VALIDATION
@@ -210,6 +214,46 @@ public class PropertyServiceImpl implements PropertyService {
         try {
             sendPropertySubmittedEmail(owner, saved);
         } catch (Exception ignored) {}
+
+        // TỰ ĐỘNG TẠO ROOM NẾU LÀ HOMESTAY HOẶC VILLA
+        if (dto.getPropertyType() == PropertyType.HOMESTAY || dto.getPropertyType() == PropertyType.VILLA) {
+
+            Room room = new Room();
+            room.setProperty(saved); // Liên kết với Property vừa tạo
+
+            // Dùng tên căn user nhập, hoặc default nếu null
+            room.setRoomName(dto.getUnitName() != null ? dto.getUnitName() : "Nguyên căn");
+
+            // Set giá & sức chứa từ DTO
+            room.setPricePerNight(dto.getPrice() != null ? dto.getPrice() : BigDecimal.ZERO);
+            room.setWeekendPrice(dto.getWeekendPrice()); // Lưu giá cuối tuần
+            room.setCapacity(dto.getCapacity() != null ? dto.getCapacity() : 2);
+
+            room.setArea(dto.getArea()); // Lấy diện tích của Property gán cho Room luôn
+            room.setDescription(dto.getDescription());
+
+            // Mặc định room active false (chờ admin duyệt property thì room mới hiện)
+            room.setActive(true); // Hoặc để false tuỳ logic duyệt
+            room.setRoomAmount(1); // Nguyên căn thì số lượng là 1
+            room.setCreatedDate(LocalDate.now());
+
+            Room savedRoom = roomRepository.save(room);
+
+            // [QUAN TRỌNG] Copy ảnh của Property sang cho Room này luôn
+            // (Vì Homestay/Villa thì ảnh nhà chính là ảnh phòng)
+            if (images != null && !images.isEmpty()) {
+                // Logic copy hoặc tạo record RoomImage trỏ cùng url với PropertyImage
+                // Để đơn giản, ta tạo record RoomImage mới nhưng dùng chung URL (key) đã upload
+                List<PropertyImage> propImages = propertyImageRepository.findByProperty_PropertyId(saved.getPropertyId());
+                for (PropertyImage pImg : propImages) {
+                    RoomImage rImg = new RoomImage();
+                    rImg.setRoom(savedRoom);
+                    rImg.setImageUrl(pImg.getImageUrl()); // Dùng lại key ảnh S3/R2 cũ, ko cần upload lại
+                    roomImageRepository.save(rImg);
+                }
+            }
+        }
+
 
         return mapToPropertyDetailDTO(saved);
     }

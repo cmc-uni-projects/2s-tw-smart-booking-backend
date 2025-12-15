@@ -41,8 +41,8 @@ public class RoomDetailService {
         roomDTO.setRoomStatus(room.getRoomStatus());
         roomDTO.setActive(room.isActive());
 
-        // Lưu ý: Trong Entity Room biến là 'propertyId' (kiểu Property)
-        roomDTO.setPropertyId(room.getPropertyId().getPropertyId());
+        // Lưu ý: Trong Entity Room biến là 'property' (kiểu Property)
+        roomDTO.setPropertyId(room.getProperty().getPropertyId());
 
         // ============================
         // 2. Amenities (Lấy tiện nghi)
