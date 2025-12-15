@@ -38,7 +38,8 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId) {
-        return roomRepository.existsByPropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
+        // ✅ SỬA: Tên hàm Repository mới (theo biến property)
+        return roomRepository.existsByProperty_PropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
     }
 
     // ============================================================
@@ -47,6 +48,8 @@ public class RoomServiceImpl implements RoomService {
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getRoomsByPropertyId(int propertyId) {
+        // ✅ SỬA: Tên hàm Repository mới (theo biến property và active)
+        List<Room> rooms = roomRepository.findByProperty_PropertyIdAndActiveTrue(propertyId);
         // SỬA: Dùng hàm lấy tất cả phòng (cả Active và Suspended)
         // Lưu ý: Bạn cần đảm bảo RoomRepository đã có hàm findByPropertyId_PropertyId
         List<Room> rooms = roomRepository.findByPropertyId_PropertyId(propertyId);
@@ -60,20 +63,34 @@ public class RoomServiceImpl implements RoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
         Room room = new Room();
-        room.setPropertyId(property);
+        // ✅ SỬA: setProperty thay vì setPropertyId
+        room.setProperty(property);
         room.setRoomName(dto.getRoomName());
+
+        // roomCategory và roomStatus: Nếu Entity vẫn giữ thì để nguyên, nếu xóa thì xóa dòng này
         room.setRoomCategory(dto.getRoomCategory());
+        room.setRoomStatus(RoomStatus.AVAILABLE);
+
         room.setPricePerNight(dto.getPricePerNight());
 
+        // Logic weekendPrice
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
             room.setWeekendPrice(dto.getWeekendPrice());
         } else {
             room.setWeekendPrice(dto.getPricePerNight());
         }
 
+        // ✅ BỔ SUNG: Set các trường mới (Area, RoomAmount, CreatedDate)
+        // Nếu DTO RoomRequestDTO chưa có các trường này, bạn cần thêm vào DTO hoặc set default
+        // Ví dụ tạm thời set default hoặc lấy từ DTO nếu có
+        // room.setArea(dto.getArea());
+        // room.setRoomAmount(dto.getRoomAmount());
+        room.setCreatedDate(LocalDate.now());
+
         room.setCapacity(dto.getCapacity());
         room.setDescription(dto.getDescription());
-        room.setRoomStatus(RoomStatus.AVAILABLE);
+
+        // ✅ SỬA: setActive thay vì setIsActive (tùy lombok, thường setActive là chuẩn)
         room.setActive(true);
 
         Room savedRoom = roomRepository.save(room);
@@ -122,7 +139,10 @@ public class RoomServiceImpl implements RoomService {
         String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
         room.setRoomName(dto.getRoomName());
+
+        // roomCategory (nếu còn dùng)
         room.setRoomCategory(dto.getRoomCategory());
+
         room.setPricePerNight(dto.getPricePerNight());
 
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
@@ -130,6 +150,10 @@ public class RoomServiceImpl implements RoomService {
         } else {
             room.setWeekendPrice(dto.getPricePerNight());
         }
+
+        // ✅ Cập nhật thêm các trường mới nếu DTO có gửi lên
+        // room.setArea(dto.getArea());
+        // room.setRoomAmount(dto.getRoomAmount());
 
         room.setCapacity(dto.getCapacity());
         room.setDescription(dto.getDescription());
@@ -188,6 +212,7 @@ public class RoomServiceImpl implements RoomService {
         return mapToRoomDTO(room);
     }
 
+    // Logic lấy giá theo ngày
     @Override
     @Transactional(readOnly = true)
     public List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days) {
@@ -207,129 +232,123 @@ public class RoomServiceImpl implements RoomService {
         return forecastList;
     }
 
-    // ============================================================
-    // SUSPEND ROOM (Sửa nội dung thông báo)
-    // ============================================================
-    @Override
-    public void suspendRoom(Integer roomId, String reason) {
-        Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
+// ============================================================
+// SUSPEND ROOM
+// ============================================================
+@Override
+public void suspendRoom(Integer roomId, String reason) {
+    Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
 
-        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+    String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
-        room.setRoomStatus(RoomStatus.SUSPENDED);
-        room.setActive(false);
-        roomRepository.save(room);
+    room.setRoomStatus(RoomStatus.SUSPENDED);
+    room.setActive(false);
+    roomRepository.save(room);
 
-        systemLogService.log(
-                room.getPropertyId().getOwner(),
-                LogAction.UPDATE,
-                LogEntityType.ROOM,
-                String.valueOf(room.getRoomId()),
-                "Tạm dừng phòng: " + room.getRoomName() + " | Lý do: " + reason,
-                oldValue,
-                SystemLogJsonUtil.roomSnapshot(room)
-        );
+    systemLogService.log(
+            room.getPropertyId().getOwner(),
+            LogAction.UPDATE,
+            LogEntityType.ROOM,
+            String.valueOf(room.getRoomId()),
+            "Tạm dừng phòng: " + room.getRoomName() + " | Lý do: " + reason,
+            oldValue,
+            SystemLogJsonUtil.roomSnapshot(room)
+    );
 
-        Property property = room.getPropertyId();
-        User owner = property.getOwner();
+    Property property = room.getPropertyId();
+    User owner = property.getOwner();
 
-        // [UPDATED] Cập nhật nội dung thông báo chi tiết hơn
-        String title = "Tạm dừng phòng tại " + property.getPropertyName();
-        String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" + property.getPropertyName() +
-                "' đã bị khóa. Lý do: " + reason;
+    String title = "Tạm dừng phòng tại " + property.getPropertyName();
+    String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" +
+            property.getPropertyName() + "' đã bị khóa. Lý do: " + reason;
 
-        notificationService.sendNotification(
-                owner.getUserId(),
-                title,   // Tiêu đề
-                message, // Nội dung đã thêm tên khách sạn
-                NotificationType.ROOM_SUSPENDED,
-                String.valueOf(room.getRoomId())
-        );
+    notificationService.sendNotification(
+            owner.getUserId(),
+            title,
+            message,
+            NotificationType.ROOM_SUSPENDED,
+            String.valueOf(room.getRoomId())
+    );
 
-        emailService.sendRoomSuspensionEmail(
-                owner.getEmail(),
-                owner.getFullName(),
-                property.getPropertyName(),
-                room.getRoomName(),
-                reason
-        );
-    }
+    emailService.sendRoomSuspensionEmail(
+            owner.getEmail(),
+            owner.getFullName(),
+            property.getPropertyName(),
+            room.getRoomName(),
+            reason
+    );
+}
 
-    // ============================================================
-    // ACTIVATE ROOM (Sửa nội dung thông báo cho đồng bộ)
-    // ============================================================
-    @Override
-    public void activateRoom(Integer roomId) {
-        Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+// ============================================================
+// ACTIVATE ROOM
+// ============================================================
+@Override
+public void activateRoom(Integer roomId) {
+    Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
-        String oldValue = SystemLogJsonUtil.roomSnapshot(room);
+    String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
-        room.setRoomStatus(RoomStatus.AVAILABLE);
-        room.setActive(true);
-        roomRepository.save(room);
+    room.setRoomStatus(RoomStatus.AVAILABLE);
+    room.setActive(true);
+    roomRepository.save(room);
 
-        systemLogService.log(
-                room.getPropertyId().getOwner(),
-                LogAction.UPDATE,
-                LogEntityType.ROOM,
-                String.valueOf(room.getRoomId()),
-                "Mở lại phòng: " + room.getRoomName(),
-                oldValue,
-                SystemLogJsonUtil.roomSnapshot(room)
-        );
+    systemLogService.log(
+            room.getPropertyId().getOwner(),
+            LogAction.UPDATE,
+            LogEntityType.ROOM,
+            String.valueOf(room.getRoomId()),
+            "Mở lại phòng: " + room.getRoomName(),
+            oldValue,
+            SystemLogJsonUtil.roomSnapshot(room)
+    );
 
-        Property property = room.getPropertyId();
-        User owner = property.getOwner();
+    Property property = room.getPropertyId();
+    User owner = property.getOwner();
 
-        // [UPDATED] Cập nhật nội dung thông báo chi tiết hơn
-        String title = "Phòng tại " + property.getPropertyName() + " hoạt động trở lại";
-        String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" + property.getPropertyName() +
-                "' đã được mở khóa và sẵn sàng nhận khách.";
+    String title = "Phòng tại " + property.getPropertyName() + " hoạt động trở lại";
+    String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" +
+            property.getPropertyName() + "' đã được mở khóa và sẵn sàng nhận khách.";
 
-        notificationService.sendNotification(
-                owner.getUserId(),
-                title,
-                message,
-                NotificationType.SYSTEM,
-                String.valueOf(room.getRoomId())
-        );
+    notificationService.sendNotification(
+            owner.getUserId(),
+            title,
+            message,
+            NotificationType.SYSTEM,
+            String.valueOf(room.getRoomId())
+    );
 
-        emailService.sendRoomReactivationEmail(
-                owner.getEmail(),
-                owner.getFullName(),
-                property.getPropertyName(),
-                room.getRoomName()
-        );
-    }
+    emailService.sendRoomReactivationEmail(
+            owner.getEmail(),
+            owner.getFullName(),
+            property.getPropertyName(),
+            room.getRoomName()
+    );
+}
 
-    private RoomResponseDTO mapToRoomDTO(Room room) {
-        RoomResponseDTO dto = new RoomResponseDTO();
-        dto.setRoomId(room.getRoomId());
-        dto.setPropertyId(room.getPropertyId().getPropertyId());
-        dto.setRoomName(room.getRoomName());
-        dto.setRoomCategory(room.getRoomCategory());
-        dto.setPricePerNight(room.getPricePerNight());
-        dto.setWeekendPrice(room.getWeekendPrice());
-        dto.setCapacity(room.getCapacity());
-        dto.setDescription(room.getDescription());
-        dto.setRoomStatus(room.getRoomStatus());
-        dto.setActive(room.isActive());
+// ============================================================
+// HELPER MAP ROOM DTO (chuẩn, không duplicate)
+// ============================================================
+private RoomResponseDTO mapToRoomDTO(Room room) {
+    // Dùng constructor đã fix (area, active, weekendPrice, ...)
+    RoomResponseDTO dto = new RoomResponseDTO(room);
 
-        // Logic Signed URL cho ảnh đã có sẵn từ code của bạn
-        List<String> imageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
-                .stream()
-                .map(img -> fileStorageService.generateSignedUrl(img.getImageUrl()))
-                .collect(Collectors.toList());
+    // Images (Signed URL)
+    List<String> imageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
+            .stream()
+            .map(img -> fileStorageService.generateSignedUrl(img.getImageUrl()))
+            .collect(Collectors.toList());
+    dto.setImages(imageUrls);
 
-        dto.setImages(imageUrls);
+    // Amenities
+    List<String> amenityNames = roomAmenityRepository.findByRoom_RoomId(room.getRoomId())
+            .stream()
+            .filter(RoomAmenity::isActive)
+            .map(ra -> ra.getAmenity().getAmenityName())
+            .collect(Collectors.toList());
+    dto.setAmenities(amenityNames);
 
-        List<String> amenityNames = roomAmenityRepository.findByRoom_RoomId(room.getRoomId())
-                .stream().filter(RoomAmenity::isActive)
-                .map(ra -> ra.getAmenity().getAmenityName()).collect(Collectors.toList());
-        dto.setAmenities(amenityNames);
-
-        return dto;
-    }
+    return dto;
+}
 }

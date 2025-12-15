@@ -1,6 +1,6 @@
 package com.example.smart_booking_system.dto;
 
-import com.example.smart_booking_system.entity.Room; // ✅ Import Entity
+import com.example.smart_booking_system.entity.Room;
 import com.example.smart_booking_system.enums.RoomCategory;
 import com.example.smart_booking_system.enums.RoomStatus;
 import lombok.Data;
@@ -14,10 +14,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RoomResponseDTO {
-    private int roomId;
-    private int propertyId;
+    private Integer roomId;
+    private Integer propertyId;
     private String roomName;
     private RoomCategory roomCategory;
+    private BigDecimal area;
+    private Integer roomAmount;
     private BigDecimal pricePerNight;
     private BigDecimal weekendPrice;
     private int capacity;
@@ -30,17 +32,23 @@ public class RoomResponseDTO {
 
     public RoomResponseDTO(Room room) {
         this.roomId = room.getRoomId();
-        if (room.getPropertyId() != null) {
-            this.propertyId = room.getPropertyId().getPropertyId();
+
+        // ✅ Sửa: getProperty()
+        if (room.getProperty() != null) {
+            this.propertyId = room.getProperty().getPropertyId();
         }
+
         this.roomName = room.getRoomName();
-        this.roomCategory = room.getRoomCategory();
+        this.area = room.getArea();
+        this.roomAmount = room.getRoomAmount();
+        this.roomCategory = room.getRoomCategory(); // Có thể null
         this.pricePerNight = room.getPricePerNight();
         this.weekendPrice = room.getWeekendPrice();
         this.capacity = room.getCapacity();
         this.description = room.getDescription();
-        this.roomStatus = room.getRoomStatus();
+        this.roomStatus = room.getRoomStatus();     // Có thể null
         this.active = room.isActive();
+
         this.images = new ArrayList<>();
         this.amenities = new ArrayList<>();
     }

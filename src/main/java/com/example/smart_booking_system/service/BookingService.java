@@ -69,7 +69,7 @@ public class BookingService {
             room = roomRepo.findById(req.getRoomId())
                     .orElseThrow(() -> new RuntimeException("Room not found: " + req.getRoomId()));
 
-            if (room.getPropertyId() == null || room.getPropertyId().getPropertyId() != req.getPropertyId()) {
+            if (room.getProperty() == null || room.getProperty().getPropertyId() != req.getPropertyId()) {
                 throw new RuntimeException("Room does not belong to the given property");
             }
         }

@@ -60,7 +60,7 @@ public class RoomImageService {
         List<RoomImageResponseDTO> result = new ArrayList<>();
 
         // ⭐ LƯU ĐÚNG STRUCTURE: properties/{propertyId}/rooms/{roomId}
-        String folder = "properties/" + room.getPropertyId().getPropertyId()
+        String folder = "properties/" + room.getProperty().getPropertyId()
                 + "/rooms/" + roomId;
 
         for (MultipartFile file : files) {
