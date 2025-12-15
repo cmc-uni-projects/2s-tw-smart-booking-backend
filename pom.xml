@@ -22,6 +22,9 @@
         <jjwt.version>0.11.5</jjwt.version>
         <springdoc.version>2.5.0</springdoc.version>
         <flyway.version>10.17.0</flyway.version>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
     <!-- AWS SDK v2 BOM (để tránh lỗi version mismatch) -->
