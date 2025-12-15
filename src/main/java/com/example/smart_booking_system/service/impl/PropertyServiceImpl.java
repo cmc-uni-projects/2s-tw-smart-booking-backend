@@ -11,6 +11,7 @@ import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import com.example.smart_booking_system.enums.PropertyType;
+import com.example.smart_booking_system.enums.RoomCategory; // ✅ [FIX] Import RoomCategory
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
@@ -231,6 +232,9 @@ public class PropertyServiceImpl implements PropertyService {
 
             room.setArea(dto.getArea()); // Lấy diện tích của Property gán cho Room luôn
             room.setDescription(dto.getDescription());
+
+            // ✅ [FIX] THÊM DÒNG NÀY: Gán loại phòng là WHOLE để API Booking tìm thấy
+            room.setRoomCategory(RoomCategory.WHOLE);
 
             // Mặc định room active false (chờ admin duyệt property thì room mới hiện)
             room.setActive(true); // Hoặc để false tuỳ logic duyệt

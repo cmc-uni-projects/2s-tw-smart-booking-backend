@@ -44,7 +44,8 @@ public class Room {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // Dùng active thay vì isActive để tránh lỗi Lombok
+    // ✅ [FIX] Ánh xạ vào đúng cột 'isActive' trong Database để tránh lỗi insert
+    @Column(name = "isActive")
     private boolean active = true;
 
     // Giữ lại Enum cũ để không lỗi các file khác, nhưng có thể null
