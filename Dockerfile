@@ -1,16 +1,20 @@
 # Stage 1: Build source code
-FROM maven:3.8.5-openjdk-17 AS build
+FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 WORKDIR /app
 COPY . .
-RUN mvn clean package -DskipTests
+# Thêm cấu hình encoding để tránh lỗi tiếng Việt
+RUN mvn clean package -DskipTests -Dproject.build.sourceEncoding=UTF-8
 
-# Stage 2: Chạy ứng dụng
-FROM eclipse-temurin:17-jdk-alpine
+# Stage 2: Chạy ứng dụng (Bản Runtime nhẹ)
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Render sẽ cấp port qua biến môi trường $PORT
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["java","-jar","app.jar"]
+# CẤU HÌNH QUAN TRỌNG NHẤT:
+# 1. -Xms256m -Xmx350m: Ép Java dùng tối đa 350MB RAM (chừa lại ~150MB cho OS và tiến trình khác của Container)
+# 2. -XX:+UseSerialGC: Dùng thuật toán dọn rác đơn giản nhất, tiết kiệm RAM nhất (phù hợp 1 vCPU)
+# 3. -Dserver.port=8080: Ép chạy port 8080
+ENTRYPOINT ["java", "-Xms256m", "-Xmx350m", "-XX:+UseSerialGC", "-Dserver.port=8080", "-jar", "app.jar"]
