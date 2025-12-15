@@ -1,4 +1,4 @@
-package com.smartbooking.config;
+package com.example.smart_booking_system.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
