@@ -59,7 +59,7 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
             @Param("excludeRoomId") Integer excludeRoomId
     );
 
-    List<Room> findByPropertyId_PropertyId(int propertyId);
+    List<Room> findByProperty_PropertyId(int propertyId);
 
 
 }

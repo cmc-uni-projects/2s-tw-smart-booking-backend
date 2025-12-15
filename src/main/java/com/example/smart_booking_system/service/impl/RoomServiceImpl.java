@@ -52,7 +52,7 @@ public class RoomServiceImpl implements RoomService {
         List<Room> rooms = roomRepository.findByProperty_PropertyIdAndActiveTrue(propertyId);
         // SỬA: Dùng hàm lấy tất cả phòng (cả Active và Suspended)
         // Lưu ý: Bạn cần đảm bảo RoomRepository đã có hàm findByPropertyId_PropertyId
-        List<Room> rooms = roomRepository.findByPropertyId_PropertyId(propertyId);
+        List<Room> room = roomRepository.findByProperty_PropertyId(propertyId);
 
         return rooms.stream().map(this::mapToRoomDTO).collect(Collectors.toList());
     }
@@ -161,7 +161,7 @@ public class RoomServiceImpl implements RoomService {
         Room savedRoom = roomRepository.save(room);
 
         systemLogService.log(
-                room.getPropertyId().getOwner(),
+                room.getProperty().getOwner(),
                 LogAction.UPDATE,
                 LogEntityType.ROOM,
                 String.valueOf(savedRoom.getRoomId()),
@@ -194,7 +194,7 @@ public class RoomServiceImpl implements RoomService {
         roomRepository.save(room);
 
         systemLogService.log(
-                room.getPropertyId().getOwner(),
+                room.getProperty().getOwner(),
                 LogAction.UPDATE,
                 LogEntityType.ROOM,
                 String.valueOf(room.getRoomId()),
@@ -247,7 +247,7 @@ public void suspendRoom(Integer roomId, String reason) {
     roomRepository.save(room);
 
     systemLogService.log(
-            room.getPropertyId().getOwner(),
+            room.getProperty().getOwner(),
             LogAction.UPDATE,
             LogEntityType.ROOM,
             String.valueOf(room.getRoomId()),
@@ -256,7 +256,7 @@ public void suspendRoom(Integer roomId, String reason) {
             SystemLogJsonUtil.roomSnapshot(room)
     );
 
-    Property property = room.getPropertyId();
+    Property property = room.getProperty();
     User owner = property.getOwner();
 
     String title = "Tạm dừng phòng tại " + property.getPropertyName();
@@ -295,7 +295,7 @@ public void activateRoom(Integer roomId) {
     roomRepository.save(room);
 
     systemLogService.log(
-            room.getPropertyId().getOwner(),
+            room.getProperty().getOwner(),
             LogAction.UPDATE,
             LogEntityType.ROOM,
             String.valueOf(room.getRoomId()),
@@ -304,7 +304,7 @@ public void activateRoom(Integer roomId) {
             SystemLogJsonUtil.roomSnapshot(room)
     );
 
-    Property property = room.getPropertyId();
+    Property property = room.getProperty();
     User owner = property.getOwner();
 
     String title = "Phòng tại " + property.getPropertyName() + " hoạt động trở lại";

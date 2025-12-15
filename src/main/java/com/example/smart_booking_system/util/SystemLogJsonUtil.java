@@ -38,7 +38,7 @@ public class SystemLogJsonUtil {
         try {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("roomId", r.getRoomId());
-            data.put("propertyId", r.getPropertyId() != null ? r.getPropertyId().getPropertyId() : null);
+            data.put("propertyId", r.getProperty() != null ? r.getProperty().getPropertyId() : null);
             data.put("roomName", r.getRoomName());
             data.put("category", r.getRoomCategory());
             data.put("pricePerNight", r.getPricePerNight());
