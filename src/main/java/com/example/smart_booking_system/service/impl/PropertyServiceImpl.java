@@ -8,16 +8,12 @@ import com.example.smart_booking_system.dto.PropertyResponseDTO;
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
 import com.example.smart_booking_system.dto.request.property.PropertyApplicationSubmitDTO;
 import com.example.smart_booking_system.entity.*;
-import com.example.smart_booking_system.enums.AmenityType;
-import com.example.smart_booking_system.enums.NotificationType;
-import com.example.smart_booking_system.enums.PropertyStatus;
+import com.example.smart_booking_system.enums.*;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
-import com.example.smart_booking_system.service.EmailService;
-import com.example.smart_booking_system.service.FileStorageService;
-import com.example.smart_booking_system.service.NotificationService;
-import com.example.smart_booking_system.service.PropertyService;
+import com.example.smart_booking_system.service.*;
+import com.example.smart_booking_system.util.SystemLogJsonUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -50,6 +46,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final RoomImageRepository roomImageRepository;
     private final BookingRepository bookingRepository;
     private final RoomAmenityRepository roomAmenityRepository;
+    private final SystemLogService systemLogService;
+
 
     // ============================================================
     // VALIDATION
@@ -77,6 +75,16 @@ public class PropertyServiceImpl implements PropertyService {
 
         Property savedProperty = propertyRepository.save(property);
 
+        systemLogService.log(
+                owner,
+                LogAction.CREATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(savedProperty.getPropertyId()),
+                "Tạo cơ sở lưu trú: " + savedProperty.getPropertyName(),
+                null,
+                null
+        );
+
         try {
             sendPropertySubmittedEmail(owner, savedProperty);
         } catch (Exception ignored) {}
@@ -92,6 +100,9 @@ public class PropertyServiceImpl implements PropertyService {
 
         Property existing = propertyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Property not found: " + id));
+
+        // lưu old value
+        String oldValue = existing.toString();
 
         if (updatedProperty.getPropertyName() != null)
             existing.setPropertyName(updatedProperty.getPropertyName());
@@ -130,8 +141,21 @@ public class PropertyServiceImpl implements PropertyService {
 
         existing.setUpdatedAt(LocalDate.now());
 
-        return mapToPropertyDetailDTO(propertyRepository.save(existing));
+        Property saved = propertyRepository.save(existing);
+
+        systemLogService.log(
+                saved.getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                "Cập nhật thông tin cơ sở: " + saved.getPropertyName(),
+                oldValue,
+                SystemLogJsonUtil.propertySnapshot(saved)
+        );
+
+        return mapToPropertyDetailDTO(saved);
     }
+
 
     // ============================================================
     // 1. SUBMIT APPLICATION
@@ -213,12 +237,24 @@ public class PropertyServiceImpl implements PropertyService {
             }
         }
 
+        // SYSTEM LOG (SUBMIT APPLICATION)
+        systemLogService.log(
+                owner,
+                LogAction.CREATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                "Gửi đơn đăng ký cơ sở lưu trú: " + saved.getPropertyName(),
+                null,
+                SystemLogJsonUtil.propertySnapshot(saved)
+        );
+
         try {
             sendPropertySubmittedEmail(owner, saved);
         } catch (Exception ignored) {}
 
         return mapToPropertyDetailDTO(saved);
     }
+
 
     @Override
     public boolean checkNameAvailability(String propertyName) {
@@ -363,7 +399,9 @@ public class PropertyServiceImpl implements PropertyService {
     // REVIEW
     // ============================================================
     @Override
-    public PropertyDetailDTO reviewProperty(Integer propertyId, PropertyReviewDTO reviewDTO, String adminUsername) {
+    public PropertyDetailDTO reviewProperty(Integer propertyId,
+                                            PropertyReviewDTO reviewDTO,
+                                            String adminUsername) {
 
         User admin = userRepository.findByEmail(adminUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
@@ -379,6 +417,8 @@ public class PropertyServiceImpl implements PropertyService {
             throw new IllegalArgumentException("Chỉ được APPROVE hoặc REJECTED.");
         }
 
+        String oldValue = property.getPropertyStatus().name();
+
         PropertyStatus newStatus = reviewDTO.getStatus();
 
         property.setPropertyStatus(newStatus);
@@ -387,12 +427,26 @@ public class PropertyServiceImpl implements PropertyService {
 
         Property saved = propertyRepository.save(property);
 
+        // SYSTEM LOG (ADMIN REVIEW)
+        systemLogService.log(
+                admin,
+                LogAction.UPDATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                newStatus == PropertyStatus.APPROVE
+                        ? "Admin duyệt cơ sở lưu trú: " + saved.getPropertyName()
+                        : "Admin từ chối cơ sở lưu trú: " + saved.getPropertyName(),
+                oldValue,
+                newStatus.name()
+        );
+
         if (property.getOwner() != null) {
             sendPropertyReviewEmail(property.getOwner(), saved, reviewDTO.getReason());
         }
 
         return mapToPropertyDetailDTO(saved);
     }
+
 
     // ============================================================
     // MAPPER: DETAIL DTO (cover + images signed)
@@ -555,25 +609,43 @@ public class PropertyServiceImpl implements PropertyService {
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cơ sở lưu trú"));
 
-        // 2. Kiểm tra quyền sở hữu (Owner phải là người sở hữu property này)
+        // 2. Kiểm tra quyền sở hữu
         if (!property.getOwner().getUserId().equals(ownerId)) {
             throw new ForbiddenException("Bạn không có quyền chỉnh sửa cơ sở này");
         }
 
         // 3. Kiểm tra trạng thái duyệt
         if (property.getPropertyStatus() != PropertyStatus.APPROVE) {
-            throw new IllegalArgumentException("Cơ sở phải được Admin duyệt (APPROVE) mới có thể thay đổi trạng thái hoạt động.");
+            throw new IllegalArgumentException(
+                    "Cơ sở phải được Admin duyệt (APPROVE) mới có thể thay đổi trạng thái hoạt động."
+            );
         }
 
+        boolean oldStatus = property.isActive();
+
         // 4. Đảo ngược trạng thái active
-        boolean newStatus = !property.isActive();
+        boolean newStatus = !oldStatus;
         property.setActive(newStatus);
         property.setUpdatedAt(LocalDate.now());
 
-        propertyRepository.save(property);
+        Property saved = propertyRepository.save(property);
+
+        // ✅ SYSTEM LOG (OWNER TOGGLE ACTIVE)
+        systemLogService.log(
+                saved.getOwner(),
+                LogAction.UPDATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                newStatus
+                        ? "Chủ sở hữu bật hoạt động cơ sở: " + saved.getPropertyName()
+                        : "Chủ sở hữu tắt hoạt động cơ sở: " + saved.getPropertyName(),
+                String.valueOf(oldStatus),
+                String.valueOf(newStatus)
+        );
 
         return newStatus;
     }
+
     // ============================================================
     // [NEW] SUSPEND PROPERTY (ADMIN)
     // ============================================================
@@ -581,34 +653,51 @@ public class PropertyServiceImpl implements PropertyService {
     public void suspendProperty(Integer propertyId, String reason) {
         // 1. Tìm Property
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cơ sở lưu trú với ID: " + propertyId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy cơ sở lưu trú với ID: " + propertyId
+                ));
+
+        String oldStatus = property.getPropertyStatus().name();
 
         // 2. Cập nhật trạng thái
         property.setPropertyStatus(PropertyStatus.SUSPENDED);
         property.setActive(false);
-        propertyRepository.save(property);
+        property.setUpdatedAt(LocalDate.now());
+
+        Property saved = propertyRepository.save(property);
 
         // 3. Lấy chủ sở hữu
-        User owner = property.getOwner();
+        User owner = saved.getOwner();
+
+        // ✅ SYSTEM LOG (ADMIN SUSPEND)
+        systemLogService.log(
+                owner,
+                LogAction.UPDATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                "Admin tạm dừng cơ sở lưu trú: " + saved.getPropertyName(),
+                oldStatus,
+                PropertyStatus.SUSPENDED.name()
+        );
 
         // 4. Gửi Notification
-        // ✅ FIX LỖI: Thêm tham số thứ 5 là String.valueOf(propertyId)
         notificationService.sendNotification(
                 owner.getUserId(),
                 "Cơ sở lưu trú bị tạm dừng hoạt động",
-                "Cơ sở '" + property.getPropertyName() + "' đã bị admin tạm dừng. Lý do: " + reason,
+                "Cơ sở '" + saved.getPropertyName() + "' đã bị admin tạm dừng. Lý do: " + reason,
                 NotificationType.PROPERTY_SUSPENDED,
-                String.valueOf(property.getPropertyId()) // <--- THAM SỐ CÒN THIẾU
+                String.valueOf(saved.getPropertyId())
         );
 
         // 5. Gửi Email
         emailService.sendPropertySuspensionEmail(
                 owner.getEmail(),
                 owner.getFullName(),
-                property.getPropertyName(),
+                saved.getPropertyName(),
                 reason
         );
     }
+
 
     // ============================================================
     // [NEW] GET ALL ACTIVE PROPERTIES (ADMIN)
@@ -624,25 +713,45 @@ public class PropertyServiceImpl implements PropertyService {
         Property property = propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
 
-        // Khôi phục trạng thái
-        property.setPropertyStatus(PropertyStatus.APPROVE); // Hoặc APPROVED tùy enum của bạn
-        property.setActive(true);
-        propertyRepository.save(property);
+        String oldStatus = property.getPropertyStatus().name();
 
-        User owner = property.getOwner();
+        // Khôi phục trạng thái
+        property.setPropertyStatus(PropertyStatus.APPROVE);
+        property.setActive(true);
+        property.setUpdatedAt(LocalDate.now());
+
+        Property saved = propertyRepository.save(property);
+
+        User owner = saved.getOwner();
+
+        // SYSTEM LOG (ADMIN ACTIVATE)
+        systemLogService.log(
+                owner,
+                LogAction.UPDATE,
+                LogEntityType.PROPERTY,
+                String.valueOf(saved.getPropertyId()),
+                "Admin kích hoạt lại cơ sở lưu trú: " + saved.getPropertyName(),
+                oldStatus,
+                PropertyStatus.APPROVE.name()
+        );
 
         // Gửi thông báo
         notificationService.sendNotification(
                 owner.getUserId(),
                 "Cơ sở hoạt động trở lại",
-                "Cơ sở " + property.getPropertyName() + " đã được mở lại.",
+                "Cơ sở " + saved.getPropertyName() + " đã được mở lại.",
                 NotificationType.SYSTEM,
-                String.valueOf(property.getPropertyId())
+                String.valueOf(saved.getPropertyId())
         );
 
         // Gửi mail
-        emailService.sendPropertyReactivationEmail(owner.getEmail(), owner.getFullName(), property.getPropertyName());
+        emailService.sendPropertyReactivationEmail(
+                owner.getEmail(),
+                owner.getFullName(),
+                saved.getPropertyName()
+        );
     }
+
     @Override
     public Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable) {
         return propertyRepository.findByPropertyStatus(status, pageable)
