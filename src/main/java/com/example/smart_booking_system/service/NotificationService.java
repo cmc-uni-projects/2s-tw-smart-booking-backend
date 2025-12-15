@@ -33,7 +33,9 @@ public class NotificationService {
 
     private static final List<NotificationType> OWNER_TYPES = Arrays.asList(
             NotificationType.BOOKING_RECEIVED, NotificationType.BOOKING_CANCELLED_BY_GUEST,
-            NotificationType.REVENUE_REPORT, NotificationType.PROPERTY_SUSPENDED, NotificationType.PAYOUT_SUCCESS
+            NotificationType.REVENUE_REPORT, NotificationType.PROPERTY_SUSPENDED, NotificationType.PAYOUT_SUCCESS,
+            NotificationType.ROOM_SUSPENDED,
+            NotificationType.SYSTEM
     );
 
     // --- PHẦN 1: LOGIC ĐỌC (GET) ---

@@ -50,4 +50,6 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
     );
 
     List<Room> findByPropertyId_PropertyId(int propertyId);
+
+
 }

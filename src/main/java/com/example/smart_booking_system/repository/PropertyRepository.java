@@ -2,6 +2,8 @@ package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -94,4 +96,7 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
                                         @Param("radius") double radius);
 
     boolean existsByPropertyName(String propertyName);
+
+    Page<Property> findByPropertyStatus(PropertyStatus status, Pageable pageable);
+    
 }
