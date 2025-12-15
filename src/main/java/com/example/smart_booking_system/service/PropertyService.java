@@ -51,4 +51,11 @@ public interface PropertyService {
 
     // THÊM MỚI: Method dừng hoạt động Property
     void suspendProperty(Integer propertyId, String reason);
+
+    // [NEW] Mở lại hoạt động khách sạn (Re-activate)
+    void activateProperty(Integer propertyId);
+
+    // [NEW] Lấy danh sách Property theo trạng thái có phân trang (Dùng cho Admin Filter)
+    // Hàm này hỗ trợ API /list mà chúng ta vừa tạo ở Controller
+    Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable);
 }

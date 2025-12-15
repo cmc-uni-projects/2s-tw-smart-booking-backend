@@ -5,19 +5,18 @@ import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
 import com.example.smart_booking_system.dto.response.PriceForecastDTO;
 import com.example.smart_booking_system.entity.*;
 import com.example.smart_booking_system.enums.AmenityType;
+import com.example.smart_booking_system.enums.NotificationType; // [NEW]
 import com.example.smart_booking_system.enums.RoomStatus;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.*;
+import com.example.smart_booking_system.service.EmailService;        // [NEW]
 import com.example.smart_booking_system.service.FileStorageService;
+import com.example.smart_booking_system.service.NotificationService; // [NEW]
 import com.example.smart_booking_system.service.RoomService;
-import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.example.smart_booking_system.service.NotificationService; // [NEW]
-import com.example.smart_booking_system.service.EmailService;        // [NEW]
-import com.example.smart_booking_system.enums.NotificationType; // [NEW]
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -45,10 +44,16 @@ public class RoomServiceImpl implements RoomService {
         return roomRepository.existsByPropertyIdAndRoomNameAndIdNot(propertyId, roomName, excludeRoomId);
     }
 
+    // ============================================================
+    // ✅ [FIXED] LẤY DANH SÁCH PHÒNG (CHO ADMIN)
+    // ============================================================
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getRoomsByPropertyId(int propertyId) {
-        List<Room> rooms = roomRepository.findByPropertyId_PropertyIdAndIsActiveTrue(propertyId);
+        // SỬA: Dùng hàm lấy tất cả phòng (cả Active và Suspended)
+        // Lưu ý: Bạn cần đảm bảo RoomRepository đã có hàm findByPropertyId_PropertyId
+        List<Room> rooms = roomRepository.findByPropertyId_PropertyId(propertyId);
+
         return rooms.stream().map(this::mapToRoomDTO).collect(Collectors.toList());
     }
 
@@ -63,7 +68,6 @@ public class RoomServiceImpl implements RoomService {
         room.setRoomCategory(dto.getRoomCategory());
         room.setPricePerNight(dto.getPricePerNight());
 
-        // Nếu không nhập weekendPrice, lấy bằng giá thường
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
             room.setWeekendPrice(dto.getWeekendPrice());
         } else {
@@ -77,7 +81,6 @@ public class RoomServiceImpl implements RoomService {
 
         Room savedRoom = roomRepository.save(room);
 
-        // Lưu Amenities
         if (dto.getAmenities() != null) {
             for (String amenityKey : dto.getAmenities()) {
                 amenityRepository.findByAmenityNameAndAmenityType(amenityKey, AmenityType.ROOM)
@@ -91,7 +94,6 @@ public class RoomServiceImpl implements RoomService {
             }
         }
 
-        // Lưu Images
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 String path = fileStorageService.storeImageFile(file, "rooms");
@@ -113,7 +115,6 @@ public class RoomServiceImpl implements RoomService {
         room.setRoomName(dto.getRoomName());
         room.setRoomCategory(dto.getRoomCategory());
         room.setPricePerNight(dto.getPricePerNight());
-
 
         if (dto.getWeekendPrice() != null && dto.getWeekendPrice().compareTo(BigDecimal.ZERO) > 0) {
             room.setWeekendPrice(dto.getWeekendPrice());
@@ -155,7 +156,6 @@ public class RoomServiceImpl implements RoomService {
         return mapToRoomDTO(room);
     }
 
-    //  Logic lấy giá theo ngày
     @Override
     @Transactional(readOnly = true)
     public List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days) {
@@ -169,43 +169,40 @@ public class RoomServiceImpl implements RoomService {
             LocalDate date = current.plusDays(i);
             DayOfWeek dayOfWeek = date.getDayOfWeek();
             boolean isWeekend = (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY);
-
-            // Nếu là cuối tuần thì lấy weekendPrice, ngược lại lấy pricePerNight
             BigDecimal price = isWeekend ? room.getWeekendPrice() : room.getPricePerNight();
-
             forecastList.add(new PriceForecastDTO(date, dayOfWeek.name(), price, isWeekend));
         }
         return forecastList;
     }
+
     // ============================================================
-    // [NEW] SUSPEND ROOM (ADMIN)
+    // SUSPEND ROOM (Sửa nội dung thông báo)
     // ============================================================
     @Override
     public void suspendRoom(Integer roomId, String reason) {
-        // 1. Tìm Room
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
 
-        // 2. Cập nhật trạng thái
         room.setRoomStatus(RoomStatus.SUSPENDED);
         room.setActive(false);
         roomRepository.save(room);
 
-        // 3. Lấy thông tin chủ sở hữu
         Property property = room.getPropertyId();
         User owner = property.getOwner();
 
-        // 4. Gửi Notification
-        // ✅ FIX LỖI: Thêm tham số thứ 5 là String.valueOf(roomId)
+        // [UPDATED] Cập nhật nội dung thông báo chi tiết hơn
+        String title = "Tạm dừng phòng tại " + property.getPropertyName();
+        String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" + property.getPropertyName() +
+                "' đã bị khóa. Lý do: " + reason;
+
         notificationService.sendNotification(
                 owner.getUserId(),
-                "Phòng tại cơ sở " + property.getPropertyName() + " bị tạm dừng",
-                "Phòng: " + room.getRoomName() + " đã bị khóa. Lý do: " + reason,
+                title,   // Tiêu đề
+                message, // Nội dung đã thêm tên khách sạn
                 NotificationType.ROOM_SUSPENDED,
-                String.valueOf(room.getRoomId()) // <--- THAM SỐ CÒN THIẾU
+                String.valueOf(room.getRoomId())
         );
 
-        // 5. Gửi Email
         emailService.sendRoomSuspensionEmail(
                 owner.getEmail(),
                 owner.getFullName(),
@@ -215,6 +212,41 @@ public class RoomServiceImpl implements RoomService {
         );
     }
 
+    // ============================================================
+    // ACTIVATE ROOM (Sửa nội dung thông báo cho đồng bộ)
+    // ============================================================
+    @Override
+    public void activateRoom(Integer roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+
+        room.setRoomStatus(RoomStatus.AVAILABLE);
+        room.setActive(true);
+        roomRepository.save(room);
+
+        Property property = room.getPropertyId();
+        User owner = property.getOwner();
+
+        // [UPDATED] Cập nhật nội dung thông báo chi tiết hơn
+        String title = "Phòng tại " + property.getPropertyName() + " hoạt động trở lại";
+        String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" + property.getPropertyName() +
+                "' đã được mở khóa và sẵn sàng nhận khách.";
+
+        notificationService.sendNotification(
+                owner.getUserId(),
+                title,
+                message,
+                NotificationType.SYSTEM,
+                String.valueOf(room.getRoomId())
+        );
+
+        emailService.sendRoomReactivationEmail(
+                owner.getEmail(),
+                owner.getFullName(),
+                property.getPropertyName(),
+                room.getRoomName()
+        );
+    }
 
     private RoomResponseDTO mapToRoomDTO(Room room) {
         RoomResponseDTO dto = new RoomResponseDTO();
@@ -223,17 +255,18 @@ public class RoomServiceImpl implements RoomService {
         dto.setRoomName(room.getRoomName());
         dto.setRoomCategory(room.getRoomCategory());
         dto.setPricePerNight(room.getPricePerNight());
-
-        // Map weekendPrice
         dto.setWeekendPrice(room.getWeekendPrice());
-
         dto.setCapacity(room.getCapacity());
         dto.setDescription(room.getDescription());
         dto.setRoomStatus(room.getRoomStatus());
         dto.setActive(room.isActive());
 
+        // Logic Signed URL cho ảnh đã có sẵn từ code của bạn
         List<String> imageUrls = roomImageRepository.findByRoom_RoomId(room.getRoomId())
-                .stream().map(RoomImage::getImageUrl).collect(Collectors.toList());
+                .stream()
+                .map(img -> fileStorageService.generateSignedUrl(img.getImageUrl()))
+                .collect(Collectors.toList());
+
         dto.setImages(imageUrls);
 
         List<String> amenityNames = roomAmenityRepository.findByRoom_RoomId(room.getRoomId())

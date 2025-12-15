@@ -325,4 +325,22 @@ public class EmailServiceImpl implements EmailService {
         // Tạo file template: resources/templates/email/room-suspended.html
         sendHtmlEmail(to, "Thông báo dừng hoạt động phòng", "email/room-suspended", context);
     }
+
+    @Override
+    public void sendPropertyReactivationEmail(String to, String ownerName, String propertyName) {
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        sendHtmlEmail(to, "Cơ sở lưu trú đã hoạt động trở lại", "email/property-reactivated", context);
+    }
+
+    @Override
+    public void sendRoomReactivationEmail(String to, String ownerName, String propertyName, String roomName) {
+        Context context = new Context();
+        context.setVariable("ownerName", ownerName);
+        context.setVariable("propertyName", propertyName);
+        context.setVariable("roomName", roomName);
+        sendHtmlEmail(to, "Phòng đã hoạt động trở lại", "email/room-reactivated", context);
+    }
+
 }

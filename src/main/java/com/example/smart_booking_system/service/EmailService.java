@@ -33,4 +33,7 @@ public interface EmailService {
     // THÊM MỚI: Gửi mail thông báo dừng hoạt động Khách sạn
     void sendPropertySuspensionEmail(String to, String ownerName, String propertyName, String reason);
     void sendRoomSuspensionEmail(String to, String ownerName, String propertyName, String roomName, String reason);
+
+    void sendPropertyReactivationEmail(String to, String ownerName, String propertyName);
+    void sendRoomReactivationEmail(String to, String ownerName, String propertyName, String roomName);
 }

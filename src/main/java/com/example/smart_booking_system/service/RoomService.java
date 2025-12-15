@@ -27,4 +27,7 @@ public interface RoomService {
     boolean checkRoomNameExists(int propertyId, String roomName, int excludeRoomId);
     List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days);
 
+    void activateRoom(Integer roomId);
+
+
 }

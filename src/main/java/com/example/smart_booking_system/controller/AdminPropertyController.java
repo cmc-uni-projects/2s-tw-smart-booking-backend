@@ -115,4 +115,33 @@ public class AdminPropertyController {
         roomService.suspendRoom(roomId, request.getReason());
         return ResponseEntity.ok(ApiResponse.success("Đã dừng hoạt động phòng", null));
     }
+
+    // 2. API Kích hoạt lại Khách sạn
+    @PutMapping("/{id}/activate")
+    public ResponseEntity<ApiResponse> activateProperty(@PathVariable Integer id) {
+        propertyService.activateProperty(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã mở lại hoạt động cơ sở lưu trú", null));
+    }
+
+    // 3. API Kích hoạt lại Phòng
+    @PutMapping("/rooms/{roomId}/activate")
+    public ResponseEntity<ApiResponse> activateRoom(@PathVariable Integer roomId) {
+        roomService.activateRoom(roomId);
+        return ResponseEntity.ok(ApiResponse.success("Đã mở lại hoạt động phòng", null));
+    }
+
+    @GetMapping("/list") // Đổi tên path để rõ ràng hơn, hoặc dùng lại /active nhưng thêm param
+    public ResponseEntity<ApiResponse> getPropertiesList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "APPROVE") String status // Thêm tham số này
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        PropertyStatus propertyStatus = PropertyStatus.valueOf(status);
+
+        // Đảm bảo Repository có hàm findByPropertyStatus trả về Page
+        Page<PropertyResponseDTO> properties = propertyService.getPropertiesByStatusPaginated(propertyStatus, pageable);
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành công", properties));
+    }
 }

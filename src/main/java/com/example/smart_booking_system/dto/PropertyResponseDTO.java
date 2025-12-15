@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class PropertyResponseDTO {
@@ -39,4 +40,5 @@ public class PropertyResponseDTO {
     private LocalDate updatedAt;
     private String coverImage;
     private String ownerName;
+    private List<String> images;
 }

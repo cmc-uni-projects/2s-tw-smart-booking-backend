@@ -460,6 +460,10 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setPropertyStatus(property.getPropertyStatus());
         dto.setActive(property.isActive());
 
+        if (property.getOwner() != null) {
+            dto.setOwnerName(property.getOwner().getFullName());
+        }
+
         // Signed cover
         String cover = propertyImageRepository
                 .findFirstByProperty_PropertyIdAndIsCoverTrue(property.getPropertyId())
@@ -468,6 +472,14 @@ public class PropertyServiceImpl implements PropertyService {
                 .orElse(null);
 
         dto.setCoverImage(cover);
+
+        List<String> allImages = propertyImageRepository.findByProperty_PropertyId(property.getPropertyId())
+                .stream()
+                .map(PropertyImage::getImageUrl)
+                .map(fileStorageService::generateSignedUrl)
+                .collect(Collectors.toList());
+
+        dto.setImages(allImages); // Gán vào DTO
 
         return dto;
     }
@@ -605,6 +617,35 @@ public class PropertyServiceImpl implements PropertyService {
     public Page<PropertyResponseDTO> getAllActiveProperties(Pageable pageable) {
         // ✅ FIX LỖI: Repository đã có hàm nhận Pageable
         return propertyRepository.findByPropertyStatus(PropertyStatus.APPROVE, pageable)
+                .map(this::mapToPropertyResponseDTO);
+    }
+    @Override
+    public void activateProperty(Integer propertyId) {
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+
+        // Khôi phục trạng thái
+        property.setPropertyStatus(PropertyStatus.APPROVE); // Hoặc APPROVED tùy enum của bạn
+        property.setActive(true);
+        propertyRepository.save(property);
+
+        User owner = property.getOwner();
+
+        // Gửi thông báo
+        notificationService.sendNotification(
+                owner.getUserId(),
+                "Cơ sở hoạt động trở lại",
+                "Cơ sở " + property.getPropertyName() + " đã được mở lại.",
+                NotificationType.SYSTEM,
+                String.valueOf(property.getPropertyId())
+        );
+
+        // Gửi mail
+        emailService.sendPropertyReactivationEmail(owner.getEmail(), owner.getFullName(), property.getPropertyName());
+    }
+    @Override
+    public Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable) {
+        return propertyRepository.findByPropertyStatus(status, pageable)
                 .map(this::mapToPropertyResponseDTO);
     }
 }
