@@ -3,6 +3,11 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.service.PropertyService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.smart_booking_system.service.SearchHistoryService;
@@ -22,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 // --- Kết thúc Imports ---
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -99,17 +105,6 @@ public class PropertyController {
         }
     }
 
-
-    @GetMapping("/search")
-    public ResponseEntity<List<PropertyDetailDTO>> searchProperties(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false, defaultValue = "1") Integer guests,
-            @RequestParam(required = false) LocalDate checkIn,
-            @RequestParam(required = false) LocalDate checkOut
-    ) {
-        // Gọi hàm service mới
-        return ResponseEntity.ok(propertyService.searchProperties(keyword, guests, checkIn, checkOut));
-    }
     @PutMapping("/update/{id}")
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateProperty(
@@ -219,6 +214,65 @@ public class PropertyController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<PropertyDetailDTO>>> searchProperties(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<String> cities,     // ✅ [MỚI] Nhận list thành phố
+            @RequestParam(required = false) List<Integer> ratings,   // ✅ [MỚI] Nhận list số sao
+            @RequestParam(required = false, defaultValue = "1") Integer guests,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            // Params cho phân trang
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id,desc") String[] sort
+    ) {
+
+        // Xử lý Sort
+        Sort.Direction direction = Sort.Direction.DESC;
+        String sortField = "propertyId";
+
+        if (sort != null && sort.length >= 2) {
+            sortField = sort[0];
+            if ("asc".equalsIgnoreCase(sort[1])) {
+                direction = Sort.Direction.ASC;
+            }
+        } else if (sort != null && sort.length == 1) {
+            // Fallback nếu chỉ truyền sort=price mà không có hướng
+            sortField = sort[0];
+        }
+
+        // Mapping sort field từ FE sang Entity field
+        if ("price".equals(sortField) || "basePrice".equals(sortField)) {
+            // Sort theo giá khá phức tạp vì giá nằm ở bảng Room.
+            // Tạm thời sort theo ID hoặc Rating sẽ an toàn hơn nếu chưa join chuẩn.
+            // Nếu muốn sort theo giá min của phòng, cần query phức tạp hơn.
+            // Ở đây ta map tạm về propertyId để tránh lỗi SQL nếu chưa handle sort deep.
+            sortField = "propertyId";
+        }
+        if ("name".equals(sortField)) sortField = "propertyName";
+        if ("id".equals(sortField)) sortField = "propertyId";
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+
+        // Gọi Service với đầy đủ tham số
+        Page<PropertyDetailDTO> result = propertyService.searchPropertiesPaginated(
+                keyword,
+                cities,   // ✅ Truyền list cities
+                ratings,  // ✅ Truyền list ratings
+                guests,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                pageable
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Search results", result));
     }
 
 }

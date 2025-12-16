@@ -10,6 +10,8 @@ import com.example.smart_booking_system.enums.PropertyStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -58,4 +60,16 @@ public interface PropertyService {
     // [NEW] Lấy danh sách Property theo trạng thái có phân trang (Dùng cho Admin Filter)
     // Hàm này hỗ trợ API /list mà chúng ta vừa tạo ở Controller
     Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable);
+
+    Page<PropertyDetailDTO> searchPropertiesPaginated(
+            String keyword,
+            List<String> cities,    // ✅ Mới
+            List<Integer> ratings,  // ✅ Mới
+            Integer guests,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Pageable pageable
+    );
 }
