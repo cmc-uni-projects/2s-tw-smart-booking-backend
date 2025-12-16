@@ -280,6 +280,17 @@ public void suspendRoom(Integer roomId, String reason) {
     );
 }
 
+    @Override
+    public List<RoomResponseDTO> getAllRoomsByPropertyId(Integer propertyId) {
+        // Gọi Repository lấy tất cả phòng theo propertyId (không lọc active)
+        List<Room> rooms = roomRepository.findAllByProperty_PropertyId(propertyId);
+
+        // Convert sang DTO
+        return rooms.stream()
+                .map(this::mapToRoomDTO) // Sử dụng hàm mapper có sẵn
+                .collect(Collectors.toList());
+    }
+
 // ============================================================
 // ACTIVATE ROOM
 // ============================================================

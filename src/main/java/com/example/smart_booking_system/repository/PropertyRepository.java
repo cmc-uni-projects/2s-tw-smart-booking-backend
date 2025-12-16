@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.enums.BookingStatus;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -86,8 +88,8 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     SELECT * FROM properties p 
     WHERE p.isActive = true 
     AND p.propertyStatus = 'APPROVE' 
-    AND p.latitude BETWEEN :lat - 0.15 AND :lat + 0.15
-    AND p.longitude BETWEEN :lng - 0.15 AND :lng + 0.15
+    AND p.latitude BETWEEN :lat - 0.5 AND :lat + 0.5
+    AND p.longitude BETWEEN :lng - 0.5 AND :lng + 0.5
     AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
          sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
     """, nativeQuery = true)
@@ -98,5 +100,54 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     boolean existsByPropertyName(String propertyName);
 
     Page<Property> findByPropertyStatus(PropertyStatus status, Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Property p " +
+            "JOIN p.rooms r " +
+            // 1. LOGIC ẨN/HIỆN (Sửa đổi)
+            // Nếu là Manager -> Xem tất cả. Nếu là Khách -> Chỉ xem active
+            "WHERE (:isManager = true OR p.isActive = true) " +
+            "AND (:isManager = true OR r.active = true) " +
+
+            "AND p.propertyStatus = :status " +
+
+            // 2. Keyword chung
+            "AND (:keyword IS NULL OR :keyword = '' OR " +
+            "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.province) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+
+            // 3. Các bộ lọc khác (Giữ nguyên)
+            "AND (COALESCE(:cities, NULL) IS NULL OR p.city IN :cities) " +
+            "AND (COALESCE(:ratings, NULL) IS NULL OR FLOOR(p.rating) IN :ratings) " +
+            "AND (:guests IS NULL OR r.capacity >= :guests) " +
+            "AND (:minPrice IS NULL OR r.pricePerNight >= :minPrice) " +
+            "AND (:maxPrice IS NULL OR r.pricePerNight <= :maxPrice) " +
+
+            // 4. Check trống phòng (Chỉ check khi không phải Manager hoặc Manager muốn lọc ngày)
+            // (Thường Admin chỉ cần list ra, không cần check full phòng, nhưng giữ lại logic này cũng ok nếu Admin nhập ngày)
+            "AND ( " +
+            "   :checkIn IS NULL OR :checkOut IS NULL OR " +
+            "   (SELECT COUNT(b) FROM Booking b " +
+            "    WHERE b.room = r " +
+            "    AND b.status IN :bookingStatuses " +
+            "    AND b.checkInDate < :checkOut " +
+            "    AND b.checkOutDate > :checkIn " +
+            "   ) = 0 " +
+            ")")
+    Page<Property> searchPropertiesAdvanced(
+            @Param("status") PropertyStatus status,
+            @Param("keyword") String keyword,
+            @Param("cities") List<String> cities,
+            @Param("ratings") List<Integer> ratings,
+            @Param("guests") Integer guests,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("bookingStatuses") List<BookingStatus> bookingStatuses,
+            @Param("isManager") boolean isManager, // <--- THÊM PARAM NÀY
+            Pageable pageable
+    );
     
 }

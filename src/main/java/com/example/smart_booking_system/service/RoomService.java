@@ -29,5 +29,7 @@ public interface RoomService {
 
     void activateRoom(Integer roomId);
 
+    List<RoomResponseDTO> getAllRoomsByPropertyId(Integer propertyId);
+
 
 }

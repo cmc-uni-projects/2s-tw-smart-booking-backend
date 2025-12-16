@@ -17,6 +17,7 @@ import com.example.smart_booking_system.service.*;
 import com.example.smart_booking_system.util.SystemLogJsonUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.MessagingException;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class PropertyServiceImpl implements PropertyService {
 
     private final PropertyRepository propertyRepository;
@@ -254,6 +256,18 @@ public class PropertyServiceImpl implements PropertyService {
         try {
             sendPropertySubmittedEmail(owner, saved);
         } catch (Exception ignored) {}
+
+        // [BỔ SUNG] Gửi thông báo cho TẤT CẢ Admin
+        try {
+            notificationService.sendToAllAdmins(
+                    "Cơ sở lưu trú mới chờ duyệt",
+                    "Owner " + owner.getFullName() + " vừa đăng tải: " + saved.getPropertyName(),
+                    NotificationType.ADMIN_NEW_PROPERTY_SUBMISSION,
+                    String.valueOf(saved.getPropertyId())
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo Admin: " + e.getMessage());
+        }
 
         // TỰ ĐỘNG TẠO ROOM NẾU LÀ HOMESTAY HOẶC VILLA
         if (dto.getPropertyType() == PropertyType.HOMESTAY || dto.getPropertyType() == PropertyType.VILLA) {
@@ -486,8 +500,36 @@ public class PropertyServiceImpl implements PropertyService {
                 newStatus.name()
         );
 
+        // [BỔ SUNG] Gửi thông báo + Email cho Owner
         if (property.getOwner() != null) {
-            sendPropertyReviewEmail(property.getOwner(), saved, reviewDTO.getReason());
+            User owner = property.getOwner();
+
+            // 1. Gửi Email (Code cũ)
+            sendPropertyReviewEmail(owner, saved, reviewDTO.getReason());
+
+            // 2. Gửi Notification In-App (Code mới)
+            try {
+                if (newStatus == PropertyStatus.APPROVE) {
+                    notificationService.sendNotification(
+                            owner.getUserId(),
+                            "Cơ sở lưu trú được chấp thuận",
+                            "Chúc mừng! Cơ sở '" + saved.getPropertyName() + "' đã được duyệt và đang hoạt động trên hệ thống.",
+                            NotificationType.APPROVAL,
+                            String.valueOf(saved.getPropertyId())
+                    );
+                } else if (newStatus == PropertyStatus.REJECTED) {
+                    notificationService.sendNotification(
+                            owner.getUserId(),
+                            "Cơ sở lưu trú bị từ chối",
+                            "Cơ sở '" + saved.getPropertyName() + "' không đạt yêu cầu. Lý do: " +
+                                    (reviewDTO.getReason() != null ? reviewDTO.getReason() : "Không rõ lý do"),
+                            NotificationType.REJECTION,
+                            String.valueOf(saved.getPropertyId())
+                    );
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo Owner: " + e.getMessage());
+            }
         }
 
         return mapToPropertyDetailDTO(saved);
@@ -520,9 +562,10 @@ public class PropertyServiceImpl implements PropertyService {
         // price range
         if (property.getRooms() != null && !property.getRooms().isEmpty()) {
             List<BigDecimal> prices = property.getRooms().stream()
-                    .filter(Room::isActive)
+                    .filter(Room::isActive) // Chỉ tính phòng đang hoạt động
                     .map(Room::getPricePerNight)
                     .toList();
+
             if (!prices.isEmpty()) {
                 dto.setMinPrice(prices.stream().min(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
                 dto.setMaxPrice(prices.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
@@ -802,5 +845,98 @@ public class PropertyServiceImpl implements PropertyService {
     public Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable) {
         return propertyRepository.findByPropertyStatus(status, pageable)
                 .map(this::mapToPropertyResponseDTO);
+    }
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PropertyDetailDTO> searchPropertiesPaginated(
+            String keyword,
+            List<String> cities,
+            List<Integer> ratings,
+            Integer guests,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            boolean isManager, // <--- Nhận tham số từ Controller
+            Pageable pageable) {
+
+        List<BookingStatus> bookingStatuses = Arrays.asList(
+                BookingStatus.CONFIRMED,
+                BookingStatus.PENDING_PAYMENT
+        );
+
+        // 1. Gọi Repository (Truyền isManager xuống SQL)
+        Page<Property> propertyPage = propertyRepository.searchPropertiesAdvanced(
+                PropertyStatus.APPROVE,
+                keyword,
+                cities,
+                ratings,
+                guests,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                bookingStatuses,
+                isManager, // <--- Truyền vào đây
+                pageable
+        );
+
+        // 2. Map & Filter Rooms (Logic hiển thị)
+        return propertyPage.map(property -> {
+            PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
+
+            if (dto.getRooms() != null) {
+                List<RoomResponseDTO> filteredRooms = dto.getRooms().stream()
+                        .filter(room -> {
+                            // [QUAN TRỌNG] Nếu là Manager thì HIỂN THỊ HẾT (kể cả active=false)
+                            if (isManager) return true;
+
+                            // --- Logic cho Khách (Customer) ---
+
+                            // Phải là phòng đang active
+                            // Note: DTO của bạn cần có field isActive, hoặc check logic khác.
+                            // Nếu RoomResponseDTO chưa có isActive, tạm thời bỏ qua dòng này hoặc bổ sung vào DTO.
+                            // if (!room.isActive()) return false;
+
+                            // Check giá & sức chứa
+                            if (minPrice != null && room.getPricePerNight().compareTo(minPrice) < 0) return false;
+                            if (maxPrice != null && room.getPricePerNight().compareTo(maxPrice) > 0) return false;
+                            if (guests != null && room.getCapacity() < guests) return false;
+
+                            // Check trùng lịch
+                            if (checkIn != null && checkOut != null) {
+                                Long bookedCount = bookingRepository.countExistingBookings(room.getRoomId(), checkIn, checkOut);
+                                if (bookedCount > 0) return false;
+                            }
+
+                            return true;
+                        })
+                        .collect(Collectors.toList());
+
+                dto.setRooms(filteredRooms);
+
+                // Update lại min/max price hiển thị ngoài thẻ
+                if (!filteredRooms.isEmpty()) {
+                    dto.setMinPrice(filteredRooms.stream()
+                            .map(RoomResponseDTO::getPricePerNight)
+                            .min(BigDecimal::compareTo)
+                            .orElse(BigDecimal.ZERO));
+
+                    dto.setMaxPrice(filteredRooms.stream()
+                            .map(RoomResponseDTO::getPricePerNight)
+                            .max(BigDecimal::compareTo)
+                            .orElse(BigDecimal.ZERO));
+                } else {
+                    // Nếu sau khi lọc không còn phòng nào (trường hợp hiếm do SQL đã lọc rồi, nhưng vẫn có thể xảy ra do logic fetch Eager)
+                    // Ta có thể để giá = 0 hoặc null
+                    dto.setMinPrice(BigDecimal.ZERO);
+                    dto.setMaxPrice(BigDecimal.ZERO);
+                }
+            }
+            return dto;
+        });
     }
 }
