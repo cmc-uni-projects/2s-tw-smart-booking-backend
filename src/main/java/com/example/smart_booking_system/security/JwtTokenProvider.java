@@ -21,6 +21,9 @@ public class JwtTokenProvider {
     @Value("${app.jwt.expiration}")
     private long jwtExpiration;
 
+    @Value("${app.twoFactorSessionTokenExpirationInMs}")
+    private int twoFactorSessionTokenExpirationInMs;
+
     /**
      * Generate JWT token from authentication
      */
@@ -118,5 +121,27 @@ public class JwtTokenProvider {
                 .getBody()
                 .getExpiration();
     }
+    // NEW METHOD: Generate a short-lived token for 2FA validation step
+    public String generateTwoFactorSessionToken(Long userId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + twoFactorSessionTokenExpirationInMs);
 
+        return Jwts.builder()
+                .setSubject(Long.toString(userId))
+                .setIssuedAt(new Date())
+                .setExpiration(expiryDate)
+                .signWith(key(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    // NEW METHOD: Get User ID from a token
+    public Long getUserIdFromTwoFactorSessionToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return Long.parseLong(claims.getSubject());
+    }
 }

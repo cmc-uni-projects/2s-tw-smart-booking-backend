@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString; // ✅ Import mới
 import lombok.EqualsAndHashCode; // ✅ Import mới
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -28,6 +29,10 @@ public class User {
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
+
+    @Column(name = "isUsing2fa", nullable = false)
+    @ColumnDefault("false") // Đảm bảo giá trị mặc định là false
+    private boolean isUsing2FA = false;
 
     @Column(nullable = false, length = 255)
     private String passwordHash;

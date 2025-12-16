@@ -13,6 +13,7 @@ import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.security.JwtTokenProvider;
 import com.example.smart_booking_system.service.AuthService;
 import com.example.smart_booking_system.service.EmailService;
+import com.example.smart_booking_system.service.TwoFactorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
+    private final TwoFactorService twoFactorService;
 
     @Autowired
     private SocialAccountRepository socialAccountRepository;
@@ -319,5 +321,28 @@ public class AuthServiceImpl implements AuthService {
         String email = authentication.getName(); // Lấy email từ token
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại."));
+    }
+
+    @Override
+    public LoginResponse login(LoginRequest request) {
+        // 1. Xác thực bằng Username/Password (Giống như cũ)
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+        // Lấy User từ DB
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(...);
+
+        // 2. KIỂM TRA 2FA
+        if (user.isUsing2FA()) {
+            // TẠO VÀ GỬI OTP, đồng thời trả về sessionToken
+            String sessionToken = twoFactorService.generateAndSendOtp(user);
+
+            // DỪNG LUỒNG, YÊU CẦU BƯỚC XÁC THỰC THỨ HAI
+            throw new TwoFactorRequiredException("2FA_REQUIRED", sessionToken);
+        }
+
+        // 3. Nếu 2FA TẮT: Cấp JWT bình thường
+        String jwt = tokenProvider.generateToken(authentication);
+        return new LoginResponse(jwt, user.getRole().getName());
     }
 }

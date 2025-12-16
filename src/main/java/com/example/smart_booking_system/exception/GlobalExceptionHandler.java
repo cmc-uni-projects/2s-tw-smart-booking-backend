@@ -10,6 +10,7 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
@@ -111,5 +112,22 @@ public class GlobalExceptionHandler {
             LockedException ex, WebRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Tài khoản đã bị khóa. Vui lòng liên hệ admin.", request.getDescription(false)));
+    }
+
+    // NEW HANDLER for 2FA
+    @ExceptionHandler(TwoFactorRequiredException.class)
+    @ResponseStatus(HttpStatus.ACCEPTED) // HTTP 202: Accepted (cho biết cần bước tiếp theo)
+    public ApiResponse<Object> handleTwoFactorRequiredException(TwoFactorRequiredException ex) {
+        // Cấu trúc phản hồi rõ ràng để Frontend biết cần làm gì
+        Map<String, String> details = Map.of("twoFactorSessionToken", ex.getSessionToken());
+
+        // Sử dụng ApiResponse đã có (giả định)
+        return new ApiResponse<>(
+                null,
+                "2FA required. Please check your email for OTP.",
+                HttpStatus.ACCEPTED.value(), // 202
+                "2FA_REQUIRED",
+                details
+        );
     }
 }

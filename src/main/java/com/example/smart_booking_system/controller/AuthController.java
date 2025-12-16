@@ -3,7 +3,9 @@ package com.example.smart_booking_system.controller;
 import com.example.smart_booking_system.dto.request.auth.*;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.auth.LoginResponse;
+import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.exception.BadRequestException;
+import com.example.smart_booking_system.exception.UnauthorizedException;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.security.JwtTokenProvider;
 import com.example.smart_booking_system.service.AuthService;
@@ -16,7 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
+import com.example.smart_booking_system.service.TwoFactorService;
+import com.example.smart_booking_system.dto.request.auth.TwoFactorVerifyRequest;
 import java.util.Date;
 import java.util.Map;
 
@@ -28,6 +31,7 @@ public class AuthController {
     private final AuthService authService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TwoFactorService twoFactorService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
@@ -128,5 +132,27 @@ public class AuthController {
 
         authService.createPassword(currentUser.getUserId(), newPassword);
         return ResponseEntity.ok(ApiResponse.success("Tạo mật khẩu thành công"));
+    }
+
+    // NEW ENDPOINT: XÁC THỰC OTP SAU KHI LOGIN
+    @PostMapping("/verify-2fa")
+    public ApiResponse<LoginResponse> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
+        // 1. Validate và lấy User từ Session Token
+        User user = twoFactorService.validateSessionToken(request.getTwoFactorSessionToken());
+
+        // 2. Xác thực OTP
+        if (twoFactorService.validateOtp(user, request.getOtpCode())) {
+            // 3. Tạo JWT (Full Access)
+            String jwt = tokenProvider.generateToken(user.getId());
+
+            // Xóa OTP khỏi DB (đã có trong validateOtp nhưng gọi lại cho chắc)
+            twoFactorService.cleanUpOtp(user);
+
+            return new ApiResponse<>(new LoginResponse(jwt, user.getRole().getName()), "Login successful with 2FA");
+        } else {
+            // Nếu validateOtp không ném exception thì đoạn này không cần thiết,
+            // nhưng để đảm bảo trong trường hợp logic thay đổi:
+            throw new UnauthorizedException("Invalid OTP Code.");
+        }
     }
 }

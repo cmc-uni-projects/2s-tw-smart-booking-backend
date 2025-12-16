@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Xác thực hai lớp (2FA) - Smart Booking System</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+    <tr>
+        <td align="center">
+            <table width="600" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+                <tr>
+                    <td align="center" style="padding: 40px 0 30px 0; background-color: #007bff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                        <h1 style="margin: 0; color: #ffffff;">Xác thực tài khoản</h1>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 40px 30px 40px 30px;">
+                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #333333;">Xin chào <b th:text="${userName}">User</b>,</p>
+
+                        <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 24px; color: #333333;">Bạn đang cố gắng đăng nhập vào tài khoản **Smart Booking System**. Để hoàn tất quá trình xác thực hai lớp (2FA), vui lòng sử dụng mã OTP sau:</p>
+
+                        <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto; border-collapse: collapse;">
+                            <tr>
+                                <td align="center" bgcolor="#f5f5f5" style="padding: 15px 25px; border-radius: 6px; border: 2px dashed #cccccc;">
+                                    <div style="font-size: 32px; font-weight: bold; color: #007bff;" th:text="${otpCode}">123456</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 20px; color: #ff0000; font-weight: bold;">Mã này sẽ hết hạn sau <span th:text="${expiryMinutes}">5</span> phút.</p>
+
+                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #333333;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px 30px 20px 30px; background-color: #f4f4f4; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                        <p style="margin: 0; font-size: 12px; line-height: 18px; color: #999999; text-align: center;">Hệ thống Smart Booking System | Vui lòng không trả lời email này.</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
