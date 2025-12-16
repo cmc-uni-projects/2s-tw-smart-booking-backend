@@ -1,48 +1,90 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Xác thực hai lớp (2FA) - Smart Booking System</title>
+    <meta charset="UTF-8" />
+    <title>Mã OTP Xác thực 2 Lớp - Smart Booking</title>
+    <style>
+        /* BASE STYLES */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f6f8fa; margin: 0; padding: 0; color: #333; -webkit-text-size-adjust: 100%; }
+        a { text-decoration: none; color: #007bff; }
+
+        /* CONTAINER */
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border: 1px solid #e1e4e8; }
+
+        /* HEADER */
+        .header { background-color: #007bff; border-bottom: 5px solid #0056b3; text-align: center; padding: 30px 30px 20px 30px; }
+        .header img { width: 180px; max-width: 100%; height: auto; display: block; margin: 0 auto 10px auto; border: 0; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 600; }
+
+        /* CONTENT */
+        .content { padding: 35px 30px; line-height: 1.6; font-size: 15px; }
+        .content h3 { color: #007bff; margin-top: 0; font-size: 20px; font-weight: 600; }
+
+        /* OTP BOX */
+        .otp-box {
+            background: #f0f7ff; /* Nền xanh nhạt */
+            padding: 25px;
+            border-radius: 8px;
+            border: 2px dashed #b3d9ff; /* Đường viền đứt nét xanh dương */
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        /* OTP CODE HIGHLIGHT */
+        .otp-code {
+            color: #d90429; /* Màu đỏ nổi bật */
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            display: block;
+            margin: 10px 0;
+            background: #ffe3e6; /* Nền nhẹ cho mã OTP */
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        /* WARNING */
+        .warning {
+            font-size: 14px;
+            color: #dc3545;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        /* FOOTER */
+        .footer { background-color: #f7f9fa; text-align: center; padding: 20px; font-size: 12px; color: #888; border-top: 1px solid #e0e8ec; line-height: 1.5; }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+<body>
+<div class="container">
+    <div class="header">
+        <img src="cid:logoImage" alt="Smart Booking Logo" border="0">
+        <h1>Xác thực hai lớp (2FA)</h1>
+    </div>
+    <div class="content">
+        <p>Xin chào <strong th:text="${username}">User</strong>,</p>
 
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-    <tr>
-        <td align="center">
-            <table width="600" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
-                <tr>
-                    <td align="center" style="padding: 40px 0 30px 0; background-color: #007bff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
-                        <h1 style="margin: 0; color: #ffffff;">Xác thực tài khoản</h1>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 40px 30px 40px 30px;">
-                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #333333;">Xin chào <b th:text="${userName}">User</b>,</p>
+        <p>Chúng tôi đã nhận được yêu cầu sử dụng mã xác thực dùng một lần (OTP) cho tài khoản của bạn. Vui lòng nhập mã sau để tiếp tục:</p>
 
-                        <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 24px; color: #333333;">Bạn đang cố gắng đăng nhập vào tài khoản **Smart Booking System**. Để hoàn tất quá trình xác thực hai lớp (2FA), vui lòng sử dụng mã OTP sau:</p>
+        <div class="otp-box">
+            <strong style="color: #007bff;">MÃ XÁC THỰC MỘT LẦN (OTP)</strong>
 
-                        <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 30px auto; border-collapse: collapse;">
-                            <tr>
-                                <td align="center" bgcolor="#f5f5f5" style="padding: 15px 25px; border-radius: 6px; border: 2px dashed #cccccc;">
-                                    <div style="font-size: 32px; font-weight: bold; color: #007bff;" th:text="${otpCode}">123456</div>
-                                </td>
-                            </tr>
-                        </table>
+            <span class="otp-code" th:text="${otpCode}">123456</span>
 
-                        <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 20px; color: #ff0000; font-weight: bold;">Mã này sẽ hết hạn sau <span th:text="${expiryMinutes}">5</span> phút.</p>
+            <div class="warning">
+                Mã này chỉ có hiệu lực trong <span th:text="${expiryMinutes}">5</span> phút.
+            </div>
+        </div>
 
-                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #333333;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 20px 30px 20px 30px; background-color: #f4f4f4; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
-                        <p style="margin: 0; font-size: 12px; line-height: 18px; color: #999999; text-align: center;">Hệ thống Smart Booking System | Vui lòng không trả lời email này.</p>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
+        <p>
+            Nếu bạn **không** yêu cầu mã này, vui lòng bỏ qua email. KHÔNG CHIA SẺ mã này với bất kỳ ai để đảm bảo an toàn cho tài khoản của bạn.
+        </p>
 
+    </div>
+    <div class="footer">
+        <p>&copy; 2025 Smart Booking System. Mọi quyền được bảo lưu.</p>
+        <p style="margin-top: 5px;">Vui lòng không trả lời email này.</p>
+    </div>
+</div>
 </body>
 </html>
