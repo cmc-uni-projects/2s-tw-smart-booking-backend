@@ -96,5 +96,7 @@ public interface UserRepository extends JpaRepository<User, String> {
             "GROUP BY FUNCTION('MONTH', u.createdAt) " +
             "ORDER BY FUNCTION('MONTH', u.createdAt) ASC")
     List<Object[]> getMonthlyUserGrowth(@Param("year") int year);
+
+
 }
 

@@ -349,6 +349,16 @@ public class BookingService {
                 );
             }
 
+            // [BỔ SUNG] 3. Gửi cho ADMIN (Nếu có tiền cần hoàn trả)
+            if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                notificationService.sendToAllAdmins(
+                        "Yêu cầu hoàn tiền mới",
+                        "Đơn phòng #" + booking.getBookingId() + " đã hủy. Số tiền cần hoàn: " + String.format("%,.0f", refundAmount) + " VNĐ.",
+                        NotificationType.ADMIN_NEW_REFUND_REQUEST,
+                        relatedId // Truyền ID booking để Admin click vào xem chi tiết
+                );
+            }
+
         } catch (Exception e) {
             System.err.println("Lỗi gửi thông báo: " + e.getMessage());
         }
@@ -416,6 +426,17 @@ public class BookingService {
             );
         } catch (Exception e) {
             System.err.println("Lỗi gửi mail success refund: " + e.getMessage());
+        }
+        try {
+            notificationService.sendNotification(
+                    booking.getUser().getUserId(),
+                    "Hoàn tiền thành công",
+                    "Yêu cầu hoàn tiền cho đơn #" + booking.getBookingId() + " đã được chấp thuận. Tiền sẽ về tài khoản sau 3-5 ngày làm việc.",
+                    NotificationType.REFUND_PROCESSED,
+                    String.valueOf(booking.getBookingId())
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo approve refund: " + e.getMessage());
         }
     }
 

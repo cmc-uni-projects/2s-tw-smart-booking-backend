@@ -26,5 +26,10 @@ public enum NotificationType {
     PROPERTY_SUSPENDED,         // Khách sạn bị tạm khóa
     ROOM_SUSPENDED,     // Thêm mới (dùng khi khóa phòng)
     SYSTEM,
-    PAYOUT_SUCCESS
+    PAYOUT_SUCCESS,              // Thanh toán cho Owner thành công
+
+    ADMIN_NEW_OWNER_REGISTRATION,   // Có đơn đăng ký Owner mới
+    ADMIN_NEW_PROPERTY_SUBMISSION,  // Có khách sạn/căn hộ mới chờ duyệt
+    ADMIN_NEW_REFUND_REQUEST,       // Có yêu cầu hoàn tiền mới
+    ADMIN_SYSTEM_ALERT              // Cảnh báo hệ thống
 }

@@ -255,6 +255,18 @@ public class PropertyServiceImpl implements PropertyService {
             sendPropertySubmittedEmail(owner, saved);
         } catch (Exception ignored) {}
 
+        // [BỔ SUNG] Gửi thông báo cho TẤT CẢ Admin
+        try {
+            notificationService.sendToAllAdmins(
+                    "Cơ sở lưu trú mới chờ duyệt",
+                    "Owner " + owner.getFullName() + " vừa đăng tải: " + saved.getPropertyName(),
+                    NotificationType.ADMIN_NEW_PROPERTY_SUBMISSION,
+                    String.valueOf(saved.getPropertyId())
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo Admin: " + e.getMessage());
+        }
+
         // TỰ ĐỘNG TẠO ROOM NẾU LÀ HOMESTAY HOẶC VILLA
         if (dto.getPropertyType() == PropertyType.HOMESTAY || dto.getPropertyType() == PropertyType.VILLA) {
 
@@ -486,8 +498,36 @@ public class PropertyServiceImpl implements PropertyService {
                 newStatus.name()
         );
 
+        // [BỔ SUNG] Gửi thông báo + Email cho Owner
         if (property.getOwner() != null) {
-            sendPropertyReviewEmail(property.getOwner(), saved, reviewDTO.getReason());
+            User owner = property.getOwner();
+
+            // 1. Gửi Email (Code cũ)
+            sendPropertyReviewEmail(owner, saved, reviewDTO.getReason());
+
+            // 2. Gửi Notification In-App (Code mới)
+            try {
+                if (newStatus == PropertyStatus.APPROVE) {
+                    notificationService.sendNotification(
+                            owner.getUserId(),
+                            "Cơ sở lưu trú được chấp thuận",
+                            "Chúc mừng! Cơ sở '" + saved.getPropertyName() + "' đã được duyệt và đang hoạt động trên hệ thống.",
+                            NotificationType.APPROVAL,
+                            String.valueOf(saved.getPropertyId())
+                    );
+                } else if (newStatus == PropertyStatus.REJECTED) {
+                    notificationService.sendNotification(
+                            owner.getUserId(),
+                            "Cơ sở lưu trú bị từ chối",
+                            "Cơ sở '" + saved.getPropertyName() + "' không đạt yêu cầu. Lý do: " +
+                                    (reviewDTO.getReason() != null ? reviewDTO.getReason() : "Không rõ lý do"),
+                            NotificationType.REJECTION,
+                            String.valueOf(saved.getPropertyId())
+                    );
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo Owner: " + e.getMessage());
+            }
         }
 
         return mapToPropertyDetailDTO(saved);
