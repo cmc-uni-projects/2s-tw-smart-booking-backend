@@ -19,7 +19,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/user/security/2fa")
+@RequestMapping("/api/v1/user/security/2fa")
 @RequiredArgsConstructor
 public class TwoFactorController {
 
