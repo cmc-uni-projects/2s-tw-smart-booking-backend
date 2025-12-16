@@ -70,6 +70,7 @@ public interface PropertyService {
             LocalDate checkOut,
             BigDecimal minPrice,
             BigDecimal maxPrice,
+            boolean isManager,
             Pageable pageable
     );
 }

@@ -229,7 +229,8 @@ public class PropertyController {
             // Params cho phân trang
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id,desc") String[] sort
+            @RequestParam(defaultValue = "id,desc") String[] sort,
+            Authentication authentication
     ) {
 
         // Xử lý Sort
@@ -259,6 +260,12 @@ public class PropertyController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
 
+        boolean isManager = false;
+        if (authentication != null && authentication.isAuthenticated()) {
+            isManager = authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        }
+
         // Gọi Service với đầy đủ tham số
         Page<PropertyDetailDTO> result = propertyService.searchPropertiesPaginated(
                 keyword,
@@ -269,6 +276,7 @@ public class PropertyController {
                 checkOut,
                 minPrice,
                 maxPrice,
+                isManager,
                 pageable
         );
 

@@ -847,68 +847,78 @@ public class PropertyServiceImpl implements PropertyService {
                 .map(this::mapToPropertyResponseDTO);
     }
 
+
+
     @Override
     @Transactional(readOnly = true)
     public Page<PropertyDetailDTO> searchPropertiesPaginated(
             String keyword,
-            List<String> cities,    // ✅ [MỚI] Nhận danh sách thành phố
-            List<Integer> ratings,  // ✅ [MỚI] Nhận danh sách sao
+            List<String> cities,
+            List<Integer> ratings,
             Integer guests,
             LocalDate checkIn,
             LocalDate checkOut,
             BigDecimal minPrice,
             BigDecimal maxPrice,
+            boolean isManager, // <--- Nhận tham số từ Controller
             Pageable pageable) {
 
-        // 1. Gọi Repository (Đã update để nhận list cities và ratings)
+        List<BookingStatus> bookingStatuses = Arrays.asList(
+                BookingStatus.CONFIRMED,
+                BookingStatus.PENDING_PAYMENT
+        );
+
+        // 1. Gọi Repository (Truyền isManager xuống SQL)
         Page<Property> propertyPage = propertyRepository.searchPropertiesAdvanced(
                 PropertyStatus.APPROVE,
                 keyword,
-                cities,     // ✅ Truyền xuống Repo
-                ratings,    // ✅ Truyền xuống Repo
+                cities,
+                ratings,
                 guests,
                 checkIn,
                 checkOut,
                 minPrice,
                 maxPrice,
+                bookingStatuses,
+                isManager, // <--- Truyền vào đây
                 pageable
         );
 
-        // 2. Map sang DTO và Lọc bỏ các phòng không thỏa mãn (Giá, Sức chứa, Lịch trống)
+        // 2. Map & Filter Rooms (Logic hiển thị)
         return propertyPage.map(property -> {
             PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
 
             if (dto.getRooms() != null) {
                 List<RoomResponseDTO> filteredRooms = dto.getRooms().stream()
                         .filter(room -> {
-                            // --- A. Lọc theo cấu hình phòng ---
+                            // [QUAN TRỌNG] Nếu là Manager thì HIỂN THỊ HẾT (kể cả active=false)
+                            if (isManager) return true;
 
-                            // Check giá Min
+                            // --- Logic cho Khách (Customer) ---
+
+                            // Phải là phòng đang active
+                            // Note: DTO của bạn cần có field isActive, hoặc check logic khác.
+                            // Nếu RoomResponseDTO chưa có isActive, tạm thời bỏ qua dòng này hoặc bổ sung vào DTO.
+                            // if (!room.isActive()) return false;
+
+                            // Check giá & sức chứa
                             if (minPrice != null && room.getPricePerNight().compareTo(minPrice) < 0) return false;
-                            // Check giá Max
                             if (maxPrice != null && room.getPricePerNight().compareTo(maxPrice) > 0) return false;
-                            // Check số khách
                             if (guests != null && room.getCapacity() < guests) return false;
 
-                            // --- B. Check Availability (Logic 1 phòng vật lý) ---
-                            // Nếu khách chọn ngày, kiểm tra xem phòng này có bị trùng lịch không
+                            // Check trùng lịch
                             if (checkIn != null && checkOut != null) {
                                 Long bookedCount = bookingRepository.countExistingBookings(room.getRoomId(), checkIn, checkOut);
-
-                                // Nếu đã có booking (> 0) thì ẩn luôn, vì mỗi phòng chỉ có 1 cái (không quan tâm roomAmount)
-                                if (bookedCount > 0) {
-                                    return false;
-                                }
+                                if (bookedCount > 0) return false;
                             }
 
                             return true;
                         })
                         .collect(Collectors.toList());
 
-                // Gán lại danh sách phòng đã lọc vào DTO
                 dto.setRooms(filteredRooms);
 
-                // Cập nhật lại giá hiển thị Min/Max trên Card dựa trên các phòng còn lại
+                // Update lại min/max price hiển thị ngoài thẻ
                 if (!filteredRooms.isEmpty()) {
                     dto.setMinPrice(filteredRooms.stream()
                             .map(RoomResponseDTO::getPricePerNight)
@@ -919,6 +929,11 @@ public class PropertyServiceImpl implements PropertyService {
                             .map(RoomResponseDTO::getPricePerNight)
                             .max(BigDecimal::compareTo)
                             .orElse(BigDecimal.ZERO));
+                } else {
+                    // Nếu sau khi lọc không còn phòng nào (trường hợp hiếm do SQL đã lọc rồi, nhưng vẫn có thể xảy ra do logic fetch Eager)
+                    // Ta có thể để giá = 0 hoặc null
+                    dto.setMinPrice(BigDecimal.ZERO);
+                    dto.setMaxPrice(BigDecimal.ZERO);
                 }
             }
             return dto;
