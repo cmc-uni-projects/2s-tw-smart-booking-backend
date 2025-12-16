@@ -87,8 +87,8 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     SELECT * FROM properties p 
     WHERE p.isActive = true 
     AND p.propertyStatus = 'APPROVE' 
-    AND p.latitude BETWEEN :lat - 0.15 AND :lat + 0.15
-    AND p.longitude BETWEEN :lng - 0.15 AND :lng + 0.15
+    AND p.latitude BETWEEN :lat - 0.5 AND :lat + 0.5
+    AND p.longitude BETWEEN :lng - 0.5 AND :lng + 0.5
     AND (6371 * acos(cos(radians(:lat)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians(:lng)) + 
          sin(radians(:lat)) * sin(radians(p.latitude)))) < :radius
     """, nativeQuery = true)
