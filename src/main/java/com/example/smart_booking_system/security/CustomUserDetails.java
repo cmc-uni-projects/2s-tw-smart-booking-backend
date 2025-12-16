@@ -1,7 +1,7 @@
 package com.example.smart_booking_system.security;
 
 import com.example.smart_booking_system.entity.User;
-import com.example.smart_booking_system.entity.SocialAccount; // Import entity
+import com.example.smart_booking_system.entity.SocialAccount;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
@@ -29,8 +29,12 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
     private Map<String, Object> attributes;
     private List<SocialAccount> socialAccounts;
 
-    // ✅ THÊM TRƯỜNG MỚI
+    // ✅ THÊM TRƯỜNG: Kiểm tra xem người dùng đã đặt mật khẩu thủ công chưa
     private boolean hasPassword;
+
+    // ✅ THÊM TRƯỜNG MỚI (FIX LỖI ĐỒNG BỘ 2FA)
+    private boolean isUsing2FA;
+
 
     /**
      * Create UserDetails from User entity (Dùng cho Login thường)
@@ -42,7 +46,6 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
 
         // ✅ LOGIC KIỂM TRA MẬT KHẨU
         // Mật khẩu thật (do BCrypt mã hóa) luôn bắt đầu bằng "$2a$".
-        // Mật khẩu ngẫu nhiên (UUID do hệ thống tạo khi login Google/FB) sẽ không có tiền tố này.
         boolean hasPasswordSet = user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2a$");
 
         return new CustomUserDetails(
@@ -55,7 +58,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
                 authorities,
                 null, // Attributes là null khi login thường
                 user.getSocialAccounts(),
-                hasPasswordSet // ✅ Truyền giá trị vào constructor
+                hasPasswordSet, // ✅ hasPassword
+                user.isUsing2FA() // ✅ isUsing2FA (Lấy từ User Entity)
         );
     }
 
@@ -82,6 +86,13 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
     @Override
     public String getUsername() {
         return email;
+    }
+
+    // ✅ Getter cho isUsing2FA (đã được tạo bởi Lombok @Data)
+
+    // ✅ Setter cho isUsing2FA (Dùng để cập nhật Security Context)
+    public void setUsing2FA(boolean isUsing2FA) {
+        this.isUsing2FA = isUsing2FA;
     }
 
     @Override

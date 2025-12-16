@@ -1,21 +1,26 @@
-// src/main/java/com/example/smart_booking_system/exception/TwoFactorRequiredException.java
+// src/main/java/com/example/smart_booking_system.exception/TwoFactorRequiredException.java
 
 package com.example.smart_booking_system.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
-// Mặc dù sẽ bị GlobalExceptionHandler bắt, nhưng đặt 401/403 để thể hiện cần bước xác thực thêm
-@ResponseStatus(HttpStatus.UNAUTHORIZED)
+// Tùy chọn: Dùng @ResponseStatus nếu GlobalExceptionHandler chưa bắt lỗi này
+// @ResponseStatus(HttpStatus.UNAUTHORIZED)
+@Getter // ✅ THÊM LOMBOK @Getter HOẶC VIẾT GETTER THỦ CÔNG
 public class TwoFactorRequiredException extends RuntimeException {
-    private final String sessionToken;
 
-    public TwoFactorRequiredException(String message, String sessionToken) {
+    // ✅ THÊM TRƯỜNG MỚI ĐỂ LƯU TOKEN
+    private final String twoFactorSessionToken;
+
+    public TwoFactorRequiredException(String message, String twoFactorSessionToken) {
         super(message);
-        this.sessionToken = sessionToken;
+        this.twoFactorSessionToken = twoFactorSessionToken;
     }
 
-    public String getSessionToken() {
-        return sessionToken;
-    }
+    // ✅ PHƯƠNG THỨC THIẾU (Nếu không dùng Lombok @Getter)
+    // public String getTwoFactorSessionToken() {
+    //     return twoFactorSessionToken;
+    // }
 }

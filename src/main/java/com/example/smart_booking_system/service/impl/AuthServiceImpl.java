@@ -155,7 +155,8 @@ public class AuthServiceImpl implements AuthService {
 
     // ✅ Đăng nhập
     @Override
-    @Transactional
+    // 🛑 FIX: Thêm noRollbackFor để không hủy Transaction khi 2FA được yêu cầu
+    @Transactional(noRollbackFor = TwoFactorRequiredException.class)
     public LoginResponse login(LoginRequest request) {
         // 1. Tìm user
         User user = userRepository.findByEmail(request.getEmail())
@@ -180,11 +181,11 @@ public class AuthServiceImpl implements AuthService {
 
         // 5. KIỂM TRA 2FA (NEW LOGIC)
         if (user.isUsing2FA()) {
-            // TẠO VÀ GỬI OTP, đồng thời trả về sessionToken
+            // TẠO VÀ GỬI OTP. Vì Transaction không bị rollback, OTP sẽ được lưu.
             String sessionToken = twoFactorService.generateAndSendOtp(user);
 
             // DỪNG LUỒNG, YÊU CẦU BƯỚC XÁC THỰC THỨ HAI
-            throw new TwoFactorRequiredException("2FA_REQUIRED", sessionToken);
+            throw new TwoFactorRequiredException(user.getEmail(), sessionToken);
         }
 
         // 6. Nếu 2FA TẮT: Cấp JWT bình thường

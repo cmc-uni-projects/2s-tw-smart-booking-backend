@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.exception;
 
 import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.example.smart_booking_system.dto.response.auth.TwoFactorRequiredResponse; // ✅ Import này
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -66,15 +67,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
             MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
+
+        // Vòng lặp qua các lỗi để lấy tên trường và thông báo
         ex.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
+            String fieldName = "Global Error"; // Fallback
+            if (error instanceof FieldError) {
+                fieldName = ((FieldError) error).getField();
+            }
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
 
         ApiResponse<Map<String, String>> response = new ApiResponse<>();
         response.setSuccess(false);
-        response.setMessage("Validation failed");
+        response.setMessage("Có lỗi xảy ra trong quá trình xác thực dữ liệu.");
         response.setData(errors);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -114,19 +120,23 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Tài khoản đã bị khóa. Vui lòng liên hệ admin.", request.getDescription(false)));
     }
 
-    // NEW HANDLER for 2FA - ĐÃ SỬA LỖI CONSTRUCTOR
+    // NEW HANDLER for 2FA - ĐÃ SỬA LỖI GETTER VÀ TRẢ VỀ RESPONSE ENTITY
     @ExceptionHandler(TwoFactorRequiredException.class)
-    @ResponseStatus(HttpStatus.ACCEPTED) // HTTP 202: Accepted (cho biết cần bước tiếp theo)
-    // Thay đổi kiểu trả về cụ thể để đảm bảo kiểu dữ liệu T
-    public ApiResponse<Map<String, String>> handleTwoFactorRequiredException(TwoFactorRequiredException ex) {
-        // Cấu trúc phản hồi rõ ràng để Frontend biết cần làm gì
-        Map<String, String> data = Map.of(
-                "twoFactorSessionToken", ex.getSessionToken(),
-                "code", "2FA_REQUIRED" // Thêm code vào data để client dễ dàng nhận diện
-        );
+    public ResponseEntity<ApiResponse<?>> handleTwoFactorRequiredException(TwoFactorRequiredException ex) {
 
-        // SỬA LỖI: Sử dụng phương thức factory tĩnh ApiResponse.success(String message, T data)
-        // để tuân thủ cấu trúc class và tránh lỗi constructor.
-        return ApiResponse.success("2FA required. Please check your email for OTP.", data);
+        // Cấu trúc response data (Payload)
+        TwoFactorRequiredResponse responseData = TwoFactorRequiredResponse.builder()
+                // ✅ SỬ DỤNG GETTER CHÍNH XÁC: getTwoFactorSessionToken()
+                .twoFactorSessionToken(ex.getTwoFactorSessionToken())
+                // Giả định message của Exception chứa email hoặc thông tin đăng nhập
+                // Nếu bạn cần email, hãy truyền nó qua constructor của Exception từ AuthService
+                // Hiện tại, tôi lấy email từ message nếu không có trường email trong Exception
+                // (Tốt nhất là thêm trường email vào TwoFactorRequiredException)
+                .email(ex.getMessage())
+                .build();
+
+        // Trả về 401 Unauthorized (hoặc 400 Bad Request) để Frontend (axios) catch lỗi
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.requiredTwoFactor("2FA required. Please check your email for OTP.", responseData));
     }
 }

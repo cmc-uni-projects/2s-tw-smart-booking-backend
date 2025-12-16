@@ -6,6 +6,10 @@ import com.example.smart_booking_system.dto.response.auth.LoginResponse;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.UnauthorizedException;
+// ✅ THÊM IMPORTS CẦN THIẾT CHO 2FA
+import com.example.smart_booking_system.exception.TwoFactorRequiredException;
+import com.example.smart_booking_system.dto.response.auth.TwoFactorRequiredResponse;
+
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.security.JwtTokenProvider;
 import com.example.smart_booking_system.service.AuthService;
@@ -41,10 +45,35 @@ public class AuthController {
                 .body(ApiResponse.success("Registration successful. Please check your email to verify your account."));
     }
 
+    // 🛑 PHƯƠNG THỨC LOGIN ĐÃ FIX LỖI 2FA
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+        try {
+            // 1. Nếu 2FA TẮT: Trả về JWT
+            LoginResponse response = authService.login(request);
+            return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+
+        } catch (TwoFactorRequiredException e) {
+            // 2. ✅ FIX: Nếu 2FA BẬT: Bắt Exception và trả về Session Token.
+
+            String sessionToken = e.getTwoFactorSessionToken();
+
+            // Xử lý nếu Token bị null (lỗi trong AuthService)
+            if (sessionToken == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(ApiResponse.error("2FA Error: Missing session token."));
+            }
+
+            // Xây dựng Response body mong muốn của Frontend
+            TwoFactorRequiredResponse response = TwoFactorRequiredResponse.builder()
+                    .twoFactorSessionToken(sessionToken)
+                    .email(request.getEmail())
+                    .build();
+
+            // Trả về 401 Unauthorized để Frontend (Login.jsx) catch lỗi và hiển thị modal
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.requiredTwoFactor("2FA required.", response));
+        }
     }
 
     @PostMapping("/logout")
@@ -77,7 +106,6 @@ public class AuthController {
             ));
         }
     }
-
 
 
     @PostMapping("/resend-verification")
@@ -121,6 +149,7 @@ public class AuthController {
 
         return ResponseEntity.ok(ApiResponse.success("Đã ngắt kết nối tài khoản " + provider));
     }
+
     @PostMapping("/create-password")
     public ResponseEntity<ApiResponse<Void>> createPassword(
             @AuthenticationPrincipal CustomUserDetails currentUser,
@@ -137,20 +166,23 @@ public class AuthController {
 
     // AuthController.java - BÊN TRONG verifyTwoFactor
     @PostMapping("/verify-2fa")
-    public ResponseEntity<ApiResponse<LoginResponse>> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> verifyTwoFactor(
+            @Valid @RequestBody TwoFactorVerifyRequest request
+    ) {
         // 1. Validate và lấy User từ Session Token
         User user = twoFactorService.validateSessionToken(request.getTwoFactorSessionToken());
 
         // 2. Xác thực OTP
         if (twoFactorService.validateOtp(user, request.getOtpCode())) {
-            // 3. Tạo JWT (Full Access)
 
-            // Lấy roles từ User Entity (cần đảm bảo method getRoles() trong User Entity trả về Collection<Role>)
+            // 3. KHÔI PHỤC LOGIC TẠO ROLES VÀ USER RESPONSE
+
+            // 3a. Tạo roles
             Set<String> roles = user.getRoles().stream()
                     .map(role -> role.getRoleName())
                     .collect(java.util.stream.Collectors.toSet());
 
-            // Lấy thông tin User Response
+            // 3b. Lấy thông tin User Response
             LoginResponse.UserResponse userResponse = new LoginResponse.UserResponse(
                     user.getUserId(),
                     user.getFullName(),
@@ -161,14 +193,14 @@ public class AuthController {
                     roles
             );
 
-            // FIX: Gọi phương thức generateToken mới đã overload
+            // 4. Tạo JWT (Full Access)
             String jwt = jwtTokenProvider.generateToken(user.getUserId(), user.getEmail(), roles);
             long expiresIn = jwtTokenProvider.getExpirationTime();
 
             // Xóa OTP khỏi DB
             twoFactorService.cleanUpOtp(user);
 
-            // Trả về ApiResponse với LoginResponse đầy đủ
+            // 5. Trả về ApiResponse với LoginResponse đầy đủ
             LoginResponse response = new LoginResponse(jwt, expiresIn, userResponse);
 
             return ResponseEntity.ok(ApiResponse.success("Login successful with 2FA", response));

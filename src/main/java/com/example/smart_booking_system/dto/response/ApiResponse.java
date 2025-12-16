@@ -4,12 +4,16 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+// ✅ THÊM IMPORTS THIẾU
+import lombok.Builder;
+import lombok.RequiredArgsConstructor; // Cần thiết nếu bạn muốn giữ NoArgsConstructor/AllArgsConstructor
 
 import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder // ✅ FIX 1: THÊM @Builder VÀO ĐÂY
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
@@ -18,6 +22,9 @@ public class ApiResponse<T> {
     private T data;
     private LocalDateTime timestamp;
     private String path;
+    // 🛑 THIẾU TRƯỜNG CODE: Thêm trường này nếu bạn dùng nó trong requiredTwoFactor
+    private String code;
+
 
     // Success response with data
     public static <T> ApiResponse<T> success(T data) {
@@ -65,5 +72,17 @@ public class ApiResponse<T> {
         response.setPath(path);
         response.setTimestamp(LocalDateTime.now());
         return response;
+    }
+
+    // ✅ FIX 2: PHƯƠNG THỨC requiredTwoFactor
+    // Dùng @Builder để tạo instance cho trường hợp đặc biệt này
+    public static <T> ApiResponse<T> requiredTwoFactor(String message, T data) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .message(message)
+                .code("2FA_REQUIRED") // Sử dụng trường code
+                .data(data)
+                .timestamp(LocalDateTime.now()) // Thêm timestamp
+                .build();
     }
 }

@@ -5,6 +5,7 @@ package com.example.smart_booking_system.service;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.dto.request.auth.TwoFactorVerifyRequest;
 import com.example.smart_booking_system.dto.request.auth.LoginRequest; // Cần dùng cho logic Bật 2FA
+import com.example.smart_booking_system.security.JwtTokenProvider;
 
 public interface TwoFactorService {
 
@@ -22,4 +23,6 @@ public interface TwoFactorService {
 
     // Lấy trạng thái 2FA
     boolean is2FAEnabled(User user);
+
+    JwtTokenProvider getJwtTokenProvider();
 }
