@@ -379,6 +379,10 @@ public class AiService {
 
         if (properties.isEmpty()) {
             root.put("type", "NO_RESULT");
+            root.put(
+                    "message",
+                    String.format("Xin lỗi anh chị em không tìm thấy dữ liệu ở %s ạ.", city)
+            );
             return root.toString();
         }
 
