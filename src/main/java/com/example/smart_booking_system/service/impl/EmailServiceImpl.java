@@ -365,4 +365,24 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("Lỗi gửi email khóa tài khoản: " + e.getMessage());
         }
     }
+
+    @Override
+    public void sendRefundRejectionEmail(String toEmail, String fullName, String bookingId, String rejectionReason) {
+        try {
+            String subject = "TravelMate - Yêu cầu hoàn tiền #" + bookingId + " bị từ chối";
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("bookingId", bookingId);
+            context.setVariable("reason", rejectionReason);
+            // Nếu bạn có trang liên hệ, có thể thêm link này vào template
+            context.setVariable("contactUrl", getFrontendBaseUrl() + "contact");
+
+            String htmlContent = templateEngine.process("email/refund-rejected", context); // Cần tạo file template này
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send refund rejection email: " + e.getMessage());
+        }
+    }
 }
