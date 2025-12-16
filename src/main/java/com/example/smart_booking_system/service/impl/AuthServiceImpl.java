@@ -13,7 +13,6 @@ import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.security.JwtTokenProvider;
 import com.example.smart_booking_system.service.AuthService;
 import com.example.smart_booking_system.service.EmailService;
-import com.example.smart_booking_system.service.TwoFactorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,7 +24,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.example.smart_booking_system.service.TwoFactorService;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
@@ -163,26 +162,32 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không chính xác"));
 
         // 2. CHECK XÁC THỰC EMAIL
-        // ❌ CŨ: throw new UnauthorizedException(...) -> Trả về 401 (Sai Logic)
-        // ✅ MỚI: throw new DisabledException(...) -> Trả về 403 (Đúng Logic Frontend cần)
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
             throw new DisabledException("Tài khoản chưa được xác thực. Vui lòng kiểm tra email!");
         }
 
         // 3. CHECK TRẠNG THÁI KHÓA
-        // ✅ MỚI: Dùng LockedException hoặc DisabledException để trả về 403
         if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
             throw new LockedException("Tài khoản của bạn đã bị khóa: " + user.getStatus());
         }
 
-        // 4. Nếu qua được các bước trên thì mới check mật khẩu
-        // Nếu sai mật khẩu ở đây, nó sẽ tự ném BadCredentialsException (401)
+        // 4. Xác thực mật khẩu
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        // 5. KIỂM TRA 2FA (NEW LOGIC)
+        if (user.isUsing2FA()) {
+            // TẠO VÀ GỬI OTP, đồng thời trả về sessionToken
+            String sessionToken = twoFactorService.generateAndSendOtp(user);
+
+            // DỪNG LUỒNG, YÊU CẦU BƯỚC XÁC THỰC THỨ HAI
+            throw new TwoFactorRequiredException("2FA_REQUIRED", sessionToken);
+        }
+
+        // 6. Nếu 2FA TẮT: Cấp JWT bình thường
         String token = tokenProvider.generateToken(authentication);
         long expiresIn = tokenProvider.getExpirationTime();
 
@@ -203,7 +208,6 @@ public class AuthServiceImpl implements AuthService {
 
         return new LoginResponse(token, expiresIn, userResponse);
     }
-
     // ✅ Xác minh email
     @Override
     @Transactional
@@ -321,28 +325,5 @@ public class AuthServiceImpl implements AuthService {
         String email = authentication.getName(); // Lấy email từ token
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại."));
-    }
-
-    @Override
-    public LoginResponse login(LoginRequest request) {
-        // 1. Xác thực bằng Username/Password (Giống như cũ)
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-        // Lấy User từ DB
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(...);
-
-        // 2. KIỂM TRA 2FA
-        if (user.isUsing2FA()) {
-            // TẠO VÀ GỬI OTP, đồng thời trả về sessionToken
-            String sessionToken = twoFactorService.generateAndSendOtp(user);
-
-            // DỪNG LUỒNG, YÊU CẦU BƯỚC XÁC THỰC THỨ HAI
-            throw new TwoFactorRequiredException("2FA_REQUIRED", sessionToken);
-        }
-
-        // 3. Nếu 2FA TẮT: Cấp JWT bình thường
-        String jwt = tokenProvider.generateToken(authentication);
-        return new LoginResponse(jwt, user.getRole().getName());
     }
 }

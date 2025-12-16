@@ -34,6 +34,15 @@ public class UserDetailService {
     }
 
     // ==============================================================
+    // NEW HELPER METHOD: FIND USER BY ID (FIX LỖI CANNOT RESOLVE METHOD)
+    // ==============================================================
+    public User findById(String userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+    }
+
+
+    // ==============================================================
     // GET USER DETAIL — TRẢ VỀ SIGNED URL
     // ==============================================================
     @Transactional

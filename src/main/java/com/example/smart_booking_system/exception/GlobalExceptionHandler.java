@@ -101,7 +101,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<?>> handleDisabledException(
             DisabledException ex, WebRequest request) {
-        // Trả về 403 Forbidden (hoặc 401 tùy bạn chọn, nhưng 403 rõ nghĩa hơn cho trường hợp này)
+        // Trả về 403 Forbidden
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt!", request.getDescription(false)));
     }
@@ -114,20 +114,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Tài khoản đã bị khóa. Vui lòng liên hệ admin.", request.getDescription(false)));
     }
 
-    // NEW HANDLER for 2FA
+    // NEW HANDLER for 2FA - ĐÃ SỬA LỖI CONSTRUCTOR
     @ExceptionHandler(TwoFactorRequiredException.class)
     @ResponseStatus(HttpStatus.ACCEPTED) // HTTP 202: Accepted (cho biết cần bước tiếp theo)
-    public ApiResponse<Object> handleTwoFactorRequiredException(TwoFactorRequiredException ex) {
+    // Thay đổi kiểu trả về cụ thể để đảm bảo kiểu dữ liệu T
+    public ApiResponse<Map<String, String>> handleTwoFactorRequiredException(TwoFactorRequiredException ex) {
         // Cấu trúc phản hồi rõ ràng để Frontend biết cần làm gì
-        Map<String, String> details = Map.of("twoFactorSessionToken", ex.getSessionToken());
-
-        // Sử dụng ApiResponse đã có (giả định)
-        return new ApiResponse<>(
-                null,
-                "2FA required. Please check your email for OTP.",
-                HttpStatus.ACCEPTED.value(), // 202
-                "2FA_REQUIRED",
-                details
+        Map<String, String> data = Map.of(
+                "twoFactorSessionToken", ex.getSessionToken(),
+                "code", "2FA_REQUIRED" // Thêm code vào data để client dễ dàng nhận diện
         );
+
+        // SỬA LỖI: Sử dụng phương thức factory tĩnh ApiResponse.success(String message, T data)
+        // để tuân thủ cấu trúc class và tránh lỗi constructor.
+        return ApiResponse.success("2FA required. Please check your email for OTP.", data);
     }
 }

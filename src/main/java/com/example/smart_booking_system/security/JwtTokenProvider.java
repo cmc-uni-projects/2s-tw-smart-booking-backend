@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Set; // Import cần thiết cho method mới
 import java.util.stream.Collectors;
 
 @Component
@@ -41,6 +42,24 @@ public class JwtTokenProvider {
                 .setSubject(userPrincipal.getUserId().toString())
                 .claim("email", userPrincipal.getEmail())
                 .claim("roles", roles)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    // NEW OVERLOADED METHOD: Generate token directly from user details (for 2FA flow)
+    public String generateToken(String userId, String email, Set<String> roles) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpiration);
+
+        String rolesString = roles.stream()
+                .collect(Collectors.joining(","));
+
+        return Jwts.builder()
+                .setSubject(userId)
+                .claim("email", email)
+                .claim("roles", rolesString)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
@@ -121,27 +140,30 @@ public class JwtTokenProvider {
                 .getBody()
                 .getExpiration();
     }
+
     // NEW METHOD: Generate a short-lived token for 2FA validation step
-    public String generateTwoFactorSessionToken(Long userId) {
+    public String generateTwoFactorSessionToken(String userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + twoFactorSessionTokenExpirationInMs);
 
         return Jwts.builder()
-                .setSubject(Long.toString(userId))
+                .setSubject(userId)
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
-                .signWith(key(), SignatureAlgorithm.HS512)
+                // FIX: Sử dụng getSigningKey() thay cho key() không xác định
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
     // NEW METHOD: Get User ID from a token
-    public Long getUserIdFromTwoFactorSessionToken(String token) {
+    public String getUserIdFromTwoFactorSessionToken(String token) {
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key())
+                // FIX: Sử dụng getSigningKey() thay cho key() không xác định
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
 
-        return Long.parseLong(claims.getSubject());
+        return claims.getSubject();
     }
 }

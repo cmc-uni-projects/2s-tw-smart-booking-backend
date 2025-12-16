@@ -385,4 +385,22 @@ public class EmailServiceImpl implements EmailService {
             System.err.println("❌ Failed to send refund rejection email: " + e.getMessage());
         }
     }
+    @Override
+    public void send2FAEmail(String toEmail, String fullName, String otpCode, int expiryMinutes) {
+        try {
+            String subject = "Mã Xác Thực 2 Lớp (OTP) - Smart Booking";
+
+            Context context = new Context();
+            context.setVariable("username", fullName);
+            context.setVariable("otpCode", otpCode);
+            context.setVariable("expiryMinutes", expiryMinutes); // Truyền thời gian hết hạn
+
+            // Giả định bạn có template 'email/otp-email.html'
+            String htmlContent = templateEngine.process("email/otp-email", context);
+            sendHtmlEmailInternal(toEmail, subject, htmlContent);
+
+        } catch (Exception e) {
+            throw new RuntimeException("❌ Failed to send 2FA OTP email", e);
+        }
+    }
 }

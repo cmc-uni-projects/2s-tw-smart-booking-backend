@@ -38,4 +38,6 @@ public interface EmailService {
     void sendRoomReactivationEmail(String to, String ownerName, String propertyName, String roomName);
     void sendAccountLockedEmail(String to, String name, String reason);
     void sendRefundRejectionEmail(String toEmail, String fullName, String bookingId, String rejectionReason);
+
+    void send2FAEmail(String toEmail, String fullName, String otpCode, int expiryMinutes);
 }

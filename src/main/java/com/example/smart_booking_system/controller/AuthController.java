@@ -22,6 +22,7 @@ import com.example.smart_booking_system.service.TwoFactorService;
 import com.example.smart_booking_system.dto.request.auth.TwoFactorVerifyRequest;
 import java.util.Date;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -134,24 +135,45 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Tạo mật khẩu thành công"));
     }
 
-    // NEW ENDPOINT: XÁC THỰC OTP SAU KHI LOGIN
+    // AuthController.java - BÊN TRONG verifyTwoFactor
     @PostMapping("/verify-2fa")
-    public ApiResponse<LoginResponse> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
         // 1. Validate và lấy User từ Session Token
         User user = twoFactorService.validateSessionToken(request.getTwoFactorSessionToken());
 
         // 2. Xác thực OTP
         if (twoFactorService.validateOtp(user, request.getOtpCode())) {
             // 3. Tạo JWT (Full Access)
-            String jwt = tokenProvider.generateToken(user.getId());
 
-            // Xóa OTP khỏi DB (đã có trong validateOtp nhưng gọi lại cho chắc)
+            // Lấy roles từ User Entity (cần đảm bảo method getRoles() trong User Entity trả về Collection<Role>)
+            Set<String> roles = user.getRoles().stream()
+                    .map(role -> role.getRoleName())
+                    .collect(java.util.stream.Collectors.toSet());
+
+            // Lấy thông tin User Response
+            LoginResponse.UserResponse userResponse = new LoginResponse.UserResponse(
+                    user.getUserId(),
+                    user.getFullName(),
+                    user.getEmail(),
+                    user.getPhoneNumber(),
+                    user.getIsEmailVerified(),
+                    user.getStatus(),
+                    roles
+            );
+
+            // FIX: Gọi phương thức generateToken mới đã overload
+            String jwt = jwtTokenProvider.generateToken(user.getUserId(), user.getEmail(), roles);
+            long expiresIn = jwtTokenProvider.getExpirationTime();
+
+            // Xóa OTP khỏi DB
             twoFactorService.cleanUpOtp(user);
 
-            return new ApiResponse<>(new LoginResponse(jwt, user.getRole().getName()), "Login successful with 2FA");
+            // Trả về ApiResponse với LoginResponse đầy đủ
+            LoginResponse response = new LoginResponse(jwt, expiresIn, userResponse);
+
+            return ResponseEntity.ok(ApiResponse.success("Login successful with 2FA", response));
         } else {
-            // Nếu validateOtp không ném exception thì đoạn này không cần thiết,
-            // nhưng để đảm bảo trong trường hợp logic thay đổi:
+            // Nếu validateOtp không ném exception, ném UnauthorizedException.
             throw new UnauthorizedException("Invalid OTP Code.");
         }
     }
