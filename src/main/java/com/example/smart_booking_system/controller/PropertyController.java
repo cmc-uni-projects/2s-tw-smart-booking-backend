@@ -219,6 +219,8 @@ public class PropertyController {
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<Page<PropertyDetailDTO>>> searchProperties(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<String> cities,     // ✅ [MỚI] Nhận list thành phố
+            @RequestParam(required = false) List<Integer> ratings,   // ✅ [MỚI] Nhận list số sao
             @RequestParam(required = false, defaultValue = "1") Integer guests,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
@@ -227,28 +229,47 @@ public class PropertyController {
             // Params cho phân trang
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id,desc") String[] sort // VD: price,asc
+            @RequestParam(defaultValue = "id,desc") String[] sort
     ) {
 
         // Xử lý Sort
         Sort.Direction direction = Sort.Direction.DESC;
         String sortField = "propertyId";
 
-        if (sort != null && sort.length == 2) {
+        if (sort != null && sort.length >= 2) {
             sortField = sort[0];
             if ("asc".equalsIgnoreCase(sort[1])) {
                 direction = Sort.Direction.ASC;
             }
+        } else if (sort != null && sort.length == 1) {
+            // Fallback nếu chỉ truyền sort=price mà không có hướng
+            sortField = sort[0];
         }
 
-        // Mapping sort field từ FE sang Entity field (nếu cần)
-        if ("price".equals(sortField)) sortField = "rooms.pricePerNight"; // VD sort theo giá
+        // Mapping sort field từ FE sang Entity field
+        if ("price".equals(sortField) || "basePrice".equals(sortField)) {
+            // Sort theo giá khá phức tạp vì giá nằm ở bảng Room.
+            // Tạm thời sort theo ID hoặc Rating sẽ an toàn hơn nếu chưa join chuẩn.
+            // Nếu muốn sort theo giá min của phòng, cần query phức tạp hơn.
+            // Ở đây ta map tạm về propertyId để tránh lỗi SQL nếu chưa handle sort deep.
+            sortField = "propertyId";
+        }
         if ("name".equals(sortField)) sortField = "propertyName";
+        if ("id".equals(sortField)) sortField = "propertyId";
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
 
+        // Gọi Service với đầy đủ tham số
         Page<PropertyDetailDTO> result = propertyService.searchPropertiesPaginated(
-                keyword, guests, checkIn, checkOut, minPrice, maxPrice, pageable
+                keyword,
+                cities,   // ✅ Truyền list cities
+                ratings,  // ✅ Truyền list ratings
+                guests,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                pageable
         );
 
         return ResponseEntity.ok(ApiResponse.success("Search results", result));

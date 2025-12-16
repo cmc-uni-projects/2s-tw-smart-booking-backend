@@ -63,6 +63,8 @@ public interface PropertyService {
 
     Page<PropertyDetailDTO> searchPropertiesPaginated(
             String keyword,
+            List<String> cities,    // ✅ Mới
+            List<Integer> ratings,  // ✅ Mới
             Integer guests,
             LocalDate checkIn,
             LocalDate checkOut,

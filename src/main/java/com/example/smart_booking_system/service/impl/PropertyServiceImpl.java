@@ -850,29 +850,52 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     @Transactional(readOnly = true)
     public Page<PropertyDetailDTO> searchPropertiesPaginated(
-            String keyword, Integer guests, LocalDate checkIn, LocalDate checkOut,
-            BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+            String keyword,
+            List<String> cities,    // ✅ [MỚI] Nhận danh sách thành phố
+            List<Integer> ratings,  // ✅ [MỚI] Nhận danh sách sao
+            Integer guests,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Pageable pageable) {
 
+        // 1. Gọi Repository (Đã update để nhận list cities và ratings)
         Page<Property> propertyPage = propertyRepository.searchPropertiesAdvanced(
-                PropertyStatus.APPROVE, keyword, guests, checkIn, checkOut, minPrice, maxPrice, pageable
+                PropertyStatus.APPROVE,
+                keyword,
+                cities,     // ✅ Truyền xuống Repo
+                ratings,    // ✅ Truyền xuống Repo
+                guests,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                pageable
         );
 
+        // 2. Map sang DTO và Lọc bỏ các phòng không thỏa mãn (Giá, Sức chứa, Lịch trống)
         return propertyPage.map(property -> {
             PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
 
             if (dto.getRooms() != null) {
                 List<RoomResponseDTO> filteredRooms = dto.getRooms().stream()
                         .filter(room -> {
-                            // 1. Các logic lọc cơ bản
+                            // --- A. Lọc theo cấu hình phòng ---
+
+                            // Check giá Min
                             if (minPrice != null && room.getPricePerNight().compareTo(minPrice) < 0) return false;
+                            // Check giá Max
                             if (maxPrice != null && room.getPricePerNight().compareTo(maxPrice) > 0) return false;
+                            // Check số khách
                             if (guests != null && room.getCapacity() < guests) return false;
 
-                            // 2. ✅ LOGIC MỚI: CHECK ĐÃ ĐẶT CHƯA (BỎ roomAmount)
+                            // --- B. Check Availability (Logic 1 phòng vật lý) ---
+                            // Nếu khách chọn ngày, kiểm tra xem phòng này có bị trùng lịch không
                             if (checkIn != null && checkOut != null) {
                                 Long bookedCount = bookingRepository.countExistingBookings(room.getRoomId(), checkIn, checkOut);
 
-                                // Nếu đã có booking (> 0) thì ẩn luôn, vì mỗi phòng chỉ có 1 cái
+                                // Nếu đã có booking (> 0) thì ẩn luôn, vì mỗi phòng chỉ có 1 cái (không quan tâm roomAmount)
                                 if (bookedCount > 0) {
                                     return false;
                                 }
@@ -882,12 +905,20 @@ public class PropertyServiceImpl implements PropertyService {
                         })
                         .collect(Collectors.toList());
 
+                // Gán lại danh sách phòng đã lọc vào DTO
                 dto.setRooms(filteredRooms);
 
-                // Update min/max price
+                // Cập nhật lại giá hiển thị Min/Max trên Card dựa trên các phòng còn lại
                 if (!filteredRooms.isEmpty()) {
-                    dto.setMinPrice(filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
-                    dto.setMaxPrice(filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
+                    dto.setMinPrice(filteredRooms.stream()
+                            .map(RoomResponseDTO::getPricePerNight)
+                            .min(BigDecimal::compareTo)
+                            .orElse(BigDecimal.ZERO));
+
+                    dto.setMaxPrice(filteredRooms.stream()
+                            .map(RoomResponseDTO::getPricePerNight)
+                            .max(BigDecimal::compareTo)
+                            .orElse(BigDecimal.ZERO));
                 }
             }
             return dto;
