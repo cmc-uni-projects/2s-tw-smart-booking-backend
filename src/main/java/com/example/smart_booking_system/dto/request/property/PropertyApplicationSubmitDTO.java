@@ -29,7 +29,10 @@ public class PropertyApplicationSubmitDTO {
     private String ward;         // Phường/Xã (Có thể null nếu FE không bắt buộc)
     private String provinceCode;
     private String districtCode;
-
+    private BigDecimal price;         // Giá ngày thường
+    private BigDecimal weekendPrice;  // Giá cuối tuần
+    private Integer capacity;         // Sức chứa
+    private String unitName;          // Tên căn (VD: Villa A)
     @NotBlank(message = "Địa chỉ không được để trống")
     private String address;
 

@@ -20,6 +20,10 @@ public class Property {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int propertyId;
 
+    // ✅ GIỮ LẠI CÁI NÀY (MappedBy = "property" là đúng với Room.java mới)
+    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL)
+    private List<Room> rooms;
+
     private String propertyName;
 
     @Enumerated(EnumType.STRING)
@@ -33,24 +37,21 @@ public class Property {
     private String country;
 
     // ========================================================
-    // ✅ [MODIFIED] CẬP NHẬT LẠI VAI TRÒ CÁC TRƯỜNG ĐỊA LÝ
+    // ĐỊA LÝ
     // ========================================================
-
     @Column(name = "city")
     private String city;      // LƯU TỈNH/THÀNH PHỐ
 
     @Column(name = "district")
-    private String district;  // LƯU QUẬN/HUYỆN (VD: "Quận Hà Đông")
+    private String district;  // LƯU QUẬN/HUYỆN
 
     private String province;
+    private String ward;
+    private String provinceCode;
+    private String districtCode;
+    private String postalCode;
 
     // ========================================================
-
-    private String ward;           // Phường/Xã
-    private String provinceCode;   // Mã tỉnh (VD: "01")
-    private String districtCode;   // Mã huyện (VD: "001")
-
-    private String postalCode;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -77,11 +78,12 @@ public class Property {
     private LocalDate createdAt = LocalDate.now();
     private LocalDate updatedAt = LocalDate.now();
 
+    // RELATIONS
+
     @OneToMany(mappedBy = "property", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<PropertyAmenity> propertyAmenities;
 
-    @OneToMany(mappedBy = "propertyId", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private List<Room> rooms;
+
 
     @OneToMany(mappedBy = "property", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<PropertyImage> images;

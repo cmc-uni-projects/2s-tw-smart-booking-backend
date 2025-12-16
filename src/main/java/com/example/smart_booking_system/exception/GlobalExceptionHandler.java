@@ -4,6 +4,9 @@ import com.example.smart_booking_system.dto.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -82,5 +85,31 @@ public class GlobalExceptionHandler {
         ex.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Internal server error: " + ex.getMessage(), request.getDescription(false)));
+    }
+
+    // 1. Xử lý khi sai Tài khoản hoặc Mật khẩu
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<?>> handleBadCredentialsException(
+            BadCredentialsException ex, WebRequest request) {
+        // Trả về 401 Unauthorized
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("Tài khoản hoặc mật khẩu không chính xác", request.getDescription(false)));
+    }
+
+    // 2. Xử lý khi Tài khoản chưa kích hoạt (Chưa xác thực email)
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<?>> handleDisabledException(
+            DisabledException ex, WebRequest request) {
+        // Trả về 403 Forbidden (hoặc 401 tùy bạn chọn, nhưng 403 rõ nghĩa hơn cho trường hợp này)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt!", request.getDescription(false)));
+    }
+
+    // 3. (Tùy chọn) Xử lý khi tài khoản bị khóa
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ApiResponse<?>> handleLockedException(
+            LockedException ex, WebRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Tài khoản đã bị khóa. Vui lòng liên hệ admin.", request.getDescription(false)));
     }
 }

@@ -2,11 +2,14 @@ package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.enums.PropertyStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -18,10 +21,10 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     // ============================================================
     @Query("""
         SELECT DISTINCT p FROM Property p
-        JOIN Room r ON r.propertyId = p
+        JOIN Room r ON r.property = p
         WHERE p.isActive = true
         AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
-        AND r.isActive = true
+        AND r.active = true
         AND (:keyword IS NULL OR :keyword = '' OR (
              LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
              LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
@@ -77,7 +80,7 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     // ============================================================
 
     // Query search cũ
-    @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.propertyId = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.isActive = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    @Query("SELECT DISTINCT p FROM Property p JOIN Room r ON r.property = p WHERE p.isActive = true AND p.propertyStatus = 'APPROVE' AND r.active = true AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Property> searchProperties(@Param("keyword") String keyword);
 
     @Query(value = """
@@ -94,4 +97,51 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
                                         @Param("radius") double radius);
 
     boolean existsByPropertyName(String propertyName);
+
+    Page<Property> findByPropertyStatus(PropertyStatus status, Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Property p " +
+            "JOIN p.rooms r " +
+            "WHERE p.isActive = true " +
+            "AND p.propertyStatus = :status " +
+            // 1. Keyword chung
+            "AND (:keyword IS NULL OR :keyword = '' OR " +
+            "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.province) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+
+            // 2. Lọc theo Thành phố (List) ✅ MỚI
+            "AND (COALESCE(:cities, NULL) IS NULL OR p.city IN :cities) " +
+
+            // 3. Lọc theo Rating (List) ✅ MỚI (Lấy phần nguyên: 4.5 -> 4)
+            "AND (COALESCE(:ratings, NULL) IS NULL OR FLOOR(p.rating) IN :ratings) " +
+
+            // 4. Giá & Số khách
+            "AND (:guests IS NULL OR r.capacity >= :guests) " +
+            "AND (:minPrice IS NULL OR r.pricePerNight >= :minPrice) " +
+            "AND (:maxPrice IS NULL OR r.pricePerNight <= :maxPrice) " +
+
+            // 5. Check trống phòng (Logic count = 0 đã chốt trước đó)
+            "AND ( " +
+            "   :checkIn IS NULL OR :checkOut IS NULL OR " +
+            "   (SELECT COUNT(b) FROM Booking b " +
+            "    WHERE b.room = r " +
+            "    AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT) " +
+            "    AND (b.checkInDate < :checkOut AND b.checkOutDate > :checkIn) " +
+            "   ) = 0 " +
+            ")")
+    Page<Property> searchPropertiesAdvanced(
+            @Param("status") PropertyStatus status,
+            @Param("keyword") String keyword,
+            @Param("cities") List<String> cities,      // ✅ Thêm
+            @Param("ratings") List<Integer> ratings,   // ✅ Thêm
+            @Param("guests") Integer guests,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            Pageable pageable
+    );
+    
 }

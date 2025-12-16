@@ -32,7 +32,7 @@ public interface PropertyDetailRepository extends JpaRepository<PropertyDetail, 
     @Query("""
            SELECT r
            FROM Room r
-           WHERE r.propertyId.propertyId = :propertyId
+           WHERE r.property.propertyId = :propertyId
            """)
     List<Room> getRoomsByPropertyId(@Param("propertyId") int propertyId);
 
@@ -69,7 +69,7 @@ public interface PropertyDetailRepository extends JpaRepository<PropertyDetail, 
         p.isActive = true
         AND p.propertyStatus = com.example.smart_booking_system.enums.PropertyStatus.APPROVE
         AND LOWER(p.city) LIKE LOWER(CONCAT('%', :city, '%'))
-        AND r.isActive = true
+        AND r.active = true
         AND r.capacity >= :capacity
 """)
     List<Property> findAvailableProperties(

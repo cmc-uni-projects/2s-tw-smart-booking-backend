@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Room;
+import com.example.smart_booking_system.enums.RoomCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,43 +12,54 @@ import java.util.Optional;
 
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Integer> {
-    List<Room> findByPropertyId_PropertyIdAndIsActiveTrue(int propertyId);
+
+    // ✅ SỬA: findByProperty... (Do biến trong Entity tên là property)
+    // ✅ SỬA: ...ActiveTrue (Do biến trong Entity tên là active)
+    List<Room> findByProperty_PropertyIdAndActiveTrue(Integer propertyId);
+
+    // Hàm cũ (nếu code cũ có dùng), sửa lại tên cho đúng chuẩn
+    List<Room> findByProperty_PropertyId(Integer propertyId);
+
     @Query("""
         SELECT r FROM Room r
         WHERE 
-        (:propertyId IS NULL OR r.propertyId.propertyId = :propertyId)
+        (:propertyId IS NULL OR r.property.propertyId = :propertyId)
         AND
         (:keyword IS NULL OR (
             LOWER(r.roomName) LIKE LOWER(CONCAT('%', :keyword, '%'))
             OR LOWER(r.description) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(r.roomCategory) LIKE LOWER(CONCAT('%', :keyword, '%'))
         ))
-        AND r.isActive = true
+        AND r.active = true
     """)
     List<Room> searchRooms(
             @Param("propertyId") Integer propertyId,
             @Param("keyword") String keyword
     );
+
+    // Sửa jpql: r.property.propertyId
     @Query("""
            SELECT r
            FROM Room r
-           WHERE r.propertyId.propertyId = :propertyId
+           WHERE r.property.propertyId = :propertyId
              AND r.roomCategory = :category
            """)
     Optional<Room> findByPropertyIdAndCategory(@Param("propertyId") int propertyId,
-                                               @Param("category") com.example.smart_booking_system.enums.RoomCategory category);
-    // Kiểm tra tồn tại phòng theo tên trong cùng một property, loại trừ phòng hiện tại
+                                               @Param("category") RoomCategory category);
+
+    // Sửa jpql: r.property.propertyId
     @Query("""
         SELECT COUNT(r) > 0 FROM Room r
-        WHERE r.propertyId.propertyId = :propertyId
+        WHERE r.property.propertyId = :propertyId
         AND LOWER(r.roomName) = LOWER(:roomName)
         AND r.roomId != :excludeRoomId
     """)
-    boolean existsByPropertyIdAndRoomNameAndIdNot(
-            @Param("propertyId") int propertyId,
+    boolean existsByProperty_PropertyIdAndRoomNameAndIdNot(
+            @Param("propertyId") Integer propertyId,
             @Param("roomName") String roomName,
-            @Param("excludeRoomId") int excludeRoomId
+            @Param("excludeRoomId") Integer excludeRoomId
     );
 
-    List<Room> findByPropertyId_PropertyId(int propertyId);
+    List<Room> findByProperty_PropertyId(int propertyId);
+
+
 }

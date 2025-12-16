@@ -50,7 +50,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                         UserDetails userDetails = userDetailsService.loadUserById(userId);
+                        if (!userDetails.isAccountNonLocked()) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"error\": \"Tài khoản của bạn đã bị khóa hoặc tạm ngưng.\"}");
+                            return; // Dừng request ngay lập tức
+                        }
 
+                        if (!userDetails.isEnabled()) {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"error\": \"Tài khoản chưa được kích hoạt.\"}");
+                            return;
+                        }
                         UsernamePasswordAuthenticationToken auth =
                                 new UsernamePasswordAuthenticationToken(
                                         userDetails, null, userDetails.getAuthorities());

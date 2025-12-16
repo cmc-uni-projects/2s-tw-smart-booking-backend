@@ -24,5 +24,12 @@ public enum NotificationType {
     BOOKING_CANCELLED_BY_GUEST, // Khách hủy đặt phòng
     REVENUE_REPORT,             // Báo cáo doanh thu
     PROPERTY_SUSPENDED,         // Khách sạn bị tạm khóa
-    PAYOUT_SUCCESS              // Tiền về ví chủ nhà
+    ROOM_SUSPENDED,     // Thêm mới (dùng khi khóa phòng)
+    SYSTEM,
+    PAYOUT_SUCCESS,              // Thanh toán cho Owner thành công
+
+    ADMIN_NEW_OWNER_REGISTRATION,   // Có đơn đăng ký Owner mới
+    ADMIN_NEW_PROPERTY_SUBMISSION,  // Có khách sạn/căn hộ mới chờ duyệt
+    ADMIN_NEW_REFUND_REQUEST,       // Có yêu cầu hoàn tiền mới
+    ADMIN_SYSTEM_ALERT              // Cảnh báo hệ thống
 }

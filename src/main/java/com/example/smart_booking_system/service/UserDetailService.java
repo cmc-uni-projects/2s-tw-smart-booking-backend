@@ -4,6 +4,7 @@ import com.example.smart_booking_system.dto.request.user.UserDetailRequestDTO;
 import com.example.smart_booking_system.dto.response.user.UserDetailResponseDTO;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.entity.UserDetail;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.repository.UserDetailRepository;
 import com.example.smart_booking_system.repository.UserRepository;
@@ -111,9 +112,16 @@ public class UserDetailService {
     @Transactional
     public UserDetailResponseDTO uploadProfilePhoto(String userId, MultipartFile file) {
 
+        // 1. Validate file
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File ảnh không hợp lệ");
+        }
+
+        // 2. Lấy User
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
+        // 3. Lấy hoặc tạo UserDetail
         UserDetail detail = userDetailRepository.findByUser(user)
                 .orElseGet(() -> {
                     UserDetail newDetail = new UserDetail();
@@ -121,20 +129,23 @@ public class UserDetailService {
                     return userDetailRepository.save(newDetail);
                 });
 
-        // Xóa ảnh cũ trên R2
-        if (StringUtils.hasText(detail.getProfilePhotoUrl())) {
-            fileStorageService.deleteFile(detail.getProfilePhotoUrl());
+        // 4. Xóa ảnh cũ (CHỈ KHI LÀ KEY, KHÔNG PHẢI URL)
+        String oldValue = detail.getProfilePhotoUrl();
+        if (StringUtils.hasText(oldValue) && !oldValue.startsWith("http")) {
+            fileStorageService.deleteFile(oldValue);
         }
 
-        // Upload ảnh mới
+        // 5. Upload ảnh mới lên R2
         String key = fileStorageService.storeImageFile(file, "userdetail");
 
-        // Lưu KEY, không lưu URL
+        // 6. Lưu KEY vào DB
         detail.setProfilePhotoUrl(key);
         userDetailRepository.save(detail);
 
+        // 7. Trả về DTO (getUserDetail phải convert KEY -> URL)
         return getUserDetail(user.getEmail());
     }
+
 
     // ==============================================================
     // CHECK PROFILE COMPLETENESS
