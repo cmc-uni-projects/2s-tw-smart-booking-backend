@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
-    // --- ĐỊNH NGHĨA SCOPE (Giữ nguyên) ---
+    // --- ĐỊNH NGHĨA SCOPE ---
     private static final List<NotificationType> CUSTOMER_TYPES = Arrays.asList(
             NotificationType.GENERAL, NotificationType.ACCOUNT_UPDATE, NotificationType.SECURITY_ALERT,
             NotificationType.BOOKING_SUCCESS, NotificationType.BOOKING_CANCELLED, NotificationType.BOOKING_FAILED,
@@ -38,30 +39,32 @@ public class NotificationService {
             NotificationType.SYSTEM
     );
 
+    // [BỔ SUNG] Danh sách thông báo cho Admin
+    private static final List<NotificationType> ADMIN_TYPES = Arrays.asList(
+            NotificationType.ADMIN_NEW_OWNER_REGISTRATION,
+            NotificationType.ADMIN_NEW_PROPERTY_SUBMISSION,
+            NotificationType.ADMIN_NEW_REFUND_REQUEST
+    );
+
     // --- PHẦN 1: LOGIC ĐỌC (GET) ---
 
-    // [SỬA] Long userId -> String userId
     public Page<NotificationResponseDTO> getUserNotifications(String userId, String scope, Pageable pageable) {
         List<NotificationType> targetTypes = getTypesByScope(scope);
         return notificationRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(userId, targetTypes, pageable)
                 .map(this::convertToDTO);
     }
 
-    // [SỬA] Long userId -> String userId
     public long getUnreadCount(String userId, String scope) {
         return notificationRepository.countByUserIdAndIsReadFalseAndTypeIn(userId, getTypesByScope(scope));
     }
 
-    // [SỬA] Long userId -> String userId
     @Transactional
     public void markAllAsRead(String userId, String scope) {
         notificationRepository.markAllAsReadByType(userId, getTypesByScope(scope));
     }
 
-    // [SỬA] Long userId -> String userId
     @Transactional
     public void markAsRead(Long id, String userId) {
-        // Kiểm tra tồn tại
         if (!notificationRepository.existsById(id)) {
             throw new ResourceNotFoundException("Notification not found");
         }
@@ -70,11 +73,8 @@ public class NotificationService {
 
     // --- PHẦN 2: LOGIC GHI (CREATE/SEND) ---
 
-    // [SỬA] Long userId -> String userId
-    // Đây là chỗ gây ra lỗi biên dịch trước đó
     @Transactional
     public void sendNotification(String userId, String title, String message, NotificationType type, String relatedEntityId) {
-        // findById giờ nhận String, khớp với User entity
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found to send notification"));
 
@@ -90,9 +90,38 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    // [BỔ SUNG] Gửi thông báo cho TẤT CẢ Admin
+    @Transactional
+    public void sendToAllAdmins(String title, String message, NotificationType type, String relatedEntityId) {
+        // Tìm tất cả user có role là ADMIN
+        List<User> admins = userRepository.findByRoleName("ADMIN");
+
+        if (admins.isEmpty()) {
+            return; // Không có admin nào thì bỏ qua
+        }
+
+        // Tạo danh sách notification cho từng admin
+        List<Notification> notifications = admins.stream()
+                .map(admin -> Notification.builder()
+                        .user(admin)
+                        .title(title)
+                        .message(message)
+                        .type(type)
+                        .isRead(false)
+                        .relatedEntityId(relatedEntityId)
+                        .build())
+                .collect(Collectors.toList());
+
+        // Lưu hàng loạt (Batch insert)
+        notificationRepository.saveAll(notifications);
+    }
+
+    // --- HELPER METHODS ---
+
     private List<NotificationType> getTypesByScope(String scope) {
         if ("OWNER".equalsIgnoreCase(scope)) return OWNER_TYPES;
         if ("CUSTOMER".equalsIgnoreCase(scope)) return CUSTOMER_TYPES;
+        if ("ADMIN".equalsIgnoreCase(scope)) return ADMIN_TYPES; // [BỔ SUNG] Xử lý scope ADMIN
         return Arrays.asList(NotificationType.values());
     }
 

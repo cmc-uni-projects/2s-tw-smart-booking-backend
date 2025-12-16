@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service.impl;
 
+import com.example.smart_booking_system.enums.NotificationType;
 import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.service.FileStorageService;
 import com.example.smart_booking_system.dto.request.application.OwnerApplicationSubmitDTO;
@@ -15,6 +16,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.smart_booking_system.service.NotificationService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,8 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final RoleRepository roleRepository;
+    private final NotificationService notificationService;
+
 
     // 🔥 Dùng để upload + generate signed URL
     private final FileStorageService fileStorageService;
@@ -76,6 +80,17 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         application.setBusinessLicenseImage(licenseUrl);
 
         OwnerApplication savedApp = applicationRepository.save(application);
+
+        try {
+            notificationService.sendToAllAdmins(
+                    "Đơn đăng ký Owner mới",
+                    "Người dùng " + applicant.getFullName() + " vừa nộp đơn đăng ký đối tác.",
+                    NotificationType.ADMIN_NEW_OWNER_REGISTRATION,
+                    savedApp.getId().toString()
+            );
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo admin: " + e.getMessage());
+        }
 
         // Email giữ nguyên
         try {
@@ -150,8 +165,33 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         OwnerApplication savedApp = applicationRepository.save(application);
 
+        // [BỔ SUNG] Gửi thông báo In-App cho User (Applicant)
         if (applicant != null) {
+            // 1. Gửi email (code cũ)
             sendReviewNotificationEmail(applicant, savedApp);
+
+            // 2. Gửi thông báo hệ thống (code mới)
+            try {
+                if (newStatus == ApplicationStatus.APPROVED) {
+                    notificationService.sendNotification(
+                            applicant.getUserId(),
+                            "Đơn đăng ký Owner được chấp thuận",
+                            "Chúc mừng! Bạn đã chính thức trở thành đối tác. Hãy bắt đầu đăng tải khách sạn ngay.",
+                            NotificationType.APPROVAL,
+                            savedApp.getId().toString()
+                    );
+                } else if (newStatus == ApplicationStatus.REJECTED) {
+                    notificationService.sendNotification(
+                            applicant.getUserId(),
+                            "Đơn đăng ký Owner bị từ chối",
+                            "Lý do: " + (reviewDTO.getReason() != null ? reviewDTO.getReason() : "Không có lý do cụ thể"),
+                            NotificationType.REJECTION,
+                            savedApp.getId().toString()
+                    );
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo user: " + e.getMessage());
+            }
         }
 
         return convertToDTO(savedApp);

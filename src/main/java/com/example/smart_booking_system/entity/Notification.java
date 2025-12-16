@@ -27,7 +27,7 @@ public class Notification {
     private String message;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "type", length = 50)
     private NotificationType type;
 
     // Quan trọng: Đặt mặc định là false
