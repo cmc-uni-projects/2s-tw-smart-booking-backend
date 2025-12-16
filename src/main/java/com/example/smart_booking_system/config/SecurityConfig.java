@@ -65,6 +65,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
 
+
         // ⚠️ THAY ĐỔI QUAN TRỌNG Ở ĐÂY:
         // Dùng setAllowedOriginPatterns thay vì setAllowedOrigins
         config.setAllowedOriginPatterns(List.of(
