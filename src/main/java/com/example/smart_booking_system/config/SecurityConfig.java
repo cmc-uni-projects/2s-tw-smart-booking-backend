@@ -64,11 +64,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        // Lưu ý: Nếu bạn chạy frontend ở port khác 5173, hãy thêm vào đây
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+
+        // ⚠️ THAY ĐỔI QUAN TRỌNG Ở ĐÂY:
+        // Dùng setAllowedOriginPatterns thay vì setAllowedOrigins
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",              // Cho phép localhost mọi port
+                "https://*.vercel.app",            // ✅ Cho phép tất cả các link deploy Vercel (Preview & Prod)
+                "https://smart-booking-system-frontend.vercel.app" // (Tùy chọn) Link chính thức
+        ));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
