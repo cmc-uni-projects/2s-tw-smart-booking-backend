@@ -176,4 +176,13 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "GROUP BY b.property.propertyType")
     List<Object[]> getRevenueByPropertyTypeByOwner(@Param("ownerId") String ownerId);
 
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.room.roomId = :roomId " +
+            "AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, " +
+            "                 com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT) " +
+            "AND (b.checkInDate < :checkOut AND b.checkOutDate > :checkIn)")
+    Long countExistingBookings(@Param("roomId") Integer roomId,
+                               @Param("checkIn") LocalDate checkIn,
+                               @Param("checkOut") LocalDate checkOut);
+
 }

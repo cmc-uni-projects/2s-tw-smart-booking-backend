@@ -17,6 +17,7 @@ import com.example.smart_booking_system.service.*;
 import com.example.smart_booking_system.util.SystemLogJsonUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.MessagingException;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class PropertyServiceImpl implements PropertyService {
 
     private final PropertyRepository propertyRepository;
@@ -560,9 +562,10 @@ public class PropertyServiceImpl implements PropertyService {
         // price range
         if (property.getRooms() != null && !property.getRooms().isEmpty()) {
             List<BigDecimal> prices = property.getRooms().stream()
-                    .filter(Room::isActive)
+                    .filter(Room::isActive) // Chỉ tính phòng đang hoạt động
                     .map(Room::getPricePerNight)
                     .toList();
+
             if (!prices.isEmpty()) {
                 dto.setMinPrice(prices.stream().min(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
                 dto.setMaxPrice(prices.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
@@ -842,5 +845,52 @@ public class PropertyServiceImpl implements PropertyService {
     public Page<PropertyResponseDTO> getPropertiesByStatusPaginated(PropertyStatus status, Pageable pageable) {
         return propertyRepository.findByPropertyStatus(status, pageable)
                 .map(this::mapToPropertyResponseDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PropertyDetailDTO> searchPropertiesPaginated(
+            String keyword, Integer guests, LocalDate checkIn, LocalDate checkOut,
+            BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+
+        Page<Property> propertyPage = propertyRepository.searchPropertiesAdvanced(
+                PropertyStatus.APPROVE, keyword, guests, checkIn, checkOut, minPrice, maxPrice, pageable
+        );
+
+        return propertyPage.map(property -> {
+            PropertyDetailDTO dto = mapToPropertyDetailDTO(property);
+
+            if (dto.getRooms() != null) {
+                List<RoomResponseDTO> filteredRooms = dto.getRooms().stream()
+                        .filter(room -> {
+                            // 1. Các logic lọc cơ bản
+                            if (minPrice != null && room.getPricePerNight().compareTo(minPrice) < 0) return false;
+                            if (maxPrice != null && room.getPricePerNight().compareTo(maxPrice) > 0) return false;
+                            if (guests != null && room.getCapacity() < guests) return false;
+
+                            // 2. ✅ LOGIC MỚI: CHECK ĐÃ ĐẶT CHƯA (BỎ roomAmount)
+                            if (checkIn != null && checkOut != null) {
+                                Long bookedCount = bookingRepository.countExistingBookings(room.getRoomId(), checkIn, checkOut);
+
+                                // Nếu đã có booking (> 0) thì ẩn luôn, vì mỗi phòng chỉ có 1 cái
+                                if (bookedCount > 0) {
+                                    return false;
+                                }
+                            }
+
+                            return true;
+                        })
+                        .collect(Collectors.toList());
+
+                dto.setRooms(filteredRooms);
+
+                // Update min/max price
+                if (!filteredRooms.isEmpty()) {
+                    dto.setMinPrice(filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
+                    dto.setMaxPrice(filteredRooms.stream().map(RoomResponseDTO::getPricePerNight).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO));
+                }
+            }
+            return dto;
+        });
     }
 }

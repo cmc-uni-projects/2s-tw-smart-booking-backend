@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -98,5 +99,38 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     boolean existsByPropertyName(String propertyName);
 
     Page<Property> findByPropertyStatus(PropertyStatus status, Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Property p " +
+            "JOIN p.rooms r " +
+            "WHERE p.isActive = true " +
+            "AND p.propertyStatus = :status " +
+            "AND (:keyword IS NULL OR :keyword = '' OR " +
+            "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.province) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:guests IS NULL OR r.capacity >= :guests) " +
+            "AND (:minPrice IS NULL OR r.pricePerNight >= :minPrice) " +
+            "AND (:maxPrice IS NULL OR r.pricePerNight <= :maxPrice) " +
+
+            // ✅ LOGIC MỚI: BỎ roomAmount, CHỈ CHECK COUNT = 0
+            "AND ( " +
+            "   :checkIn IS NULL OR :checkOut IS NULL OR " +
+            "   (SELECT COUNT(b) FROM Booking b " +
+            "    WHERE b.room = r " +
+            "    AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT) " +
+            "    AND (b.checkInDate < :checkOut AND b.checkOutDate > :checkIn) " +
+            "   ) = 0 " + // Tức là: Không có đơn đặt nào trùng lịch
+            ")")
+    Page<Property> searchPropertiesAdvanced(
+            @Param("status") PropertyStatus status,
+            @Param("keyword") String keyword,
+            @Param("guests") Integer guests,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            Pageable pageable
+    );
     
 }
