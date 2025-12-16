@@ -1,6 +1,7 @@
 package com.example.smart_booking_system.repository;
 
 import com.example.smart_booking_system.entity.Property;
+import com.example.smart_booking_system.enums.BookingStatus;
 import com.example.smart_booking_system.enums.PropertyStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -102,45 +103,50 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
 
     @Query("SELECT DISTINCT p FROM Property p " +
             "JOIN p.rooms r " +
-            "WHERE p.isActive = true " +
+            // 1. LOGIC ẨN/HIỆN (Sửa đổi)
+            // Nếu là Manager -> Xem tất cả. Nếu là Khách -> Chỉ xem active
+            "WHERE (:isManager = true OR p.isActive = true) " +
+            "AND (:isManager = true OR r.active = true) " +
+
             "AND p.propertyStatus = :status " +
-            // 1. Keyword chung
+
+            // 2. Keyword chung
             "AND (:keyword IS NULL OR :keyword = '' OR " +
             "     LOWER(p.propertyName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "     LOWER(p.province) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "     LOWER(p.city) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "     LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
 
-            // 2. Lọc theo Thành phố (List) ✅ MỚI
+            // 3. Các bộ lọc khác (Giữ nguyên)
             "AND (COALESCE(:cities, NULL) IS NULL OR p.city IN :cities) " +
-
-            // 3. Lọc theo Rating (List) ✅ MỚI (Lấy phần nguyên: 4.5 -> 4)
             "AND (COALESCE(:ratings, NULL) IS NULL OR FLOOR(p.rating) IN :ratings) " +
-
-            // 4. Giá & Số khách
             "AND (:guests IS NULL OR r.capacity >= :guests) " +
             "AND (:minPrice IS NULL OR r.pricePerNight >= :minPrice) " +
             "AND (:maxPrice IS NULL OR r.pricePerNight <= :maxPrice) " +
 
-            // 5. Check trống phòng (Logic count = 0 đã chốt trước đó)
+            // 4. Check trống phòng (Chỉ check khi không phải Manager hoặc Manager muốn lọc ngày)
+            // (Thường Admin chỉ cần list ra, không cần check full phòng, nhưng giữ lại logic này cũng ok nếu Admin nhập ngày)
             "AND ( " +
             "   :checkIn IS NULL OR :checkOut IS NULL OR " +
             "   (SELECT COUNT(b) FROM Booking b " +
             "    WHERE b.room = r " +
-            "    AND b.status IN (com.example.smart_booking_system.enums.BookingStatus.CONFIRMED, com.example.smart_booking_system.enums.BookingStatus.PENDING_PAYMENT) " +
-            "    AND (b.checkInDate < :checkOut AND b.checkOutDate > :checkIn) " +
+            "    AND b.status IN :bookingStatuses " +
+            "    AND b.checkInDate < :checkOut " +
+            "    AND b.checkOutDate > :checkIn " +
             "   ) = 0 " +
             ")")
     Page<Property> searchPropertiesAdvanced(
             @Param("status") PropertyStatus status,
             @Param("keyword") String keyword,
-            @Param("cities") List<String> cities,      // ✅ Thêm
-            @Param("ratings") List<Integer> ratings,   // ✅ Thêm
+            @Param("cities") List<String> cities,
+            @Param("ratings") List<Integer> ratings,
             @Param("guests") Integer guests,
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
+            @Param("bookingStatuses") List<BookingStatus> bookingStatuses,
+            @Param("isManager") boolean isManager, // <--- THÊM PARAM NÀY
             Pageable pageable
     );
     

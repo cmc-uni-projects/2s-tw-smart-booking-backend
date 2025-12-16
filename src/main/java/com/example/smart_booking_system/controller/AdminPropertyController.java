@@ -101,7 +101,8 @@ public class AdminPropertyController {
     // [NEW] Lấy danh sách phòng của một khách sạn cụ thể
     @GetMapping("/{id}/rooms")
     public ResponseEntity<ApiResponse> getPropertyRooms(@PathVariable Integer id) {
-        List<RoomResponseDTO> rooms = roomService.getRoomsByPropertyId(id);
+        // [FIX] Gọi hàm mới: getAllRoomsByPropertyId (lấy tất cả active/inactive/suspended)
+        List<RoomResponseDTO> rooms = roomService.getAllRoomsByPropertyId(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", rooms));
     }
 
