@@ -1,6 +1,6 @@
 # Deploying to Kubernetes (Helm)
 
-Chart: `helm/smart-booking/` in this repo (deploys the frontend too). Full instructions: [its README](../../helm/smart-booking/README.md). Step-by-step for a local cluster (start, logs, stop, delete): [k8s runbook](../reference/k8s-runbook.md).
+Chart: `helm/smart-booking/` in this repo (deploys the frontend too). Full instructions: [its README](../../helm/smart-booking/README.md). Step-by-step for a local cluster (start, logs, stop, delete): [k8s runbook](../k8s-course/reference/k8s-runbook.md). Plain-YAML version without Helm (for learning): [`k8s/`](../../k8s/README.md).
 
 ```mermaid
 flowchart LR

@@ -1,0 +1,87 @@
+# Spring Boot backend: Deployment + Service.
+# Lesson 0005: envFrom/secretKeyRef, init containers, probes, resources.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: sb
+  labels:
+    app: backend
+spec:
+  replicas: 1             # keep 1: scheduled jobs and AI chat state live in the process
+  strategy:
+    type: Recreate        # stop the old pod before starting the new one (no two copies at once)
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:     # run to completion, in order, before the main container starts
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z mysql 3306; do echo waiting for mysql; sleep 3; done"]
+      containers:
+        - name: backend
+          image: smart-booking-backend:local    # built locally and copied in with "k3d image import"
+          imagePullPolicy: IfNotPresent         # use the imported copy, don't try a registry
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: backend-config            # every key becomes an env var
+          env:                                  # secrets one by one, from the Secret "sb-secrets"
+                                                # (a missing key stops the pod: CreateContainerConfigError)
+            - name: DB_USER_PASSWORD
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: DB_USER_PASSWORD } }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: JWT_SECRET } }
+            - name: MAIL_PASSWORD
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: MAIL_PASSWORD } }
+            - name: GEMINI_API_KEY
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: GEMINI_API_KEY } }
+            - name: R2_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: R2_ACCESS_KEY } }
+            - name: R2_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: R2_SECRET_KEY } }
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: GOOGLE_CLIENT_SECRET } }
+            - name: FACEBOOK_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: sb-secrets, key: FACEBOOK_CLIENT_SECRET } }
+          # Probes: the kubelet calls Spring Boot Actuator.
+          startupProbe:       # first start (Liquibase) can take minutes: allow 60 × 5 s before giving up
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:      # fails → container is restarted
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 15
+          readinessProbe:     # fails → pod removed from the Service (no traffic), not restarted
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 768Mi }
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: logs
+          emptyDir: {}        # scratch dir, deleted with the pod; use a PVC to keep log files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: sb
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

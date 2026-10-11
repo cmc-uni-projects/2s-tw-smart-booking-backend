@@ -1,8 +1,8 @@
-# Lesson 0002: Run the app on Kubernetes (from zero to delete)
+# Lesson 0001: Run the finished app (from zero to delete)
 
 **Time:** ~25 min (most of it waiting for builds) · **Win:** you start the whole app on your own local cluster, read its logs, and delete it again, knowing what each command does.
 
-← [Index](../README.md) · Previous: [0001 The big picture](./0001-the-big-picture.md) · Cheat sheet: **[k8s runbook](../reference/k8s-runbook.md)** · Terms: [Glossary → Kubernetes](../reference/glossary.md#kubernetes)
+← [Course index](../README.md) · Next: [0002 Your first Pod](./0002-your-first-pod.md) · Cheat sheet: **[k8s runbook](../reference/k8s-runbook.md)** · Terms: [Glossary](../reference/glossary.md)
 
 ---
 
@@ -129,4 +129,4 @@ Try `stop` → `start` now and check that your login still works: data survived.
 
 **Stuck or curious?** Ask me anything about this lesson: "what's the difference between a Service and an Ingress?", "why a StatefulSet for MySQL?", "how would this run on a real cloud cluster?". I'm your teacher; questions are the point.
 
-Next lesson candidates: how the Helm chart is built (templates + values), or deploying to a real (shared) cluster.
+Next: [0002 Your first Pod](./0002-your-first-pod.md). You treated the app as a black box here; from now on you build it yourself, one object at a time.

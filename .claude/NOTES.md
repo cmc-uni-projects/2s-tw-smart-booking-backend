@@ -18,3 +18,4 @@
 - 2026-10-11: User says they are **not familiar with Kubernetes** (asked why `export KUBECONFIG` is needed). Explain k8s from first principles, tie to Docker Compose which they know. Asked for a full start/logs/stop/delete doc → lesson 0002 + `reference/k8s-runbook.md`.
 - Mission's "Out of scope: DevOps" is now partly outdated (they want to deploy with Helm). Ask whether to add "run/deploy on Kubernetes" to MISSION.md.
 - Their other cluster context `k3d-ecommerce` lives in `~/.kube/config`; smart-booking is kept in a separate kubeconfig on purpose. Never touch ecommerce.
+- 2026-10-11: Kubernetes now has its own workspace `k8s-course/` (own MISSION, lessons, references). Old lesson 0002 + runbook moved there (course lesson 0001); this workspace stays about the codebase.

@@ -1,0 +1,47 @@
+# React build served by nginx: Deployment + Service. Stateless, so replicas can be > 1.
+# Lesson 0006. The image must be built with VITE_API_URL=/api/v1 (same host as the UI), see README.md.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: sb
+  labels:
+    app: frontend
+spec:
+  replicas: 2             # try: kubectl -n sb get pods -l app=frontend -o wide
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: smart-booking-frontend:k8s
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: http }
+          livenessProbe:
+            httpGet: { path: /, port: http }
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: sb
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

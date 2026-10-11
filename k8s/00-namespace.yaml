@@ -1,0 +1,8 @@
+# A Namespace is a folder inside the cluster. Everything in this directory lives in "sb",
+# so it never collides with the Helm install (namespace "smart-booking") and is deleted in one go:
+#   kubectl delete namespace sb
+# Lesson 0002. Docs: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sb

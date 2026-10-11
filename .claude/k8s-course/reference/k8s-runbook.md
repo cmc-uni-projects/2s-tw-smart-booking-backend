@@ -1,6 +1,6 @@
 # Runbook: Smart Booking on a local Kubernetes cluster (k3d + Helm)
 
-Copy-paste commands for every step. The lesson explaining them is [0002](../lessons/0002-run-it-on-kubernetes.md); terms are in the [glossary](./glossary.md#kubernetes).
+Copy-paste commands for every step. The lesson explaining them is [0001](../lessons/0001-run-the-finished-app.md); terms are in the [glossary](./glossary.md). Plain-YAML version (no Helm): [`k8s/README.md`](../../../k8s/README.md).
 
 All paths below start from the folder that contains both repos:
 
@@ -174,7 +174,7 @@ backend:
       enabled: true
 ```
 
-How to read a log line (`→` call start, `←` result, `✗` error): [docs/11-logging.md](../docs/11-logging.md).
+How to read a log line (`→` call start, `←` result, `✗` error): [docs/11-logging.md](../../docs/11-logging.md).
 
 ---
 

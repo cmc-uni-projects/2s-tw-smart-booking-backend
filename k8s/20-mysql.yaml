@@ -1,0 +1,76 @@
+# MySQL 8: a StatefulSet (stable pod name mysql-0 + its own disk) and a Service.
+# Lesson 0004. Needs the Secret "sb-secrets" (keys DB_USER_PASSWORD, MYSQL_ROOT_PASSWORD), see README.md.
+#
+# The disk is a PersistentVolumeClaim created from volumeClaimTemplates: data-mysql-0.
+# It survives pod restarts AND "kubectl delete -f 20-mysql.yaml"; delete the PVC (or the namespace) to wipe data.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql                   # the backend connects to mysql:3306
+  namespace: sb
+spec:
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: sb
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: TZ
+              value: Asia/Ho_Chi_Minh
+            - name: MYSQL_DATABASE        # created on first start (empty disk only)
+              value: smart_booking
+            - name: MYSQL_USER
+              value: smart_booking
+            - name: MYSQL_PASSWORD        # value read from the Secret, never written in this file
+              valueFrom:
+                secretKeyRef: { name: sb-secrets, key: DB_USER_PASSWORD }
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: sb-secrets, key: MYSQL_ROOT_PASSWORD }
+          readinessProbe:                 # "ready" (receives traffic) only once MySQL answers
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql   # where MySQL keeps its files → on the persistent disk
+  volumeClaimTemplates:                   # one PVC per pod: data-mysql-0
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]      # mounted by one node at a time
+        resources:
+          requests:
+            storage: 5Gi                  # k3d's default StorageClass "local-path" provides it

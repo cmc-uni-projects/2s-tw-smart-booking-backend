@@ -1,0 +1,49 @@
+# Mailpit: a fake SMTP server with a web inbox. The backend (profile "local") sends every email here.
+# Lesson 0003: Deployment (keeps a pod running) + Service (stable name and port for that pod).
+#
+# Try:  kubectl -n sb port-forward svc/mailpit 18025:8025   → http://localhost:18025
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  namespace: sb
+  labels:
+    app: mailpit
+spec:
+  replicas: 1                   # how many identical pods to keep alive
+  selector:
+    matchLabels:
+      app: mailpit              # "the pods I own are the ones labelled app=mailpit"
+  template:                     # the pod to create, i.e. what you wrote by hand in lesson 0003
+    metadata:
+      labels:
+        app: mailpit            # must match the selector above
+    spec:
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.24
+          ports:
+            - name: smtp
+              containerPort: 1025
+            - name: http
+              containerPort: 8025
+          resources:            # requests = reserved for scheduling, limits = hard cap (OOM-killed above)
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit                 # other pods reach it as "mailpit" (same namespace) or "mailpit.sb"
+  namespace: sb
+spec:
+  selector:
+    app: mailpit                # traffic goes to every ready pod with this label
+  ports:
+    - name: smtp
+      port: 1025                # port on the Service
+      targetPort: smtp          # port (name) on the pod
+    - name: http
+      port: 8025
+      targetPort: http

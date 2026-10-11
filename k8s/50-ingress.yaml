@@ -1,0 +1,31 @@
+# The front door: routes outside HTTP requests for host sb.localhost by path to a Service.
+# Lesson 0006. k3d/k3s ships the Traefik ingress controller; k3d maps localhost:8080 → its port 80.
+#   http://sb.localhost:8080
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smart-booking
+  namespace: sb
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: sb.localhost
+      http:
+        paths:
+          # API, OAuth2 and stored images → Spring Boot. Only /login/oauth2: /login is the React page.
+          - path: /api
+            pathType: Prefix
+            backend: { service: { name: backend, port: { name: http } } }
+          - path: /oauth2
+            pathType: Prefix
+            backend: { service: { name: backend, port: { name: http } } }
+          - path: /login/oauth2
+            pathType: Prefix
+            backend: { service: { name: backend, port: { name: http } } }
+          - path: /images
+            pathType: Prefix
+            backend: { service: { name: backend, port: { name: http } } }
+          # everything else → the React app (nginx falls back to index.html for client routes)
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: frontend, port: { name: http } } }

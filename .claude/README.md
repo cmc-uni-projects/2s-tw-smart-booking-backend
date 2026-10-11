@@ -25,13 +25,14 @@ Teaching workspace for the TravelMate / Smart Booking System (backend: this repo
 ## Quick reference (`reference/`)
 - [Glossary](./reference/glossary.md)
 - [Code map: "where is X?"](./reference/code-map.md)
-- [k8s runbook](./reference/k8s-runbook.md): start, logs, stop, delete the app on a local Kubernetes cluster
+
+## Kubernetes & Helm course
+Separate workspace with its own mission and lessons: **[k8s-course/](./k8s-course/README.md)** (runbook: [start, logs, stop, delete](./k8s-course/reference/k8s-runbook.md)).
 
 ## Lessons (`lessons/`)
 | # | Lesson | Win |
 |---|---|---|
 | 0001 | [The big picture](./lessons/0001-the-big-picture.md) | trace a request through both repos |
-| 0002 | [Run it on Kubernetes](./lessons/0002-run-it-on-kubernetes.md) | start the app on a local k3d cluster, read its logs, delete it |
 
 ## Other
 - [RESOURCES.md](./RESOURCES.md): trusted sources & communities
