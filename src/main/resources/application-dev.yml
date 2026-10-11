@@ -1,0 +1,17 @@
+# Profile "dev": shared development environment. Real SMTP (Gmail by default).
+# MAIL_PASSWORD must be a Gmail App Password; MAIL_USERNAME is also the From address.
+
+spring:
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true

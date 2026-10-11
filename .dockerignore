@@ -1,0 +1,10 @@
+target/
+.git/
+.github/
+.claude/
+.idea/
+.vscode/
+uploads/
+.env
+.env.*
+docker-compose*.yml

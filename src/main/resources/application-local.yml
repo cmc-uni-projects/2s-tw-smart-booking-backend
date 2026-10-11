@@ -1,0 +1,19 @@
+# Profile "local" (default): developer machine / docker compose.
+# Emails always go to a local mail server (Mailpit: SMTP 1025, inbox UI http://localhost:8025),
+# whatever MAIL_HOST says, so nothing reaches real inboxes.
+
+spring:
+  liquibase:
+    # Also load the demo dataset (accounts, hotels, bookings)
+    contexts: ${LIQUIBASE_CONTEXTS:demo}
+
+  mail:
+    host: ${LOCAL_MAIL_HOST:localhost}     # docker compose sets LOCAL_MAIL_HOST=mailpit
+    port: ${LOCAL_MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false

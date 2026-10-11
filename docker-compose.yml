@@ -1,0 +1,93 @@
+# Local stack for the Smart Booking backend.
+#   cp .env.example .env   (set JWT_SECRET etc.)
+#   docker compose up -d --build
+# API: http://localhost:8386/api/v1 · Mailpit: http://localhost:8025 · MinIO S3 API: http://localhost:9000
+name: smart-booking-backend
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER_NAME}
+      MYSQL_PASSWORD: ${DB_USER_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Ho_Chi_Minh
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # MinIO standing in for Cloudflare R2. The official minio/minio image is no longer on Docker Hub;
+  # bitnamilegacy/minio is a frozen (unmaintained) build — fine for local dev only.
+  minio:
+    image: bitnamilegacy/minio:2025.7.23
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${R2_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${R2_SECRET_KEY}
+      MINIO_DEFAULT_BUCKETS: ${R2_BUCKET_NAME}
+      # Enables virtual-hosted URLs (<bucket>.s3.localhost), which FileStorageService uses.
+      MINIO_DOMAIN: s3.localhost
+    # No web console: 2025 community builds ship without the embedded UI. Browse with:
+    #   docker compose exec minio sh -c 'mc alias set local http://localhost:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD && mc ls local/smart-booking'
+    ports:
+      - "9000:9000"   # S3 API
+    volumes:
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # SMTP
+
+  backend:
+    build: .
+    image: smart-booking-backend:local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    # The app calls Dotenv.load() at startup and crashes if /app/.env is missing.
+    volumes:
+      - ./.env:/app/.env:ro
+      # Daily log files (backend-YYYY-MM-DD.log) land in ./logs on the host
+      - ./logs:/app/logs
+    environment:
+      # Profiles: local (default; emails -> Mailpit) or dev (real SMTP from MAIL_* in .env)
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      LOCAL_MAIL_HOST: mailpit
+      LOCAL_MAIL_PORT: 1025
+      # Logging (docs: .claude/docs/11-logging.md). LOG_LEVEL_SERVICE=DEBUG traces every service call.
+      LOG_LEVEL_SERVICE: ${LOG_LEVEL_SERVICE:-INFO}
+      LOG_SLOW_THRESHOLD_MS: ${LOG_SLOW_THRESHOLD_MS:-1000}
+    # FileStorageService uses virtual-hosted S3 URLs (<bucket>.s3.localhost); R2Config uses path-style.
+    # Map both names to the host, where MinIO is published on :9000.
+    # Browsers resolve *.localhost to 127.0.0.1 on their own, so presigned URLs work there too.
+    extra_hosts:
+      - "s3.localhost:host-gateway"
+      - "${R2_BUCKET_NAME}.s3.localhost:host-gateway"
+    ports:
+      - "8386:8080"
+
+volumes:
+  mysql-data:
+  minio-data:
