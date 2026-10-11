@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service.impl;
 
+import org.springframework.context.i18n.LocaleContextHolder;
 import com.example.smart_booking_system.dto.request.auth.*;
 import com.example.smart_booking_system.dto.response.auth.LoginResponse;
 import com.example.smart_booking_system.entity.Role;
@@ -61,15 +62,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void createPassword(String userId, String newPassword) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         if (user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2a$")) {
-            throw new BadRequestException("Tài khoản này đã có mật khẩu. Vui lòng dùng chức năng Đổi mật khẩu.");
+            throw new BadRequestException("error.password.alreadySet");
         }
 
         // Check độ mạnh
         if (!isStrongPassword(newPassword)) {
-            throw new BadRequestException("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+            throw new BadRequestException("error.password.weak");
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -81,22 +82,21 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void unlinkSocialAccount(String userId, String providerName) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         Optional<SocialAccount> accountToDelete = user.getSocialAccounts().stream()
                 .filter(acc -> acc.getProvider().toString().equalsIgnoreCase(providerName))
                 .findFirst();
 
         if (accountToDelete.isEmpty()) {
-            throw new BadRequestException("Tài khoản " + providerName + " chưa được liên kết.");
+            throw new BadRequestException("error.social.notLinked", providerName);
         }
 
         boolean hasPassword = user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2a$");
         boolean hasOtherSocial = user.getSocialAccounts().size() > 1;
 
         if (!hasPassword && !hasOtherSocial) {
-            throw new BadRequestException("Bạn không thể ngắt kết nối " + providerName +
-                    " vì đây là phương thức đăng nhập duy nhất. Hãy đặt mật khẩu trước.");
+            throw new BadRequestException("error.social.onlyLoginMethod", providerName);
         }
 
         SocialAccount account = accountToDelete.get();
@@ -109,12 +109,12 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         if (!request.isPasswordMatching()) {
-            throw new BadRequestException("Mật khẩu xác nhận không khớp");
+            throw new BadRequestException("error.password.mismatch");
         }
 
         // Check độ mạnh mật khẩu
         if (!isStrongPassword(request.getPassword())) {
-            throw new BadRequestException("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+            throw new BadRequestException("error.password.weak");
         }
 
         Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
@@ -124,11 +124,11 @@ public class AuthServiceImpl implements AuthService {
 
             // Nếu tài khoản tồn tại VÀ đang bị khóa -> Báo lỗi chặn đăng ký
             if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
-                throw new ForbiddenException("Tài khoản của bạn đã bị khóa. Không thể đăng ký lại với email này.");
+                throw new ForbiddenException("error.register.accountLocked");
             }
 
             // Nếu tài khoản tồn tại nhưng không bị khóa (đang Active/Inactive) -> Báo lỗi trùng email như cũ
-            throw new ConflictException("Email đã được đăng ký");
+            throw new ConflictException("error.register.emailTaken");
         }
 
         User user = new User();
@@ -137,6 +137,7 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setStatus("INACTIVE");
+        user.setPreferredLanguage(LocaleContextHolder.getLocale().getLanguage().equals("en") ? "en" : "vi");
         user.setIsEmailVerified(false);
 
         String verificationToken = UUID.randomUUID().toString();
@@ -144,7 +145,7 @@ public class AuthServiceImpl implements AuthService {
         user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(10));
 
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
-                .orElseThrow(() -> new ResourceNotFoundException("Role 'CUSTOMER' not found"));
+                .orElseThrow(() -> new InternalServerException("error.role.customerMissing"));
         user.addRole(customerRole);
 
         userRepository.save(user);
@@ -158,19 +159,19 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponse login(LoginRequest request) {
         // 1. Tìm user
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không chính xác"));
+                .orElseThrow(() -> new UnauthorizedException("auth.badCredentials"));
 
         // 2. CHECK XÁC THỰC EMAIL
         // ❌ CŨ: throw new UnauthorizedException(...) -> Trả về 401 (Sai Logic)
         // ✅ MỚI: throw new DisabledException(...) -> Trả về 403 (Đúng Logic Frontend cần)
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
-            throw new DisabledException("Tài khoản chưa được xác thực. Vui lòng kiểm tra email!");
+            throw new DisabledException("Email not verified");
         }
 
         // 3. CHECK TRẠNG THÁI KHÓA
         // ✅ MỚI: Dùng LockedException hoặc DisabledException để trả về 403
         if ("SUSPENDED".equalsIgnoreCase(user.getStatus()) || "BANNED".equalsIgnoreCase(user.getStatus())) {
-            throw new LockedException("Tài khoản của bạn đã bị khóa: " + user.getStatus());
+            throw new LockedException("Account locked: " + user.getStatus());
         }
 
         // 4. Nếu qua được các bước trên thì mới check mật khẩu
@@ -196,7 +197,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getPhoneNumber(),
                 user.getIsEmailVerified(),
                 user.getStatus(),
-                roles
+                roles,
+                user.getPreferredLanguage()
         );
 
         return new LoginResponse(token, expiresIn, userResponse);
@@ -207,10 +209,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void verifyEmail(String token) {
         User user = userRepository.findByVerificationToken(token)
-                .orElseThrow(() -> new BadRequestException("Mã xác minh không hợp lệ"));
+                .orElseThrow(() -> new BadRequestException("error.verify.invalid"));
 
         if (user.getVerificationTokenExpiry() == null || user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Mã xác minh đã hết hạn");
+            throw new BadRequestException("error.verify.expired");
         }
 
         user.setIsEmailVerified(true);
@@ -226,7 +228,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản với email: " + request.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.emailNotFound", request.getEmail()));
 
         String resetToken = UUID.randomUUID().toString();
         user.setResetPasswordToken(resetToken);
@@ -242,19 +244,19 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BadRequestException("Mật khẩu xác nhận không khớp");
+            throw new BadRequestException("error.password.mismatch");
         }
 
         // Check độ mạnh mật khẩu
         if (!isStrongPassword(request.getNewPassword())) {
-            throw new BadRequestException("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+            throw new BadRequestException("error.password.weak");
         }
 
         User user = userRepository.findByResetPasswordToken(request.getToken())
-                .orElseThrow(() -> new BadRequestException("Mã đặt lại mật khẩu không hợp lệ"));
+                .orElseThrow(() -> new BadRequestException("error.resetPassword.invalid"));
 
         if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Mã đặt lại mật khẩu đã hết hạn");
+            throw new BadRequestException("error.resetPassword.expired");
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -269,19 +271,19 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void changePassword(ChangePasswordRequest request, String userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
-            throw new BadRequestException("Mật khẩu cũ không chính xác");
+            throw new BadRequestException("error.password.wrongCurrent");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BadRequestException("Mật khẩu mới không khớp");
+            throw new BadRequestException("error.password.newMismatch");
         }
 
         // Check độ mạnh mật khẩu
         if (!isStrongPassword(request.getNewPassword())) {
-            throw new BadRequestException("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+            throw new BadRequestException("error.password.weak");
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -294,10 +296,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void resendVerificationEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         if (Boolean.TRUE.equals(user.getIsEmailVerified())) {
-            throw new BadRequestException("Email đã được xác minh trước đó");
+            throw new BadRequestException("error.verify.alreadyVerified");
         }
 
         String verificationToken = UUID.randomUUID().toString();
@@ -313,11 +315,11 @@ public class AuthServiceImpl implements AuthService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new UnauthorizedException("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.");
+            throw new UnauthorizedException("error.auth.notLoggedIn");
         }
 
         String email = authentication.getName(); // Lấy email từ token
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
     }
 }

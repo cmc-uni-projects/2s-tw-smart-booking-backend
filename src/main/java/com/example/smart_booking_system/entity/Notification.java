@@ -26,6 +26,16 @@ public class Notification {
     @Column(columnDefinition = "TEXT")
     private String message;
 
+    /** i18n keys + JSON array of arguments; when set, the text is rendered in the reader's language. */
+    @Column(length = 150)
+    private String titleKey;
+
+    @Column(length = 150)
+    private String messageKey;
+
+    @Column(columnDefinition = "TEXT")
+    private String params;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type", length = 50)
     private NotificationType type;

@@ -13,38 +13,38 @@ import java.time.LocalDate;
 @Data
 public class OwnerApplicationSubmitDTO {
 
-    @NotBlank(message = "Họ tên không được để trống")
+    @NotBlank(message = "{validation.fullName.required}")
     private String personalFullName;
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.invalid}")
     private String personalEmail;
 
-    @NotBlank(message = "SĐT không được để trống")
+    @NotBlank(message = "{validation.phone.required}")
     private String personalPhone;
 
-    @NotBlank(message = "Số CCCD/Passport không được để trống")
+    @NotBlank(message = "{validation.idCard.required}")
     private String personalIdCard;
 
     private LocalDate personalDob;
 
-    @NotBlank(message = "Địa chỉ thường trú không được để trống")
+    @NotBlank(message = "{validation.permanentAddress.required}")
     private String permanentAddress;
 
-    @NotBlank(message = "Quê quán không được để trống")
+    @NotBlank(message = "{validation.hometown.required}")
     private String hometownAddress;
 
     // FE sẽ gửi file MultipartFile (multipart/form-data). Bắt buộc phải có file.
-    @NotNull(message = "Ảnh mặt trước CCCD không được để trống")
+    @NotNull(message = "{validation.cardFront.required}")
     private MultipartFile cardFrontImage;
 
-    @NotNull(message = "Ảnh mặt sau CCCD không được để trống")
+    @NotNull(message = "{validation.cardBack.required}")
     private MultipartFile cardBackImage;
 
-    @NotNull(message = "Ảnh giấy phép kinh doanh không được để trống")
+    @NotNull(message = "{validation.licenseImage.required}")
     private MultipartFile businessLicenseImage;
 
-    @NotBlank(message = "Số giấy phép kinh doanh không được để trống")
+    @NotBlank(message = "{validation.licenseNumber.required}")
     @Size(min = 5, max = 100)
     private String businessLicenseNumber;
 }

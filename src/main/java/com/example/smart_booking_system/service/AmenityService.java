@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.repository.AmenityRepository;
@@ -24,7 +26,7 @@ public class AmenityService {
                 amenity.getAmenityName(),
                 amenity.getAmenityType()
         )) {
-            throw new IllegalArgumentException("Amenity name already exists for this type");
+            throw new BadRequestException("error.amenity.duplicate");
         }
 
         return amenityRepository.save(amenity);
@@ -44,7 +46,7 @@ public class AmenityService {
     public Amenity updateAmenity(int id, Amenity updatedAmenity) {
 
         Amenity existing = amenityRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Amenity not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.amenity.notFound", id));
 
         // Lấy giá trị mới hoặc giữ nguyên
         String newName = updatedAmenity.getAmenityName() != null && !updatedAmenity.getAmenityName().trim().isEmpty()
@@ -60,14 +62,14 @@ public class AmenityService {
             boolean validType = Arrays.stream(AmenityType.values())
                     .anyMatch(t -> t.equals(updatedAmenity.getAmenityType()));
             if (!validType) {
-                throw new IllegalArgumentException("Invalid amenity type: " + updatedAmenity.getAmenityType());
+                throw new BadRequestException("error.amenity.invalidType", updatedAmenity.getAmenityType());
             }
         }
 
         // Check trùng bản ghi khác
         boolean exists = amenityRepository.existsByNameTypeExcept(newName, newType, id);
         if (exists) {
-            throw new IllegalArgumentException("Amenity name already exists for this type");
+            throw new BadRequestException("error.amenity.duplicate");
         }
 
         // Update
@@ -81,10 +83,10 @@ public class AmenityService {
     // DELETE (SOFT)
     public void deactivateAmenity(int id) {
         Amenity amenity = amenityRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Amenity not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.amenity.notFound", id));
 
         if (!amenity.isActive()) {
-            throw new IllegalArgumentException("Amenity is already inactive");
+            throw new BadRequestException("error.amenity.alreadyInactive");
         }
 
         amenity.setActive(false);

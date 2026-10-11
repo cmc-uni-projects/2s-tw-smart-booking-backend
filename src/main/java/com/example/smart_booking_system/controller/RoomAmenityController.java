@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.RoomAmenityResponseDTO;
 import com.example.smart_booking_system.dto.request.AddMultipleAmenityRequest;
 import com.example.smart_booking_system.dto.request.UpdateRoomAmenityRequest;
@@ -16,6 +17,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RoomAmenityController {
 
+    private final Messages messages;
+
     private final RoomAmenityService roomAmenityService;
 
     // ADD
@@ -30,7 +33,7 @@ public class RoomAmenityController {
                     .body(roomAmenityService.addMultipleAmenities(roomId, request.getAmenityIds()));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -41,7 +44,7 @@ public class RoomAmenityController {
             return ResponseEntity.ok(roomAmenityService.getRoomAmenities(roomId));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -62,10 +65,10 @@ public class RoomAmenityController {
             return ResponseEntity.ok(dto);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Internal server error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(messages.of(e));
         }
     }
 
@@ -81,12 +84,12 @@ public class RoomAmenityController {
             return ResponseEntity.ok(dto);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity
                     .internalServerError()
-                    .body("Internal server error: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 

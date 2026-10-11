@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Thông báo tạm dừng hoạt động phòng</title>
+    <title th:text="#{email.roomSuspended.title1}">Thông báo tạm dừng hoạt động phòng</title>
     <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f6f6f6; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -20,21 +20,21 @@
         <h1>TravelMate Notification</h1>
     </div>
     <div class="content">
-        <p>Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((ownerName))})}">Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
 
-        <p>Hệ thống xin thông báo về việc thay đổi trạng thái một phòng thuộc cơ sở lưu trú của bạn.</p>
+        <p th:text="#{email.roomSuspended.p2}">Hệ thống xin thông báo về việc thay đổi trạng thái một phòng thuộc cơ sở lưu trú của bạn.</p>
 
         <div class="info-box">
-            <p><span class="label">Cơ sở lưu trú:</span> <span th:text="${propertyName}">Tên khách sạn</span></p>
-            <p><span class="label">Phòng bị khóa:</span> <strong th:text="${roomName}">Tên phòng</strong></p>
-            <p><span class="label">Lý do:</span> <span th:text="${reason}">Lý do chi tiết</span></p>
+            <p th:utext="#{email.common.propertyLabel(${#strings.escapeXml((propertyName))})}"><span class="label">Cơ sở lưu trú:</span> <span th:text="${propertyName}">Tên khách sạn</span></p>
+            <p th:utext="#{email.roomSuspended.p4(${#strings.escapeXml((roomName))})}"><span class="label">Phòng bị khóa:</span> <strong th:text="${roomName}">Tên phòng</strong></p>
+            <p th:utext="#{email.roomSuspended.p5(${#strings.escapeXml((reason))})}"><span class="label">Lý do:</span> <span th:text="${reason}">Lý do chi tiết</span></p>
         </div>
 
-        <p>Phòng này hiện đã chuyển sang trạng thái <strong>Tạm dừng (Suspended)</strong> và khách hàng sẽ không thể tìm thấy hoặc đặt phòng này cho đến khi vấn đề được giải quyết.</p>
+        <p th:utext="#{email.roomSuspended.p6}">Phòng này hiện đã chuyển sang trạng thái <strong>Tạm dừng (Suspended)</strong> và khách hàng sẽ không thể tìm thấy hoặc đặt phòng này cho đến khi vấn đề được giải quyết.</p>
 
-        <p>Vui lòng kiểm tra lại thông tin phòng hoặc liên hệ với quản trị viên để biết thêm chi tiết.</p>
+        <p th:text="#{email.roomSuspended.p7}">Vui lòng kiểm tra lại thông tin phòng hoặc liên hệ với quản trị viên để biết thêm chi tiết.</p>
 
-        <p>Trân trọng,<br>Đội ngũ TravelMate</p>
+        <p th:utext="#{email.common.signature}">Trân trọng,<br>Đội ngũ TravelMate</p>
     </div>
     <div class="footer">
         <p>&copy; 2025 TravelMate System. All rights reserved.</p>

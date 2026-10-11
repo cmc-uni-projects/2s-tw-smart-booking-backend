@@ -32,6 +32,9 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
     // ✅ THÊM TRƯỜNG MỚI
     private boolean hasPassword;
 
+    /** "vi" or "en" (users.preferredLanguage); the frontend applies it after login. */
+    private String preferredLanguage;
+
     /**
      * Create UserDetails from User entity (Dùng cho Login thường)
      */
@@ -55,7 +58,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
                 authorities,
                 null, // Attributes là null khi login thường
                 user.getSocialAccounts(),
-                hasPasswordSet // ✅ Truyền giá trị vào constructor
+                hasPasswordSet, // ✅ Truyền giá trị vào constructor
+                user.getPreferredLanguage()
         );
     }
 

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Xác nhận hủy phòng - TravelMate</title>
+    <title th:text="#{email.cancellationRequest.title1}">Xác nhận hủy phòng - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
@@ -24,43 +24,43 @@
         <img src="cid:logoImage" alt="TravelMate Logo" border="0">
     </div>
     <div class="content">
-        <h2>Hủy phòng thành công</h2>
-        <p>Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
-        <p>Đơn đặt phòng của bạn đã được hủy theo yêu cầu. Dưới đây là thông tin chi tiết:</p>
+        <h2 th:text="#{email.cancellationRequest.h21}">Hủy phòng thành công</h2>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((username))})}">Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
+        <p th:text="#{email.cancellationRequest.p2}">Đơn đặt phòng của bạn đã được hủy theo yêu cầu. Dưới đây là thông tin chi tiết:</p>
 
         <div class="info-box">
-            <strong style="color: #006494; font-size: 16px;">Chi tiết hủy & Hoàn tiền:</strong>
+            <strong style="color: #006494; font-size: 16px;" th:text="#{email.cancellationRequest.strong1}">Chi tiết hủy & Hoàn tiền:</strong>
             <hr style="border: 0; border-top: 1px dashed #d1ecf1; margin: 10px 0;">
 
             <div style="margin-bottom: 10px;">
-                <strong>Mã đặt phòng:</strong> <span th:text="${bookingId}" style="font-weight: bold;">#CODE</span>
+                <strong th:text="#{email.common.bookingCode}">Mã đặt phòng:</strong> <span th:text="${bookingId}" style="font-weight: bold;">#CODE</span>
             </div>
 
             <div class="amount-row">
-                <span>Tổng tiền đơn hàng:</span>
+                <span th:text="#{email.cancellationRequest.span1}">Tổng tiền đơn hàng:</span>
                 <span th:text="${totalPrice} + ' VND'">0 VND</span>
             </div>
 
             <div class="amount-row">
-                <span>Phí hủy phòng (Theo chính sách):</span>
+                <span th:text="#{email.cancellationRequest.span2}">Phí hủy phòng (Theo chính sách):</span>
                 <span class="highlight-red">- <span th:text="${penaltyAmount}">0</span> VND</span>
             </div>
 
             <div class="amount-row" style="border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px;">
-                <strong>Số tiền thực nhận về:</strong>
+                <strong th:text="#{email.cancellationRequest.strong3}">Số tiền thực nhận về:</strong>
                 <span class="highlight-green" th:text="${refundAmount} + ' VND'">0 VND</span>
             </div>
 
             <br>
-            <strong>Trạng thái:</strong> <span class="status-pending">⏳ Đang chờ Admin xử lý hoàn tiền</span>
+            <strong th:text="#{email.common.status}">Trạng thái:</strong> <span class="status-pending" th:text="#{email.cancellationRequest.span3}">⏳ Đang chờ Admin xử lý hoàn tiền</span>
         </div>
 
-        <p style="margin-top: 25px;">
+        <p style="margin-top: 25px;" th:utext="#{email.cancellationRequest.p3}">
             <strong>Lưu ý:</strong> Yêu cầu hoàn tiền của bạn đã được tự động chuyển đến bộ phận kế toán. Admin sẽ kiểm tra và thực hiện hoàn tiền trong vòng <strong>3-5 ngày làm việc</strong>.
         </p>
-        <p>Bạn sẽ nhận được email xác nhận ngay khi giao dịch hoàn tất.</p>
+        <p th:text="#{email.cancellationRequest.p4}">Bạn sẽ nhận được email xác nhận ngay khi giao dịch hoàn tất.</p>
     </div>
-    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
+    <div class="footer"><p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>

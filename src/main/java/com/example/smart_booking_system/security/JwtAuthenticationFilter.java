@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.security;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -20,6 +21,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private final Messages messages;
+
     private final JwtTokenProvider jwtUtil; // JWT helper
     private final CustomUserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
@@ -38,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // kiểm tra token đã bị thu hồi chưa
                 if (tokenBlacklistService.isBlacklisted(token)) {
-                    logger.warn("Token đã bị thu hồi");
+                    logger.info("Rejected blacklisted token");
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.getWriter().write("{\"error\": \"Token is blacklisted. Please login again.\"}");
                     return;
@@ -54,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
-                            response.getWriter().write("{\"error\": \"Tài khoản của bạn đã bị khóa hoặc tạm ngưng.\"}");
+                            response.getWriter().write(jsonError("auth.lockedOrSuspended", messages.t("auth.lockedOrSuspended")));
                             return; // Dừng request ngay lập tức
                         }
 
@@ -62,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
-                            response.getWriter().write("{\"error\": \"Tài khoản chưa được kích hoạt.\"}");
+                            response.getWriter().write(jsonError("auth.notActivated", messages.t("auth.notActivated")));
                             return;
                         }
                         UsernamePasswordAuthenticationToken auth =
@@ -79,10 +82,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
-            logger.error("Không thể xác thực JWT", ex);
+            logger.error("JWT authentication failed", ex);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("{\"error\": \"Invalid token.\"}");
         }
 
+    }
+
+    /** Same shape as ApiResponse errors: translated message plus its stable i18n key. */
+    private static String jsonError(String code, String message) {
+        String escaped = message.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "{\"success\": false, \"message\": \"" + escaped + "\", \"error\": \"" + escaped + "\", \"code\": \"" + code + "\"}";
     }
 }

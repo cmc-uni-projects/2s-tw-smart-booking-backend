@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.security;
 
+import lombok.extern.slf4j.Slf4j;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class JwtTokenProvider {
 
     @Value("${app.jwt.secret}")
@@ -81,15 +83,15 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (SecurityException ex) {
-            System.err.println("Invalid JWT signature");
+            log.warn("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
-            System.err.println("Invalid JWT token");
+            log.warn("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
-            System.err.println("Expired JWT token");
+            log.info("Expired JWT token");
         } catch (UnsupportedJwtException ex) {
-            System.err.println("Unsupported JWT token");
+            log.warn("Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
-            System.err.println("JWT claims string is empty");
+            log.warn("JWT claims string is empty");
         }
         return false;
     }

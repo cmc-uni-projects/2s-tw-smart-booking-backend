@@ -1,5 +1,11 @@
 package com.example.smart_booking_system.service.impl;
 
+import com.example.smart_booking_system.i18n.UserLocales;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.BadRequestException;
+import com.example.smart_booking_system.exception.InternalServerException;
+import lombok.extern.slf4j.Slf4j;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.enums.NotificationType;
 import com.example.smart_booking_system.service.EmailService;
 import com.example.smart_booking_system.service.FileStorageService;
@@ -30,7 +36,11 @@ import com.example.smart_booking_system.entity.Role;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class OwnerApplicationServiceImpl implements OwnerApplicationService {
+
+    private final Messages messages;
+    private final UserLocales userLocales;
 
     private final OwnerApplicationRepository applicationRepository;
     private final UserRepository userRepository;
@@ -46,7 +56,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     public OwnerApplicationDTO submitApplication(OwnerApplicationSubmitDTO submitDTO, String applicantUsername) {
 
         User applicant = userRepository.findByEmail(applicantUsername)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + applicantUsername));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", applicantUsername));
 
         OwnerApplication application = new OwnerApplication();
         application.setUserId(applicant);
@@ -82,32 +92,27 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         OwnerApplication savedApp = applicationRepository.save(application);
 
         try {
-            notificationService.sendToAllAdmins(
-                    "Đơn đăng ký Owner mới",
-                    "Người dùng " + applicant.getFullName() + " vừa nộp đơn đăng ký đối tác.",
-                    NotificationType.ADMIN_NEW_OWNER_REGISTRATION,
-                    savedApp.getId().toString()
-            );
+            notificationService.sendToAllAdmins(NotificationType.ADMIN_NEW_OWNER_REGISTRATION, savedApp.getId().toString(), "notification.admin.ownerApplication", applicant.getFullName());
         } catch (Exception e) {
-            System.err.println("Lỗi gửi thông báo admin: " + e.getMessage());
+            log.warn("Failed to notify admins about owner application: {}", e.getMessage());
         }
 
         // Email giữ nguyên
         try {
-            String subject = "Xác nhận nộp đơn đăng ký làm chủ khách sạn";
+            String subject = "email.subject.ownerApplicationSubmitted";
             String templateName = "email/application-submitted-confirmation";
 
             Context context = new Context();
             context.setVariable("applicantName", applicant.getFullName());
             context.setVariable("applicationId", savedApp.getId());
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
             context.setVariable("submittedAt", savedApp.getCreatedAt().format(formatter));
 
             emailService.sendHtmlEmail(applicant.getEmail(), subject, templateName, context);
 
         } catch (Exception e) {
-            System.err.println("Lỗi gửi email xác nhận nộp đơn: " + e.getMessage());
+            log.warn("Failed to send owner application confirmation email: {}", e.getMessage());
         }
 
         return convertToDTO(savedApp);
@@ -132,21 +137,21 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
     public OwnerApplicationDTO reviewApplication(Long applicationId, OwnerApplicationReviewDTO reviewDTO, String adminUsername) {
 
         User admin = userRepository.findByEmail(adminUsername)
-                .orElseThrow(() -> new EntityNotFoundException("Admin not found: " + adminUsername));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", adminUsername));
 
         OwnerApplication application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new EntityNotFoundException("Application not found: " + applicationId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.ownerApplication.notFound", applicationId));
 
         if (application.getStatus() != ApplicationStatus.PENDING) {
-            throw new IllegalStateException("Đơn này đã được xử lý rồi.");
+            throw new BadRequestException("error.ownerApplication.alreadyProcessed");
         }
 
         ApplicationStatus newStatus = reviewDTO.getStatus();
         if (newStatus == null)
-            throw new IllegalArgumentException("Trạng thái mới không được để trống.");
+            throw new BadRequestException("error.ownerApplication.statusRequired");
 
         if (newStatus != ApplicationStatus.APPROVED && newStatus != ApplicationStatus.REJECTED)
-            throw new IllegalArgumentException("Chỉ được chuyển sang APPROVED hoặc REJECTED.");
+            throw new BadRequestException("error.ownerApplication.invalidStatus");
 
         application.setAdminReason(reviewDTO.getReason());
         application.setStatus(newStatus);
@@ -157,7 +162,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
 
         if (newStatus == ApplicationStatus.APPROVED) {
             Role ownerRole = roleRepository.findByRoleName("OWNER")
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ROLE_OWNER"));
+                    .orElseThrow(() -> new InternalServerException("error.role.ownerMissing"));
 
             applicant.addRole(ownerRole);
             userRepository.save(applicant);
@@ -173,24 +178,12 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
             // 2. Gửi thông báo hệ thống (code mới)
             try {
                 if (newStatus == ApplicationStatus.APPROVED) {
-                    notificationService.sendNotification(
-                            applicant.getUserId(),
-                            "Đơn đăng ký Owner được chấp thuận",
-                            "Chúc mừng! Bạn đã chính thức trở thành đối tác. Hãy bắt đầu đăng tải khách sạn ngay.",
-                            NotificationType.APPROVAL,
-                            savedApp.getId().toString()
-                    );
+                    notificationService.sendNotification(applicant.getUserId(), NotificationType.APPROVAL, savedApp.getId().toString(), "notification.ownerApplication.approved");
                 } else if (newStatus == ApplicationStatus.REJECTED) {
-                    notificationService.sendNotification(
-                            applicant.getUserId(),
-                            "Đơn đăng ký Owner bị từ chối",
-                            "Lý do: " + (reviewDTO.getReason() != null ? reviewDTO.getReason() : "Không có lý do cụ thể"),
-                            NotificationType.REJECTION,
-                            savedApp.getId().toString()
-                    );
+                    notificationService.sendNotification(applicant.getUserId(), NotificationType.REJECTION, savedApp.getId().toString(), "notification.ownerApplication.rejected", reviewDTO.getReason() != null ? reviewDTO.getReason() : messages.t(userLocales.of(applicant), "common.noReason"));
                 }
             } catch (Exception e) {
-                System.err.println("Lỗi gửi thông báo user: " + e.getMessage());
+                log.warn("Failed to notify applicant about review result: {}", e.getMessage());
             }
         }
 
@@ -270,11 +263,11 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         String subject, templateName;
 
         if (status == ApplicationStatus.APPROVED) {
-            subject = "Chúc mừng! Đơn đăng ký làm chủ khách sạn của bạn đã được DUYỆT";
+            subject = "email.subject.ownerApplicationApproved";
             templateName = "email/application-approved";
 
         } else if (status == ApplicationStatus.REJECTED) {
-            subject = "Thông báo: Đơn đăng ký làm chủ khách sạn của bạn đã bị TỪ CHỐI";
+            subject = "email.subject.ownerApplicationRejected";
             templateName = "email/application-rejected";
 
         } else {

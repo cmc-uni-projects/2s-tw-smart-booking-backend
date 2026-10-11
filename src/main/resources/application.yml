@@ -1,0 +1,128 @@
+# Shared configuration. Profile-specific settings live in application-<profile>.yml:
+#   local (default) — your machine / docker compose, emails caught by a local mail server (Mailpit)
+#   dev             — shared dev environment, real SMTP (Gmail)
+# Activate with SPRING_PROFILES_ACTIVE=dev (env var) or --spring.profiles.active=dev.
+# ${VAR} placeholders are filled from real env vars or from .env (see config/DotenvEnvironmentPostProcessor).
+
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: smart-booking-system
+  profiles:
+    default: local
+
+  datasource:
+    url: "jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh"
+    username: ${DB_USER_NAME}
+    password: ${DB_USER_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # The schema is owned by Liquibase; Hibernate only checks it matches the entities
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    # contexts: set per profile (local: demo dataset, dev: prod)
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: email,profile
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            scope: email,public_profile
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          facebook:
+            authorization-uri: https://www.facebook.com/v19.0/dialog/oauth
+            token-uri: https://graph.facebook.com/v19.0/oauth/access_token
+            user-info-uri: "https://graph.facebook.com/me?fields=id,name,email,picture"
+
+  # Host/port/auth: see the profile files
+  mail:
+    protocol: smtp
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+
+  # API messages, notifications, validation, emails
+  messages:
+    basename: i18n/messages,i18n/emails
+    encoding: UTF-8
+    fallback-to-system-locale: false
+    use-code-as-default-message: false
+    # Always run MessageFormat so quoting is consistent: write an apostrophe as '' in the .properties files
+    always-use-message-format: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000
+  frontend:
+    url: ${FRONTEND_URL}
+  cors:
+    allowedOrigins: ${FRONTEND_URL}
+  oauth2:
+    redirectUri: ${FRONTEND_URL}/oauth2/redirect
+  logging:
+    # Calls slower than this are logged at WARN (logging/LoggingAspect)
+    slow-threshold-ms: ${LOG_SLOW_THRESHOLD_MS:1000}
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+    url: https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent
+
+# Cloudflare R2 (MinIO locally)
+r2:
+  accessKeyId: ${R2_ACCESS_KEY}
+  secretKey: ${R2_SECRET_KEY}
+  endpoint: ${R2_ENDPOINT}
+  bucket: ${R2_BUCKET_NAME}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+  static-path-pattern: ${FILE_STATIC_PATH_PATTERN:/images/**}
+  static-url-prefix: ${FILE_STATIC_URL_PREFIX:/images}
+
+# Console + one file per day in logs/ (see logback-spring.xml)
+logging:
+  file:
+    path: ${LOG_PATH:logs}
+  level:
+    root: INFO
+    # One INFO line per HTTP request (controllers) + scheduler jobs
+    com.example.smart_booking_system: INFO
+    # Service entry/exit with masked arguments: set to DEBUG to trace a flow
+    com.example.smart_booking_system.service: ${LOG_LEVEL_SERVICE:INFO}

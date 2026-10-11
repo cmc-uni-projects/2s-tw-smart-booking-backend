@@ -2,6 +2,7 @@ package com.example.smart_booking_system.controller;
 
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.NotificationService;
+import com.example.smart_booking_system.i18n.Messages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final Messages messages;
 
     // 1. Lấy danh sách (Thêm param scope)
     // GET /api/v1/notifications?scope=CUSTOMER&page=0
@@ -52,7 +54,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         notificationService.markAsRead(id, userDetails.getUserId());
-        return ResponseEntity.ok("Marked as read");
+        return ResponseEntity.ok(messages.t("api.notification.markedRead"));
     }
 
     // 4. Đánh dấu tất cả đã đọc (Thêm param scope)

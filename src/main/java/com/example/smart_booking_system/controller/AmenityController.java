@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.enums.AmenityType;
 import com.example.smart_booking_system.service.AmenityService;
@@ -12,6 +14,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/amenity")
 public class AmenityController {
+
+    @Autowired
+    private Messages messages;
 
     private final AmenityService amenityService;
 
@@ -34,11 +39,11 @@ public class AmenityController {
             return ResponseEntity.status(201).body(saved);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error adding amenity: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 
@@ -54,11 +59,11 @@ public class AmenityController {
             return ResponseEntity.ok(updated);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error updating amenity: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 
@@ -77,11 +82,11 @@ public class AmenityController {
             return ResponseEntity.ok(amenityService.findByType(amenityType));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error fetching amenity by type: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 
@@ -91,14 +96,14 @@ public class AmenityController {
     public ResponseEntity<?> deleteAmenity(@PathVariable int id) {
         try {
             amenityService.deactivateAmenity(id);
-            return ResponseEntity.ok("Amenity deactivated successfully");
+            return ResponseEntity.ok(messages.t("api.amenity.deactivated"));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error deactivating amenity: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 }

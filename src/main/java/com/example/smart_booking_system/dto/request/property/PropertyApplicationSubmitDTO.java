@@ -13,16 +13,16 @@ import java.util.Map;
 @Data
 public class PropertyApplicationSubmitDTO {
 
-    @NotNull(message = "Loại cơ sở không được để trống")
+    @NotNull(message = "{validation.property.typeRequired}")
     private PropertyType propertyType;
 
-    @NotBlank(message = "Quốc gia không được để trống")
+    @NotBlank(message = "{validation.property.countryRequired}")
     private String country;
 
-    @NotBlank(message = "Tỉnh/Thành không được để trống")
+    @NotBlank(message = "{validation.property.provinceRequired}")
     private String province;
 
-    @NotBlank(message = "Thành phố/Quận không được để trống")
+    @NotBlank(message = "{validation.property.districtRequired}")
     private String city; // Quận/Huyện
 
     // ✅ [NEW] Thêm các trường code và ward
@@ -33,24 +33,24 @@ public class PropertyApplicationSubmitDTO {
     private BigDecimal weekendPrice;  // Giá cuối tuần
     private Integer capacity;         // Sức chứa
     private String unitName;          // Tên căn (VD: Villa A)
-    @NotBlank(message = "Địa chỉ không được để trống")
+    @NotBlank(message = "{validation.property.addressRequired}")
     private String address;
 
-    @NotBlank(message = "Tên cơ sở không được để trống")
-    @Size(min = 5, message = "Tên cơ sở phải có ít nhất 5 ký tự")
+    @NotBlank(message = "{validation.property.nameRequired}")
+    @Size(min = 5, message = "{validation.property.nameMin}")
     private String propertyName;
 
-    @NotBlank(message = "Mô tả không được để trống")
-    @Size(min = 50, message = "Mô tả phải có ít nhất 50 ký tự")
+    @NotBlank(message = "{validation.property.descriptionRequired}")
+    @Size(min = 50, message = "{validation.property.descriptionMin}")
     private String description;
 
-    @NotNull(message = "Diện tích không được để trống")
-    @Min(value = 1, message = "Diện tích phải lớn hơn 0")
+    @NotNull(message = "{validation.property.areaRequired}")
+    @Min(value = 1, message = "{validation.property.areaPositive}")
     private BigDecimal area;
 
     private Map<String, Boolean> amenities;
 
-    @NotNull(message = "Bạn phải đồng ý với điều khoản")
+    @NotNull(message = "{validation.terms.required}")
     private Boolean terms;
 
     private BigDecimal latitude;

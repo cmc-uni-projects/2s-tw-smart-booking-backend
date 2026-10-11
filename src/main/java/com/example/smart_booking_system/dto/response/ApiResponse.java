@@ -15,6 +15,8 @@ public class ApiResponse<T> {
 
     private boolean success;
     private String message;
+    /** On errors: the stable i18n key of {@code message} (e.g. "error.promotion.codeConflict"), for clients to branch on. */
+    private String code;
     private T data;
     private LocalDateTime timestamp;
     private String path;

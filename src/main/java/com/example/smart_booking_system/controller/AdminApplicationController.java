@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.request.admin.OwnerApplicationReviewDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.admin.DashboardDataDTO; // ✅ Đổi sang DTO mới đầy đủ hơn
@@ -32,6 +33,8 @@ import java.util.Map;     // ✅ Import thêm
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminApplicationController {
 
+    private final Messages messages;
+
     private final OwnerApplicationService ownerApplicationService;
     private final BookingRepository bookingRepo;
     private final UserRepository userRepo;
@@ -49,14 +52,14 @@ public class AdminApplicationController {
             List<OwnerApplicationDTO> applications = ownerApplicationService.getApplicationsByStatus(appStatus);
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Lấy danh sách đơn " + appStatus + " thành công",
+                    messages.t("api.admin.applications.listed", appStatus),
                     applications
             ));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Trạng thái không hợp lệ: " + status));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.t("error.status.invalid", status)));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -76,17 +79,17 @@ public class AdminApplicationController {
 
             String message;
             if (reviewDTO.getStatus() == ApplicationStatus.APPROVED) {
-                message = "Đã duyệt đơn thành công";
+                message = messages.t("api.admin.applications.approved");
             } else if (reviewDTO.getStatus() == ApplicationStatus.REJECTED) {
-                message = "Đã từ chối đơn";
+                message = messages.t("api.admin.applications.rejected");
             } else {
-                message = "Trạng thái không thay đổi";
+                message = messages.t("api.admin.applications.unchanged");
             }
 
             return ResponseEntity.ok(ApiResponse.success(message, result));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi xử lý: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -178,18 +181,17 @@ public class AdminApplicationController {
                     .recentBookings(recentBookings)
                     .build();
 
-            return ResponseEntity.ok(ApiResponse.success("Lấy thống kê Dashboard thành công", stats));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.dashboard.loaded"), stats));
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi Server: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
     @GetMapping("/dashboard/owners")
     public ResponseEntity<?> getOwnersForFilter() {
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        "Danh sách chủ sở hữu",
+                        messages.t("api.admin.owners.listed"),
                         userRepo.findOwnersForDashboard()
                 )
         );
@@ -199,7 +201,7 @@ public class AdminApplicationController {
     public ResponseEntity<?> getCitiesForFilter() {
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        "Danh sách khu vực",
+                        messages.t("api.admin.cities.listed"),
                         bookingRepo.findAllCitiesForDashboard()
                 )
         );

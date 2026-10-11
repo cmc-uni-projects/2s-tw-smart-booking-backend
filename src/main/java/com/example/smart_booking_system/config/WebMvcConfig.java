@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -9,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.nio.file.Paths;
 
 @Configuration
+@Slf4j
 public class WebMvcConfig implements WebMvcConfigurer {
 
     @Value("${file.upload-dir}")
@@ -19,8 +21,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // Lấy đường dẫn vật lý chuẩn (file:///...)
         String resourceLocation = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
 
-        System.out.println("=== CONFIGURING STATIC RESOURCES ===");
-        System.out.println("Storage Path: " + resourceLocation);
+        log.debug("Configuring static resources");
+        log.info("Local upload directory: {}", resourceLocation);
 
         if (!resourceLocation.endsWith("/")) {
             resourceLocation += "/";

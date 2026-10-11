@@ -61,6 +61,10 @@ public class User {
 
     //membership - rank
     private int points = 0;
+
+    /** UI/email language: "vi" (default) or "en" — see I18nConfig. */
+    @Column(nullable = false, length = 10)
+    private String preferredLanguage = "vi";
     @Enumerated(EnumType.STRING)
     private MembershipRank membershipRank = MembershipRank.BRONZE; // Mặc định là hạng Đồng
 

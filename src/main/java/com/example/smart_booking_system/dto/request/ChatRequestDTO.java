@@ -6,6 +6,6 @@ import lombok.Data;
 
 @Data
 public class ChatRequestDTO {
-    @NotBlank(message = "nội dung không được để trống")
+    @NotBlank(message = "{validation.chat.messageRequired}")
     private String message;
 }

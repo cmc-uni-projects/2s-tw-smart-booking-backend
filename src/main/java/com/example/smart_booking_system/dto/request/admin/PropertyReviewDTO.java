@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class PropertyReviewDTO {
 
-    @NotNull(message = "Trạng thái không được để trống")
+    @NotNull(message = "{validation.status.required}")
     private PropertyStatus status;
 
     private String reason;

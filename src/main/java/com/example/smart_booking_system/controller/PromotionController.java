@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.PromotionResponseDTO;
 import com.example.smart_booking_system.dto.request.promotion.PromotionRequestDTO;
@@ -20,6 +21,8 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class PromotionController {
 
+    private final Messages messages;
+
     private final PromotionService promotionService;
 
     // 1. TẠO MỚI
@@ -28,10 +31,10 @@ public class PromotionController {
     public ResponseEntity<?> create(@Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.status(201).body(
-                    ApiResponse.success("Tạo mã khuyến mãi thành công", promotionService.createPromotion(req))
+                    ApiResponse.success(messages.t("api.promotion.created"), promotionService.createPromotion(req))
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -41,10 +44,10 @@ public class PromotionController {
     public ResponseEntity<?> update(@PathVariable int id, @Valid @RequestBody PromotionRequestDTO req) {
         try {
             return ResponseEntity.ok(
-                    ApiResponse.success("Cập nhật thành công", promotionService.updatePromotion(id, req))
+                    ApiResponse.success(messages.t("api.updated"), promotionService.updatePromotion(id, req))
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -54,9 +57,9 @@ public class PromotionController {
     public ResponseEntity<?> delete(@PathVariable int id) {
         try {
             promotionService.deletePromotion(id);
-            return ResponseEntity.ok(ApiResponse.success("Đã xóa mã khuyến mãi"));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.promotion.deleted")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -66,10 +69,10 @@ public class PromotionController {
     public ResponseEntity<?> toggle(@PathVariable int id) {
         try {
             return ResponseEntity.ok(
-                    ApiResponse.success("Thay đổi trạng thái thành công", promotionService.toggleStatus(id))
+                    ApiResponse.success(messages.t("api.status.changed"), promotionService.toggleStatus(id))
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -90,7 +93,7 @@ public class PromotionController {
                     ApiResponse.success(promotionService.getPromotionsByProperty(propertyId))
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -100,7 +103,7 @@ public class PromotionController {
         try {
             return ResponseEntity.ok(ApiResponse.success(promotionService.getById(id)));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -114,12 +117,12 @@ public class PromotionController {
         try {
             return ResponseEntity.ok(
                     ApiResponse.success(
-                            "Cập nhật banner thành công",
+                            messages.t("api.promotion.bannerUpdated"),
                             promotionService.uploadBanner(id, file)
                     )
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -133,9 +136,9 @@ public class PromotionController {
         PromotionResponseDTO bestPromo = promotionService.suggestBestPromotion(userId, propertyId, amount);
 
         if (bestPromo != null) {
-            return ResponseEntity.ok(ApiResponse.success("Tìm thấy mã phù hợp", bestPromo));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.promotion.found"), bestPromo));
         } else {
-            return ResponseEntity.ok(ApiResponse.success("Không có mã phù hợp", null));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.promotion.none"), null));
         }
     }
 
@@ -148,7 +151,7 @@ public class PromotionController {
                     ApiResponse.success(promotionService.getPromotionsByCurrentOwner())
             );
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 }

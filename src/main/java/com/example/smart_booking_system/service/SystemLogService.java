@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.response.SystemLogDetailDTO;
 import com.example.smart_booking_system.dto.response.SystemLogResponseDTO;
 import com.example.smart_booking_system.entity.SystemLog;
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class SystemLogService {
+
+    private final Messages messages;
 
     private final SystemLogRepository systemLogRepository;
 
@@ -78,7 +82,7 @@ public class SystemLogService {
     //CHI TIẾT LOG
     public SystemLogDetailDTO getLogDetail(Long logId) {
         SystemLog log = systemLogRepository.findById(logId)
-                .orElseThrow(() -> new RuntimeException("System log không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.systemLog.notFound"));
 
         return toDetailDTO(log);
     }
@@ -89,7 +93,7 @@ public class SystemLogService {
                 log.getLogId(),
                 log.getAction(),
                 log.getEntityType(),
-                log.getDescription(),
+                messages.render(log.getDescription()),
                 log.getActor().getEmail(),
                 log.getCreatedAt()
         );
@@ -101,7 +105,7 @@ public class SystemLogService {
                 log.getAction(),
                 log.getEntityType(),
                 log.getEntityId(),
-                log.getDescription(),
+                messages.render(log.getDescription()),
                 log.getActor().getUserId(),
                 log.getActor().getFullName(),
                 log.getActor().getEmail(),

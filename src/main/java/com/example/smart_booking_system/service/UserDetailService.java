@@ -1,11 +1,14 @@
 package com.example.smart_booking_system.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.request.user.UserDetailRequestDTO;
 import com.example.smart_booking_system.dto.response.user.UserDetailResponseDTO;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.entity.UserDetail;
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.i18n.I18nConfig;
 import com.example.smart_booking_system.repository.UserDetailRepository;
 import com.example.smart_booking_system.repository.UserRepository;
 import lombok.AllArgsConstructor;
@@ -22,6 +25,9 @@ import java.util.List;
 @Service
 public class UserDetailService {
 
+    @Autowired
+    private Messages messages;
+
     private final UserRepository userRepository;
     private final UserDetailRepository userDetailRepository;
     private final FileStorageService fileStorageService;
@@ -34,6 +40,18 @@ public class UserDetailService {
         this.fileStorageService = fileStorageService;
     }
 
+    /** Saves the language used for this user's emails and notifications ("vi" or "en"). */
+    @Transactional
+    public String updatePreferredLanguage(String userId, String language) {
+        if (language == null || !I18nConfig.SUPPORTED.contains(java.util.Locale.forLanguageTag(language))) {
+            throw new BadRequestException("error.language.unsupported", language);
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
+        user.setPreferredLanguage(language);
+        return language;
+    }
+
     // ==============================================================
     // GET USER DETAIL — TRẢ VỀ SIGNED URL
     // ==============================================================
@@ -41,7 +59,7 @@ public class UserDetailService {
     public UserDetailResponseDTO getUserDetail(String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", email));
 
         UserDetail detail = userDetailRepository.findByUser(user)
                 .orElseGet(() -> {
@@ -83,10 +101,10 @@ public class UserDetailService {
     public UserDetailResponseDTO updateUserDetail(String email, UserDetailRequestDTO req) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", email));
 
         UserDetail detail = userDetailRepository.findByUser(user)
-                .orElseThrow(() -> new ResourceNotFoundException("UserDetail not found for user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", email));
 
         user.setFullName(req.getFullName());
         user.setPhoneNumber(req.getPhoneNumber());
@@ -114,12 +132,12 @@ public class UserDetailService {
 
         // 1. Validate file
         if (file == null || file.isEmpty()) {
-            throw new BadRequestException("File ảnh không hợp lệ");
+            throw new BadRequestException("error.file.invalidImage");
         }
 
         // 2. Lấy User
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", userId));
 
         // 3. Lấy hoặc tạo UserDetail
         UserDetail detail = userDetailRepository.findByUser(user)
@@ -154,21 +172,21 @@ public class UserDetailService {
     public ProfileStatusResponse checkProfileCompleteness(String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", email));
 
         UserDetail detail = userDetailRepository.findByUser(user).orElse(null);
 
         List<String> missing = new ArrayList<>();
 
-        if (!StringUtils.hasText(user.getFullName())) missing.add("Họ và Tên");
-        if (!StringUtils.hasText(user.getPhoneNumber())) missing.add("Số điện thoại");
+        if (!StringUtils.hasText(user.getFullName())) missing.add(messages.t("profile.field.fullName"));
+        if (!StringUtils.hasText(user.getPhoneNumber())) missing.add(messages.t("profile.field.phone"));
 
         if (detail == null) {
-            missing.add("Giới tính");
-            missing.add("Ngày sinh");
+            missing.add(messages.t("profile.field.gender"));
+            missing.add(messages.t("profile.field.dob"));
         } else {
-            if (!StringUtils.hasText(detail.getGender())) missing.add("Giới tính");
-            if (detail.getDateOfBirth() == null) missing.add("Ngày sinh");
+            if (!StringUtils.hasText(detail.getGender())) missing.add(messages.t("profile.field.gender"));
+            if (detail.getDateOfBirth() == null) missing.add(messages.t("profile.field.dob"));
         }
 
         return new ProfileStatusResponse(missing.isEmpty(), missing.isEmpty() ? null : missing);

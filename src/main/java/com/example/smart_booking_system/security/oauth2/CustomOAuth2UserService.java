@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.security.oauth2;
 
+import com.example.smart_booking_system.i18n.Messages;
+import lombok.extern.slf4j.Slf4j;
 import com.example.smart_booking_system.entity.Role;
 import com.example.smart_booking_system.entity.SocialAccount;
 import com.example.smart_booking_system.entity.User;
@@ -30,7 +32,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+
+    @Autowired
+    private Messages messages;
 
     @Autowired private UserRepository userRepository;
     @Autowired private RoleRepository roleRepository;
@@ -59,16 +65,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .map(Cookie::getValue)
                 .orElse(null);
 
-        System.out.println("--- OAuth2 Flow Debug ---");
-        System.out.println("Email from Provider: " + oAuth2UserInfo.getEmail());
-        System.out.println("LINKING_TOKEN cookie: " + (linkingToken != null ? "FOUND" : "NOT FOUND"));
+        log.debug("OAuth2 login flow");
+        log.debug("OAuth2 email from provider: {}", oAuth2UserInfo.getEmail());
+        log.debug("OAuth2 linking token cookie: {}", (linkingToken != null ? "FOUND" : "NOT FOUND"));
 
         // ✅ LOGIC XỬ LÝ LIÊN KẾT (Khi có Cookie)
         if (StringUtils.hasText(linkingToken)) {
             if (jwtTokenProvider.validateToken(linkingToken)) {
                 String userId = jwtTokenProvider.getUserIdFromToken(linkingToken);
                 User currentUser = userRepository.findById(userId).orElse(null);
-                System.out.println("User ID from Token: " + userId);
+                log.debug("OAuth2 linking user id: {}", userId);
 
                 if (currentUser != null) {
                     Optional<SocialAccount> existingSocial =
@@ -76,25 +82,25 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
                     if (existingSocial.isPresent()) {
                         if (!existingSocial.get().getUser().getUserId().equals(currentUser.getUserId())) {
-                            throw new OAuth2AuthenticationException("Tài khoản này đã được liên kết với người khác!");
+                            throw new OAuth2AuthenticationException(messages.t("error.social.linkedToOther"));
                         }
                         return CustomUserDetails.create(currentUser, oAuth2User.getAttributes());
                     }
 
                     // Thực hiện liên kết
                     linkSocialAccount(currentUser, provider, oAuth2UserInfo);
-                    System.out.println(">> LINKING SUCCESSFUL for user: " + currentUser.getEmail());
+                    log.info("Linked social account for user {}", currentUser.getEmail());
                     return CustomUserDetails.create(currentUser, oAuth2User.getAttributes());
                 }
             } else {
                 // Có token nhưng sai -> Báo lỗi để tránh tạo user mới nhầm lẫn
-                System.out.println(">> Invalid Linking Token!");
-                throw new OAuth2AuthenticationException("Phiên liên kết không hợp lệ. Vui lòng thử lại.");
+                log.warn("Invalid social linking token");
+                throw new OAuth2AuthenticationException(messages.t("error.social.invalidLinkSession"));
             }
         }
 
         // ✅ LOGIC ĐĂNG NHẬP / ĐĂNG KÝ (Khi KHÔNG có Cookie)
-        System.out.println(">> Normal Login/Register Flow");
+        log.debug("OAuth2 normal login/register flow");
 
         Optional<SocialAccount> socialAccountOptional =
                 socialAccountRepository.findByProviderAndProviderId(provider, oAuth2UserInfo.getId());

@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.dto.PropertyAmenityResponseDTO;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Property;
@@ -33,23 +35,23 @@ public class PropertyAmenityService {
     ) {
 
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new IllegalArgumentException("Property not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
         // Validate toàn bộ trước khi thêm
         for (Integer amenityId : amenityIds) {
 
             Amenity amenity = amenityRepository.findById(amenityId)
-                    .orElseThrow(() -> new IllegalArgumentException("Amenity not found: " + amenityId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.amenity.notFound", amenityId));
 
             if (amenity.getAmenityType() != AmenityType.PROPERTY) {
-                throw new IllegalArgumentException("Amenity type must be PROPERTY: " + amenityId);
+                throw new BadRequestException("error.amenity.wrongType", amenityId);
             }
 
             boolean exists = propertyAmenityRepository
                     .existsByPropertyAndAmenity(propertyId, amenityId);
 
             if (exists) {
-                throw new IllegalArgumentException("Property already has amenity: " + amenityId);
+                throw new BadRequestException("error.amenity.alreadyAdded", amenityId);
             }
         }
 
@@ -110,14 +112,14 @@ public class PropertyAmenityService {
                 propertyAmenityRepository.findByPropertyAndAmenity(propertyId, oldAmenityId);
 
         if (existing == null) {
-            throw new IllegalArgumentException("This amenity does not belong to this property");
+            throw new BadRequestException("error.amenity.notLinked");
         }
 
         Amenity newAmenity = amenityRepository.findById(newAmenityId)
-                .orElseThrow(() -> new IllegalArgumentException("New amenity not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.amenity.notFound"));
 
         if (newAmenity.getAmenityType() != AmenityType.PROPERTY) {
-            throw new IllegalArgumentException("Amenity type must be PROPERTY");
+            throw new BadRequestException("error.amenity.wrongType");
         }
 
         // Check duplicate
@@ -125,7 +127,7 @@ public class PropertyAmenityService {
                 propertyAmenityRepository.findByPropertyAndAmenity(propertyId, newAmenityId) != null;
 
         if (alreadyAssigned) {
-            throw new IllegalArgumentException("This property already has this amenity");
+            throw new BadRequestException("error.amenity.alreadyAdded");
         }
 
         existing.setAmenity(newAmenity);
@@ -149,7 +151,7 @@ public class PropertyAmenityService {
                 propertyAmenityRepository.findByPropertyAndAmenity(propertyId, amenityId);
 
         if (existing == null) {
-            throw new IllegalArgumentException("Amenity does not belong to this property");
+            throw new BadRequestException("error.amenity.notLinked");
         }
 
         existing.setActive(false);

@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.scheduler;
 
+import lombok.extern.slf4j.Slf4j;
 import com.example.smart_booking_system.entity.Promotion;
 import com.example.smart_booking_system.enums.PromotionStatus;
 import com.example.smart_booking_system.repository.PromotionRepository;
@@ -13,6 +14,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class PromotionScheduler {
 
     private final PromotionRepository promotionRepository;
@@ -42,7 +44,7 @@ public class PromotionScheduler {
             // 3. Lưu lại vào DB
             promotionRepository.saveAll(expiredPromotions);
 
-            System.out.println("PromotionScheduler: Đã hết hạn " + expiredPromotions.size() + " mã tại thời điểm " + now);
+            log.info("Expired {} promotions at {}", expiredPromotions.size(), now);
         }
     }
 }

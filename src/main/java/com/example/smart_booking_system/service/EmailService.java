@@ -17,11 +17,11 @@ public interface EmailService {
 
     void sendApplicationStatusEmail(String toEmail, String fullName, String status, String reason);
 
-    void sendHtmlEmail(String to, String subject, String templateName, Context context);
+    /** subjectKey: key in i18n/emails*.properties; rendered in the recipient's language. */
+    void sendHtmlEmail(String to, String subjectKey, String templateName, Context context);
 
     void sendPaymentReminderEmail(String toEmail, String fullName, String bookingId, String totalPrice);
 
-    // Sửa dòng này
     void sendCancellationRequestReceivedEmail(String toEmail, String fullName, String bookingId, BigDecimal totalPrice, BigDecimal penalty, BigDecimal refund);
 
     void sendCancellationSuccessEmail(String toEmail, String fullName, String bookingId, String refundAmount, String penaltyAmount);
@@ -30,7 +30,7 @@ public interface EmailService {
 
     void sendThankYouEmail(String toEmail, String fullName, String bookingId, String propertyName);
 
-    // THÊM MỚI: Gửi mail thông báo dừng hoạt động Khách sạn
+    // Property / room status emails to the owner
     void sendPropertySuspensionEmail(String to, String ownerName, String propertyName, String reason);
     void sendRoomSuspensionEmail(String to, String ownerName, String propertyName, String roomName, String reason);
 

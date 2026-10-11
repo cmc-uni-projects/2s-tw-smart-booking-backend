@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.dto.PropertyPoliciesResponseDTO;
 import com.example.smart_booking_system.dto.request.PropertyPoliciesRequestDTO;
 import com.example.smart_booking_system.entity.Property;
@@ -22,11 +24,11 @@ public class PropertyPoliciesService {
     public PropertyPoliciesResponseDTO addPolicies(int propertyId, PropertyPoliciesRequestDTO req) {
 
         Property property = propertyRepo.findById(propertyId)
-                .orElseThrow(() -> new RuntimeException("Property not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
         // Nếu đã có policy thì không cho add nữa
         if (policiesRepo.findByPropertyId(propertyId) != null) {
-            throw new RuntimeException("Policies already exist. Use update instead.");
+            throw new BadRequestException("error.policies.exist");
         }
 
         PropertyPolicies policies = new PropertyPolicies();
@@ -47,7 +49,7 @@ public class PropertyPoliciesService {
         PropertyPolicies policies = policiesRepo.findByPropertyId(propertyId);
 
         if (policies == null) {
-            throw new RuntimeException("Policies not found for this property");
+            throw new ResourceNotFoundException("error.policies.notFound");
         }
 
         // ==== UPDATE FIELD NÀO ĐƯỢC GỬI LÊN, GIỮ NGUYÊN FIELD KHÁC ====
@@ -125,7 +127,7 @@ public class PropertyPoliciesService {
         PropertyPolicies policies = policiesRepo.findByPropertyId(propertyId);
 
         if (policies == null) {
-            throw new RuntimeException("Policies not found for propertyId " + propertyId);
+            throw new ResourceNotFoundException("error.policies.notFound", propertyId);
         }
 
         return convertToDTO(policies);

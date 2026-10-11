@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vui lòng thanh toán - TravelMate</title>
+  <title th:text="#{email.bookingPending.title1}">Vui lòng thanh toán - TravelMate</title>
   <style>
     body {
       font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -100,31 +100,31 @@
     </div>
   <div class="content">
 
-    <h2>Xin chào <strong th:text="${username}">Khách hàng</strong>,</h2>
+    <h2 th:utext="#{email.common.greeting(${#strings.escapeXml((username))})}">Xin chào <strong th:text="${username}">Khách hàng</strong>,</h2>
 
-    <p>
+    <p th:utext="#{email.bookingPending.p1(${#strings.escapeXml((bookingId))})}">
       Cảm ơn bạn đã đặt phòng tại <strong>TravelMate</strong>. Đơn đặt phòng <strong>#<span th:text="${bookingId}"></span></strong> của bạn đang ở trạng thái <strong>Chờ thanh toán</strong>.
     </p>
 
-    <p>
+    <p th:text="#{email.bookingPending.p2}">
       Để giữ phòng và nhận xác nhận đặt chỗ ngay lập tức, vui lòng hoàn tất bước thanh toán trên hệ thống.
     </p>
 
     <div class="info-box">
-      <strong style="color: #006494;">Chi tiết thanh toán:</strong><br>
+      <strong style="color: #006494;" th:text="#{email.bookingPending.strong1}">Chi tiết thanh toán:</strong><br>
       <hr style="border: 0; border-top: 1px dashed #d1ecf1; margin: 10px 0;">
-      <span>Mã đặt phòng:</span> <strong th:text="${bookingId}">#123</strong><br>
-      <span>Tổng tiền cần thanh toán:</span> <br>
+      <span th:text="#{email.common.bookingCode}">Mã đặt phòng:</span> <strong th:text="${bookingId}">#123</strong><br>
+      <span th:text="#{email.bookingPending.span2}">Tổng tiền cần thanh toán:</span> <br>
       <span class="total-amount" th:text="${totalPrice} + ' VND'">0 VND</span>
     </div>
 
     <p style="margin-top: 20px;">
-      <em>Lưu ý: Đơn đặt phòng sẽ tự động hủy nếu không được thanh toán trong thời gian quy định.</em>
+      <em th:text="#{email.bookingPending.em1}">Lưu ý: Đơn đặt phòng sẽ tự động hủy nếu không được thanh toán trong thời gian quy định.</em>
     </p>
   </div>
 
   <div class="footer">
-    <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
+    <p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
   </div>
 </div>
 </body>

@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.request.user.UserDetailRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.user.UserDetailResponseDTO;
@@ -16,6 +17,9 @@ import com.example.smart_booking_system.exception.BadRequestException;
 @RestController
 @RequestMapping("/api/v1/user-details")
 public class UserDetailController {
+
+    @Autowired
+    private Messages messages;
 
     private final UserDetailService userDetailService;
 
@@ -44,7 +48,16 @@ public class UserDetailController {
         UserDetailResponseDTO updatedProfile = userDetailService.updateUserDetail(currentUser.getEmail(), userDetailRequestDTO);
 
         // Trả về DTO trong data (Sửa lỗi ApiResponse constructor và Lỗi 3)
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updatedProfile));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.profile.updated"), updatedProfile));
+    }
+
+    /** Body {"language": "vi" | "en"}: language of this user's emails and notifications. */
+    @PutMapping("/language")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> updateLanguage(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody java.util.Map<String, String> body) {
+        String language = userDetailService.updatePreferredLanguage(currentUser.getUserId(), body.get("language"));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.language.updated"), java.util.Map.of("language", language)));
     }
 
     /**
@@ -55,7 +68,7 @@ public class UserDetailController {
     public ResponseEntity<?> getProfileStatus(@AuthenticationPrincipal CustomUserDetails currentUser) {
         if (currentUser == null) {
             // Sửa lỗi ApiResponse constructor
-            return ResponseEntity.status(401).body(ApiResponse.error("User not authenticated"));
+            return ResponseEntity.status(401).body(ApiResponse.error(messages.t("error.notAuthenticated")));
         }
 
         UserDetailService.ProfileStatusResponse response = userDetailService.checkProfileCompleteness(currentUser.getEmail());
@@ -72,11 +85,11 @@ public class UserDetailController {
                     currentUser.getUserId(),
                     imageFile
             );
-            return ResponseEntity.ok(ApiResponse.success("Upload ảnh đại diện thành công", updatedDetail));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.avatar.updated"), updatedDetail));
         } catch (BadRequestException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(messages.of(e)));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi khi upload ảnh: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(messages.of(e)));
         }
     }
 }

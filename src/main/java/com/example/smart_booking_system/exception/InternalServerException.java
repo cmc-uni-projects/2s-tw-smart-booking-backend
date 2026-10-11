@@ -1,7 +1,15 @@
 package com.example.smart_booking_system.exception;
 
-public class InternalServerException extends RuntimeException {
-    public InternalServerException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class InternalServerException extends AppException {
+
+    public InternalServerException(String messageKey, Object... args) {
+        super(messageKey, args);
+    }
+
+    @Override
+    public HttpStatus getStatus() {
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 }

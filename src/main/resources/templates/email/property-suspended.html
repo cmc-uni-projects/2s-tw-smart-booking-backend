@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Thông báo tạm dừng hoạt động cơ sở lưu trú</title>
+    <title th:text="#{email.propertySuspended.title1}">Thông báo tạm dừng hoạt động cơ sở lưu trú</title>
     <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f6f6f6; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -21,24 +21,24 @@
         <h1>TravelMate Notification</h1>
     </div>
     <div class="content">
-        <p>Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((ownerName))})}">Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
 
-        <p>Chúng tôi rất tiếc phải thông báo rằng cơ sở lưu trú của bạn đã bị <strong>tạm dừng hoạt động</strong> trên hệ thống TravelMate do vi phạm chính sách hoặc yêu cầu từ quản trị viên.</p>
+        <p th:utext="#{email.propertySuspended.p2}">Chúng tôi rất tiếc phải thông báo rằng cơ sở lưu trú của bạn đã bị <strong>tạm dừng hoạt động</strong> trên hệ thống TravelMate do vi phạm chính sách hoặc yêu cầu từ quản trị viên.</p>
 
         <div class="info-box">
-            <p><span class="label">Cơ sở lưu trú:</span> <span th:text="${propertyName}">Tên khách sạn</span></p>
-            <p><span class="label">Lý do:</span> <span th:text="${reason}" style="color: #d32f2f; font-weight: bold;">Lý do chi tiết</span></p>
+            <p th:utext="#{email.common.propertyLabel(${#strings.escapeXml((propertyName))})}"><span class="label">Cơ sở lưu trú:</span> <span th:text="${propertyName}">Tên khách sạn</span></p>
+            <p th:utext="#{email.propertySuspended.p4(${#strings.escapeXml((reason))})}"><span class="label">Lý do:</span> <span th:text="${reason}" style="color: #d32f2f; font-weight: bold;">Lý do chi tiết</span></p>
         </div>
 
-        <p>Trong thời gian này, cơ sở của bạn sẽ không hiển thị trên kết quả tìm kiếm và không thể nhận đặt phòng mới. Các đặt phòng hiện tại (nếu có) có thể cần được xử lý thủ công.</p>
+        <p th:text="#{email.propertySuspended.p5}">Trong thời gian này, cơ sở của bạn sẽ không hiển thị trên kết quả tìm kiếm và không thể nhận đặt phòng mới. Các đặt phòng hiện tại (nếu có) có thể cần được xử lý thủ công.</p>
 
-        <p>Nếu bạn cho rằng đây là sự nhầm lẫn hoặc muốn giải quyết vấn đề để mở lại hoạt động, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi hoặc trả lời email này.</p>
+        <p th:text="#{email.propertySuspended.p6}">Nếu bạn cho rằng đây là sự nhầm lẫn hoặc muốn giải quyết vấn đề để mở lại hoạt động, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi hoặc trả lời email này.</p>
 
-        <p>Trân trọng,<br>Đội ngũ TravelMate</p>
+        <p th:utext="#{email.common.signature}">Trân trọng,<br>Đội ngũ TravelMate</p>
     </div>
     <div class="footer">
         <p>&copy; 2025 TravelMate System. All rights reserved.</p>
-        <p>Đây là email tự động, vui lòng không trả lời trực tiếp email này nếu không cần thiết.</p>
+        <p th:text="#{email.propertySuspended.p8}">Đây là email tự động, vui lòng không trả lời trực tiếp email này nếu không cần thiết.</p>
     </div>
 </div>
 </body>

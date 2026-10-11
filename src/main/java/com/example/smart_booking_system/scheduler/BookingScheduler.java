@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.scheduler;
 
+import lombok.extern.slf4j.Slf4j;
 import com.example.smart_booking_system.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class BookingScheduler {
 
     private final BookingService bookingService;
@@ -19,7 +21,7 @@ public class BookingScheduler {
 
     @Scheduled(cron = "0 0 8 * * *")
     public void sendCheckinReminders() {
-        System.out.println("⏰ Bắt đầu quét và gửi email nhắc nhở check-in...");
+        log.info("Sending check-in reminders");
         bookingService.sendCheckinReminders();
     }
 }

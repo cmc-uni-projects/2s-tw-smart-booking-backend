@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.request.PropertyPoliciesRequestDTO;
 import com.example.smart_booking_system.service.PropertyPoliciesService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/properties")  // Base URL theo chuẩn RESTful
 @RequiredArgsConstructor
 public class PropertyPoliciesController {
+
+    private final Messages messages;
 
     private final PropertyPoliciesService policyService;
 
@@ -24,7 +27,7 @@ public class PropertyPoliciesController {
         try {
             return ResponseEntity.ok(policyService.addPolicies(propertyId, req));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -39,7 +42,7 @@ public class PropertyPoliciesController {
         try {
             return ResponseEntity.ok(policyService.updatePolicies(propertyId, req));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -52,7 +55,7 @@ public class PropertyPoliciesController {
         try {
             return ResponseEntity.ok(policyService.getPoliciesByPropertyId(propertyId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 }

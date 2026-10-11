@@ -56,7 +56,7 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
     // 2. DANH SÁCH NỔI BẬT
     // ============================================================
     @Query(
-            value = "SELECT * FROM properties WHERE is_active = TRUE AND property_status = 'APPROVE' ORDER BY rating DESC LIMIT 10",
+            value = "SELECT * FROM properties WHERE isActive = TRUE AND propertyStatus = 'APPROVE' ORDER BY rating DESC LIMIT 10",
             nativeQuery = true
     )
     List<Property> findFeaturedProperties();

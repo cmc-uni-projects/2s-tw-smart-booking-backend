@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.response.property.PropertyMapDTO;
 import com.example.smart_booking_system.exception.ForbiddenException;
 import com.example.smart_booking_system.service.PropertyService;
@@ -35,6 +36,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/properties")
 public class PropertyController {
+
+    private final Messages messages;
     private final PropertyService propertyService;
     private final SearchHistoryService searchHistoryService;
 
@@ -53,12 +56,12 @@ public class PropertyController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity
                     .badRequest()
-                    .body(e.getMessage());
+                    .body(messages.of(e));
 
         } catch (Exception e) {
             return ResponseEntity
                     .internalServerError()
-                    .body("Error adding property: " + e.getMessage());
+                    .body(messages.of(e));
         }
     }
 
@@ -75,7 +78,7 @@ public class PropertyController {
 
             if (propertyImages == null || propertyImages.size() < 3) {
                 return ResponseEntity.badRequest().body(
-                        ApiResponse.error("Bạn phải tải lên ít nhất 3 ảnh cho chỗ nghỉ")
+                        ApiResponse.error(messages.t("error.property.minImages"))
                 );
             }
 
@@ -89,18 +92,18 @@ public class PropertyController {
                     propertyService.submitPropertyApplication(dto, propertyImages, ownerId);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(
-                    ApiResponse.success("Nộp đơn đăng ký cơ sở thành công", newProperty)
+                    ApiResponse.success(messages.t("api.property.submitted"), newProperty)
             );
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
 
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Dữ liệu JSON không hợp lệ"));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.t("error.json.invalid")));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(
-                    ApiResponse.error("Lỗi khi nộp đơn: " + e.getMessage())
+                    ApiResponse.error(messages.of(e))
             );
         }
     }
@@ -116,9 +119,9 @@ public class PropertyController {
             return ResponseEntity.ok(property);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error updating property: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(messages.of(e));
         }
     }
 
@@ -137,9 +140,9 @@ public class PropertyController {
 
             List<PropertyDetailDTO> properties = propertyService.getOwnerProperties(ownerId);
 
-            return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tài sản thành công", properties));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.property.listed"), properties));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -152,11 +155,11 @@ public class PropertyController {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
             return ResponseEntity.ok(ApiResponse.success(
-                    "Thành công",
+                    messages.t("api.ok"),
                     propertyService.getOwnerActiveProperties(userDetails.getUserId())
             ));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -185,12 +188,12 @@ public class PropertyController {
         if (isAvailable) {
             // ✅ Dùng hàm success(message, data) có sẵn
             return ResponseEntity.ok(
-                    ApiResponse.success("Tên hợp lệ", true)
+                    ApiResponse.success(messages.t("api.name.available"), true)
             );
         } else {
             // ✅ Dùng hàm error(message) có sẵn
             return ResponseEntity.status(409).body(
-                    ApiResponse.error("Tên chỗ nghỉ đã tồn tại")
+                    ApiResponse.error(messages.t("error.property.nameTaken"))
             );
         }
     }
@@ -204,15 +207,15 @@ public class PropertyController {
             boolean newStatus = propertyService.togglePropertyStatus(id, ownerId);
 
             return ResponseEntity.ok(ApiResponse.success(
-                    newStatus ? "Đã bật hoạt động cơ sở lưu trú" : "Đã tạm ngưng cơ sở lưu trú",
+                    newStatus ? messages.t("api.property.activated") : messages.t("api.property.deactivated"),
                     newStatus
             ));
         } catch (ForbiddenException e) {
-            return ResponseEntity.status(403).body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.status(403).body(ApiResponse.error(messages.of(e)));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -280,7 +283,7 @@ public class PropertyController {
                 pageable
         );
 
-        return ResponseEntity.ok(ApiResponse.success("Search results", result));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.search.results"), result));
     }
 
 }

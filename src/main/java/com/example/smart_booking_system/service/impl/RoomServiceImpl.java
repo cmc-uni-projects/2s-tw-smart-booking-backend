@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.service.impl;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
 import com.example.smart_booking_system.dto.response.PriceForecastDTO;
@@ -25,6 +26,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class RoomServiceImpl implements RoomService {
+
+    private final Messages messages;
 
     private final RoomRepository roomRepository;
     private final PropertyRepository propertyRepository;
@@ -60,7 +63,7 @@ public class RoomServiceImpl implements RoomService {
     @Override
     public RoomResponseDTO addRoom(RoomRequestDTO dto, List<MultipartFile> images) {
         Property property = propertyRepository.findById(dto.getPropertyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
         Room room = new Room();
         // ✅ SỬA: setProperty thay vì setPropertyId
@@ -100,7 +103,7 @@ public class RoomServiceImpl implements RoomService {
                 LogAction.CREATE,
                 LogEntityType.ROOM,
                 String.valueOf(savedRoom.getRoomId()),
-                "Tạo phòng: " + savedRoom.getRoomName(),
+                messages.deferred("audit.room.created", savedRoom.getRoomName()),
                 null,
                 null
         );
@@ -134,7 +137,7 @@ public class RoomServiceImpl implements RoomService {
     @Override
     public RoomResponseDTO updateRoom(int roomId, RoomRequestDTO dto, List<MultipartFile> newImages) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
         String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
@@ -165,7 +168,7 @@ public class RoomServiceImpl implements RoomService {
                 LogAction.UPDATE,
                 LogEntityType.ROOM,
                 String.valueOf(savedRoom.getRoomId()),
-                "Cập nhật phòng: " + savedRoom.getRoomName(),
+                messages.deferred("audit.room.updated", savedRoom.getRoomName()),
                 oldValue,
                 SystemLogJsonUtil.roomSnapshot(savedRoom)
         );
@@ -186,7 +189,7 @@ public class RoomServiceImpl implements RoomService {
     @Override
     public void deleteRoom(int roomId) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
         String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
@@ -198,7 +201,7 @@ public class RoomServiceImpl implements RoomService {
                 LogAction.UPDATE,
                 LogEntityType.ROOM,
                 String.valueOf(room.getRoomId()),
-                "Ẩn phòng: " + room.getRoomName(),
+                messages.deferred("audit.room.hidden", room.getRoomName()),
                 oldValue,
                 SystemLogJsonUtil.roomSnapshot(room)
         );
@@ -208,7 +211,7 @@ public class RoomServiceImpl implements RoomService {
     @Transactional(readOnly = true)
     public RoomResponseDTO getRoomById(int roomId) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with ID: " + roomId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound", roomId));
         return mapToRoomDTO(room);
     }
 
@@ -217,7 +220,7 @@ public class RoomServiceImpl implements RoomService {
     @Transactional(readOnly = true)
     public List<PriceForecastDTO> getPriceForecast(int roomId, LocalDate startDate, int days) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
         List<PriceForecastDTO> forecastList = new ArrayList<>();
         LocalDate current = (startDate != null) ? startDate : LocalDate.now();
@@ -238,7 +241,7 @@ public class RoomServiceImpl implements RoomService {
 @Override
 public void suspendRoom(Integer roomId, String reason) {
     Room room = roomRepository.findById(roomId)
-            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng với ID: " + roomId));
+            .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound", roomId));
 
     String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
@@ -251,7 +254,7 @@ public void suspendRoom(Integer roomId, String reason) {
             LogAction.UPDATE,
             LogEntityType.ROOM,
             String.valueOf(room.getRoomId()),
-            "Tạm dừng phòng: " + room.getRoomName() + " | Lý do: " + reason,
+            messages.deferred("audit.room.suspended", room.getRoomName(), reason),
             oldValue,
             SystemLogJsonUtil.roomSnapshot(room)
     );
@@ -259,17 +262,8 @@ public void suspendRoom(Integer roomId, String reason) {
     Property property = room.getProperty();
     User owner = property.getOwner();
 
-    String title = "Tạm dừng phòng tại " + property.getPropertyName();
-    String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" +
-            property.getPropertyName() + "' đã bị khóa. Lý do: " + reason;
-
-    notificationService.sendNotification(
-            owner.getUserId(),
-            title,
-            message,
-            NotificationType.ROOM_SUSPENDED,
-            String.valueOf(room.getRoomId())
-    );
+    notificationService.sendNotification(owner.getUserId(), NotificationType.ROOM_SUSPENDED, String.valueOf(room.getRoomId()),
+            "notification.room.suspended", property.getPropertyName(), room.getRoomName(), reason);
 
     emailService.sendRoomSuspensionEmail(
             owner.getEmail(),
@@ -297,7 +291,7 @@ public void suspendRoom(Integer roomId, String reason) {
 @Override
 public void activateRoom(Integer roomId) {
     Room room = roomRepository.findById(roomId)
-            .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
     String oldValue = SystemLogJsonUtil.roomSnapshot(room);
 
@@ -310,7 +304,7 @@ public void activateRoom(Integer roomId) {
             LogAction.UPDATE,
             LogEntityType.ROOM,
             String.valueOf(room.getRoomId()),
-            "Mở lại phòng: " + room.getRoomName(),
+            messages.deferred("audit.room.reactivated", room.getRoomName()),
             oldValue,
             SystemLogJsonUtil.roomSnapshot(room)
     );
@@ -318,17 +312,8 @@ public void activateRoom(Integer roomId) {
     Property property = room.getProperty();
     User owner = property.getOwner();
 
-    String title = "Phòng tại " + property.getPropertyName() + " hoạt động trở lại";
-    String message = "Phòng '" + room.getRoomName() + "' thuộc khách sạn '" +
-            property.getPropertyName() + "' đã được mở khóa và sẵn sàng nhận khách.";
-
-    notificationService.sendNotification(
-            owner.getUserId(),
-            title,
-            message,
-            NotificationType.SYSTEM,
-            String.valueOf(room.getRoomId())
-    );
+    notificationService.sendNotification(owner.getUserId(), NotificationType.SYSTEM, String.valueOf(room.getRoomId()),
+            "notification.room.reactivated", property.getPropertyName(), room.getRoomName());
 
     emailService.sendRoomReactivationEmail(
             owner.getEmail(),

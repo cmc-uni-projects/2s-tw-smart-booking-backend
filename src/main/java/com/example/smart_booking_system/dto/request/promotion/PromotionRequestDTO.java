@@ -15,26 +15,26 @@ import java.time.LocalDateTime;
 @Data
 public class PromotionRequestDTO {
 
-    @NotBlank(message = "Mã khuyến mãi không được để trống")
+    @NotBlank(message = "{validation.promotion.codeRequired}")
     private String code;
 
     private String description;
 
-    @NotNull(message = "Loại giảm giá là bắt buộc")
+    @NotNull(message = "{validation.promotion.typeRequired}")
     private DiscountType discountType;
 
     private PromotionStatus status;
 
     private MembershipRank minMembershipRank;
 
-    @NotNull(message = "Giá trị giảm là bắt buộc")
+    @NotNull(message = "{validation.promotion.valueRequired}")
     @Min(value = 0)
     private BigDecimal discountValue;
 
-    @NotNull(message = "Ngày bắt đầu là bắt buộc, không được là ngày trong quá khứ")
+    @NotNull(message = "{validation.promotion.startRequired}")
     private LocalDateTime startDate;
 
-    @NotNull(message = "Ngày kết thúc là bắt buộc, không được nhỏ hơn ngày hiện tại")
+    @NotNull(message = "{validation.promotion.endRequired}")
     private LocalDateTime endDate;
 
     @Min(value = 0)

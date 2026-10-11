@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.PropertyImageResponseDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.service.PropertyImageService;
@@ -15,6 +16,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PropertyImageController {
 
+    private final Messages messages;
+
     private final PropertyImageService propertyImageService;
 
     // Upload nhiều ảnh cho property
@@ -28,7 +31,7 @@ public class PropertyImageController {
                 propertyImageService.uploadMultiplePropertyImages(propertyId, files);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Upload thành công", result)
+                ApiResponse.success(messages.t("api.upload.done"), result)
         );
     }
 
@@ -56,7 +59,7 @@ public class PropertyImageController {
         propertyImageService.deletePropertyImage(propertyId, imageId);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Đã xóa ảnh")
+                ApiResponse.success(messages.t("api.image.deleted"))
         );
     }
 
@@ -70,7 +73,7 @@ public class PropertyImageController {
         propertyImageService.setCoverImage(propertyId, imageId);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Đặt ảnh bìa thành công")
+                ApiResponse.success(messages.t("api.image.coverSet"))
         );
     }
 }

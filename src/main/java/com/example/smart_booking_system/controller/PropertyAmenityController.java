@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.PropertyAmenityResponseDTO;
 import com.example.smart_booking_system.service.PropertyAmenityService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/propertyAmenity")
 @RequiredArgsConstructor
 public class PropertyAmenityController {
+
+    private final Messages messages;
 
     private final PropertyAmenityService propertyAmenityService;
 
@@ -35,7 +38,7 @@ public class PropertyAmenityController {
             return ResponseEntity.status(201).body(result);
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -50,7 +53,7 @@ public class PropertyAmenityController {
             return ResponseEntity.ok(propertyAmenityService.getByPropertyId(propertyId));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -73,7 +76,7 @@ public class PropertyAmenityController {
             return ResponseEntity.ok(updated);
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 
@@ -89,10 +92,10 @@ public class PropertyAmenityController {
     ) {
         try {
             propertyAmenityService.deletePropertyAmenity(propertyId, amenityId);
-            return ResponseEntity.ok("Property amenity removed successfully");
+            return ResponseEntity.ok(messages.t("api.propertyAmenity.removed"));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(e));
         }
     }
 }

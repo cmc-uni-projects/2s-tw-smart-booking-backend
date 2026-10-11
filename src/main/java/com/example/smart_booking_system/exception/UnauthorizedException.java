@@ -1,7 +1,15 @@
 package com.example.smart_booking_system.exception;
 
-public class UnauthorizedException extends RuntimeException {
-    public UnauthorizedException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class UnauthorizedException extends AppException {
+
+    public UnauthorizedException(String messageKey, Object... args) {
+        super(messageKey, args);
+    }
+
+    @Override
+    public HttpStatus getStatus() {
+        return HttpStatus.UNAUTHORIZED;
     }
 }

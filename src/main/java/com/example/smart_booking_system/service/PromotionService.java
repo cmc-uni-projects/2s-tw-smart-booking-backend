@@ -50,25 +50,25 @@ public class PromotionService {
         if (req.getPropertyId() == null) {
             // ADMIN: Không được trùng với bất kỳ mã nào ĐANG HOẠT ĐỘNG
             if (promotionRepository.existsByCodeAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
-                throw new BadRequestException("Mã khuyến mãi '" + req.getCode() + "' đang được sử dụng (chưa xóa). Vui lòng chọn mã khác.");
+                throw new BadRequestException("error.promotion.codeInUse", req.getCode());
             }
         } else {
             // OWNER:
             // 1. Check trùng Admin (đang hoạt động)
             if (promotionRepository.existsByCodeAndPropertyIsNullAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
-                throw new BadRequestException("Mã '" + req.getCode() + "' đang được Admin sử dụng.");
+                throw new BadRequestException("error.promotion.codeConflict", req.getCode());
             }
             // 2. Check trùng nội bộ KS (đang hoạt động)
             if (promotionRepository.existsByCodeAndProperty_PropertyIdAndStatusNot(req.getCode(), req.getPropertyId(), PromotionStatus.DELETED)) {
-                throw new BadRequestException("Mã '" + req.getCode() + "' đang hoạt động tại khách sạn này.");
+                throw new BadRequestException("error.promotion.codeConflict", req.getCode());
             }
         }
 
         if (req.getStartDate().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Ngày bắt đầu không được chọn trong quá khứ.");
+            throw new BadRequestException("error.promotion.startInPast");
         }
         if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new BadRequestException("Ngày kết thúc phải sau ngày bắt đầu.");
+            throw new BadRequestException("error.promotion.endBeforeStart");
         }
 
         Promotion p = new Promotion();
@@ -86,18 +86,18 @@ public class PromotionService {
 
         if (req.getPropertyId() != null) {
             Property property = propertyRepository.findById(req.getPropertyId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
             boolean isOwner = property.getOwner().getUserId().equals(currentUser.getUserId());
             boolean isAdmin = currentUser.hasRole("ADMIN");
 
             if (!isOwner && !isAdmin) {
-                throw new ForbiddenException("Bạn không có quyền tạo khuyến mãi cho tài sản này.");
+                throw new ForbiddenException("error.promotion.notPropertyOwner");
             }
             p.setProperty(property);
         } else {
             if (!currentUser.hasRole("ADMIN")) {
-                throw new ForbiddenException("Chỉ Admin mới được tạo mã khuyến mãi toàn sàn.");
+                throw new ForbiddenException("error.promotion.adminOnly");
             }
             p.setProperty(null);
         }
@@ -115,9 +115,9 @@ public class PromotionService {
     public PromotionResponseDTO updatePromotion(int id, PromotionRequestDTO req) {
         User currentUser = authService.getCurrentUser();
         Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.promotion.notFound"));
 
-        if (p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Không thể sửa mã đã xóa.");
+        if (p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("error.promotion.deleted");
 
         boolean isCodeChanged = !p.getCode().equalsIgnoreCase(req.getCode());
         Integer currentPropertyId = p.getProperty() != null ? p.getProperty().getPropertyId() : null;
@@ -130,28 +130,28 @@ public class PromotionService {
             if (targetPropertyId == null) {
                 // Admin Update
                 if (promotionRepository.existsByCodeAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
-                    throw new BadRequestException("Mã '" + req.getCode() + "' đang được sử dụng.");
+                    throw new BadRequestException("error.promotion.codeConflict", req.getCode());
                 }
             } else {
                 // Owner Update
                 if (promotionRepository.existsByCodeAndPropertyIsNullAndStatusNot(req.getCode(), PromotionStatus.DELETED)) {
-                    throw new BadRequestException("Mã '" + req.getCode() + "' đang được Admin sử dụng.");
+                    throw new BadRequestException("error.promotion.codeConflict", req.getCode());
                 }
                 if (promotionRepository.existsByCodeAndProperty_PropertyIdAndStatusNot(req.getCode(), targetPropertyId, PromotionStatus.DELETED)) {
-                    throw new BadRequestException("Mã '" + req.getCode() + "' đã tồn tại tại khách sạn bạn chọn.");
+                    throw new BadRequestException("error.promotion.codeConflict", req.getCode());
                 }
             }
         }
 
         if (req.getPropertyId() != null) {
             if (p.getProperty() == null) {
-                if (!currentUser.hasRole("ADMIN")) throw new ForbiddenException("Không thể sửa mã toàn sàn.");
+                if (!currentUser.hasRole("ADMIN")) throw new ForbiddenException("error.promotion.cannotEditPlatform");
             } else if (p.getProperty().getPropertyId() != req.getPropertyId()) {
                 Property newProperty = propertyRepository.findById(req.getPropertyId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Property not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
                 boolean isOwner = newProperty.getOwner().getUserId().equals(currentUser.getUserId());
                 boolean isAdmin = currentUser.hasRole("ADMIN");
-                if (!isOwner && !isAdmin) throw new ForbiddenException("Bạn không sở hữu khách sạn mới này.");
+                if (!isOwner && !isAdmin) throw new ForbiddenException("error.promotion.notNewPropertyOwner");
                 p.setProperty(newProperty);
             }
         }
@@ -177,7 +177,7 @@ public class PromotionService {
         List<Promotion> promotions = promotionRepository.findValidPromotionsList(code.toUpperCase(), LocalDateTime.now());
 
         if (promotions.isEmpty()) {
-            throw new ResourceNotFoundException("Mã khuyến mãi không hợp lệ hoặc đã hết hạn.");
+            throw new ResourceNotFoundException("error.promotion.invalidOrExpired");
         }
 
         // Lọc property
@@ -186,7 +186,7 @@ public class PromotionService {
                 .collect(Collectors.toList());
 
         if (applicable.isEmpty()) {
-            throw new BadRequestException("Mã này không áp dụng cho khách sạn bạn đang đặt.");
+            throw new BadRequestException("error.promotion.notForThisHotel");
         }
 
         applicable.sort((p1, p2) -> {
@@ -199,21 +199,21 @@ public class PromotionService {
     }
 
     public void deletePromotion(int id) {
-        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("error.promotion.notFound"));
         p.setStatus(PromotionStatus.DELETED);
         promotionRepository.save(p);
     }
 
     public PromotionResponseDTO toggleStatus(int id) {
-        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found"));
-        if(p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("Cannot toggle deleted promo");
+        Promotion p = promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("error.promotion.notFound"));
+        if(p.getStatus() == PromotionStatus.DELETED) throw new BadRequestException("error.promotion.deleted");
         if (p.getStatus() == PromotionStatus.PAUSED) p.checkAndSetStatus();
         else p.setStatus(PromotionStatus.PAUSED);
         return new PromotionResponseDTO(promotionRepository.save(p));
     }
 
     public PromotionResponseDTO suggestBestPromotion(String userId, Integer propertyId, BigDecimal bookingAmount) {
-        if (!userRepository.existsById(userId)) throw new ResourceNotFoundException("User not found");
+        if (!userRepository.existsById(userId)) throw new ResourceNotFoundException("error.user.notFound");
 
         // 1. Tính toán Rank người dùng
         BigDecimal totalSpent = bookingRepository.calculateTotalSpentByUser(userId);
@@ -296,7 +296,7 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public PromotionResponseDTO getById(int id) {
-        return new PromotionResponseDTO(promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Not found")));
+        return new PromotionResponseDTO(promotionRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("error.promotion.notFound")));
     }
 
     @Transactional(readOnly = true)
@@ -308,7 +308,7 @@ public class PromotionService {
     }
 
     public PromotionResponseDTO uploadBanner(int promotionId, MultipartFile file) {
-        Promotion p = promotionRepository.findById(promotionId).orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        Promotion p = promotionRepository.findById(promotionId).orElseThrow(() -> new ResourceNotFoundException("error.promotion.notFound"));
         if (p.getBannerUrl() != null && !p.getBannerUrl().isEmpty()) fileStorageService.deleteFile(p.getBannerUrl());
         p.setBannerUrl(fileStorageService.storeImageFile(file, "campaign-images"));
         return new PromotionResponseDTO(promotionRepository.save(p));

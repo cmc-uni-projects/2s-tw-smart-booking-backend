@@ -12,23 +12,23 @@ import java.util.List;
 @Data
 public class RoomRequestDTO {
 
-    @NotNull(message = "Property ID là bắt buộc")
+    @NotNull(message = "{validation.room.propertyRequired}")
     private Integer propertyId;
 
-    @NotBlank(message = "Tên phòng không được để trống")
+    @NotBlank(message = "{validation.room.nameRequired}")
     private String roomName;
 
-    @NotNull(message = "Loại phòng là bắt buộc")
+    @NotNull(message = "{validation.room.categoryRequired}")
     private RoomCategory roomCategory; // SINGLE, DOUBLE, FAMILY, SUITE...
 
-    @NotNull(message = "Giá phòng là bắt buộc")
-    @Min(value = 0, message = "Giá phòng phải lớn hơn 0")
+    @NotNull(message = "{validation.room.priceRequired}")
+    @Min(value = 0, message = "{validation.room.pricePositive}")
     private BigDecimal pricePerNight;
 
-    @Min(value = 0, message = "Giá cuối tuần phải lớn hơn 0")
+    @Min(value = 0, message = "{validation.room.weekendPricePositive}")
     private BigDecimal weekendPrice;
 
-    @Min(value = 1, message = "Sức chứa phải ít nhất 1 người")
+    @Min(value = 1, message = "{validation.room.capacityMin}")
     private int capacity;
 
     private String description;

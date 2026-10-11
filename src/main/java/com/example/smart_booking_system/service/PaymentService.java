@@ -1,5 +1,9 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.BadRequestException;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import lombok.extern.slf4j.Slf4j;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.request.RefundSubmitDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.PaymentResponseDTO;
@@ -18,7 +22,10 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentService {
+
+    private final Messages messages;
 
     private final BookingRepository bookingRepo;
     private final PaymentRepository paymentRepo;
@@ -35,30 +42,30 @@ public class PaymentService {
     public ApiResponse<?> submitPayment(int bookingId, String note, String paymentMethod) {
         // 1. Kiểm tra dữ liệu
         Booking booking = bookingRepo.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.booking.notFound"));
 
         entityManager.refresh(booking);
 
         // [DEBUG] In ra log để kiểm tra giá lúc bắt đầu thanh toán
-        System.out.println("DEBUG: Payment submitting for Booking " + bookingId + " - Current DB Price: " + booking.getTotalPrice());
+        log.debug("Submitting payment for booking {} (price in DB {})", bookingId, booking.getTotalPrice());
 
         Payment payment = paymentRepo.findByBooking_BookingId(bookingId)
-                .orElseThrow(() -> new RuntimeException("Payment info not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.payment.notFound"));
 
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            return ApiResponse.error("Đơn hàng không ở trạng thái chờ thanh toán.");
+            return ApiResponse.error(messages.t("error.payment.notPending"));
         }
 
         // 2. Xử lý logic khuyến mãi (Promotion Count)
         // Tăng count mã Owner
         if (booking.getPromotionCode() != null) {
             int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getPromotionCode());
-            if (updatedRows == 0) throw new RuntimeException("Mã giảm giá Owner '" + booking.getPromotionCode() + "' không khả dụng.");
+            if (updatedRows == 0) throw new BadRequestException("error.promotion.ownerUnavailable", booking.getPromotionCode());
         }
         // Tăng count mã Admin
         if (booking.getAdminPromotionCode() != null) {
             int updatedRows = promotionRepo.incrementUsageCountIfAvailable(booking.getAdminPromotionCode());
-            if (updatedRows == 0) throw new RuntimeException("Mã giảm giá Admin '" + booking.getAdminPromotionCode() + "' không khả dụng.");
+            if (updatedRows == 0) throw new BadRequestException("error.promotion.adminUnavailable", booking.getAdminPromotionCode());
         }
 
         // 3. Cập nhật thông tin thanh toán
@@ -91,44 +98,32 @@ public class PaymentService {
             // --- A. Gửi cho OWNER (Dùng Type: BOOKING_RECEIVED) ---
             User owner = booking.getProperty().getOwner();
             if (owner != null) {
-                notificationService.sendNotification(
-                        owner.getUserId(), // Lấy String ID
-                        "Thanh toán thành công #" + booking.getBookingId(),
-                        "Khách hàng " + booking.getCustomerName() + " đã thanh toán " + priceFormatted + " VNĐ. Đơn hàng đã được xác nhận!",
-                        NotificationType.BOOKING_RECEIVED, // Dùng type dành cho Owner
-                        relatedId
-                );
+                notificationService.sendNotification(owner.getUserId(), NotificationType.BOOKING_RECEIVED, relatedId, "notification.payment.receivedByOwner", relatedId, booking.getCustomerName(), booking.getTotalPrice());
             }
 
             // --- B. [BỔ SUNG] Gửi cho CUSTOMER (Dùng Type: PAYMENT_SUCCESS) ---
             // Khách hàng cũng cần biết mình đã thanh toán thành công
             User customer = booking.getUser();
             if (customer != null) {
-                notificationService.sendNotification(
-                        customer.getUserId(),
-                        "Thanh toán thành công",
-                        "Bạn đã thanh toán thành công " + priceFormatted + " VNĐ cho đơn đặt phòng tại " + booking.getProperty().getPropertyName(),
-                        NotificationType.PAYMENT_SUCCESS, // Dùng type dành cho Customer
-                        relatedId
-                );
+                notificationService.sendNotification(customer.getUserId(), NotificationType.PAYMENT_SUCCESS, relatedId, "notification.payment.success", booking.getTotalPrice(), booking.getProperty().getPropertyName());
             }
 
         } catch (Exception e) {
             // Log lỗi notification không được làm ảnh hưởng transaction chính
-            System.err.println("Lỗi gửi thông báo thanh toán: " + e.getMessage());
+            log.warn("Failed to send payment notifications: {}", e.getMessage());
         }
 
-        return ApiResponse.success("Thanh toán thành công!", new PaymentResponseDTO(payment, null));
+        return ApiResponse.success(messages.t("api.payment.success"), new PaymentResponseDTO(payment, null));
     }
 
     @Transactional
     public ApiResponse<?> requestRefundByUser(int bookingId, RefundSubmitDTO req) {
-        Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new RuntimeException("Booking not found"));
-        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElseThrow(() -> new RuntimeException("Payment not found"));
+        Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new ResourceNotFoundException("error.booking.notFound"));
+        Payment payment = paymentRepo.findByBooking_BookingId(bookingId).orElseThrow(() -> new ResourceNotFoundException("error.payment.notFound"));
 
-        if (booking.getStatus() != BookingStatus.CANCELLED) return ApiResponse.error("Phải Hủy phòng trước khi yêu cầu.");
-        if (payment.getPaymentStatus() != PaymentStatus.APPROVED) return ApiResponse.error("Chưa thanh toán thành công.");
-        if (refundRepo.existsByBooking(booking)) return ApiResponse.error("Đã có yêu cầu đang chờ xử lý.");
+        if (booking.getStatus() != BookingStatus.CANCELLED) return ApiResponse.error(messages.t("error.refund.cancelFirst"));
+        if (payment.getPaymentStatus() != PaymentStatus.APPROVED) return ApiResponse.error(messages.t("error.refund.notPaid"));
+        if (refundRepo.existsByBooking(booking)) return ApiResponse.error(messages.t("error.refund.alreadyRequested"));
 
         RefundRequest refund = new RefundRequest();
         refund.setBooking(booking);
@@ -144,7 +139,7 @@ public class PaymentService {
         payment.setPaymentStatus(PaymentStatus.REFUND_REQUESTED);
         paymentRepo.save(payment);
 
-        return ApiResponse.success("Gửi yêu cầu thành công", new PaymentResponseDTO(payment, refund));
+        return ApiResponse.success(messages.t("api.refund.requested"), new PaymentResponseDTO(payment, refund));
     }
 
     // ✅ SỬA: Hàm xử lý hoàn tiền (Admin duyệt)
@@ -152,14 +147,14 @@ public class PaymentService {
     public ApiResponse<?> processRefund(int refundRequestId, boolean isApproved, String adminNote) {
         // 1. Kiểm tra dữ liệu
         RefundRequest refund = refundRepo.findById(refundRequestId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn tiền"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.refund.notFound"));
 
         Booking booking = refund.getBooking();
         Payment payment = paymentRepo.findByBooking_BookingId(booking.getBookingId())
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.payment.notFound"));
 
         if (refund.getStatus() != RefundRequestStatus.PENDING) {
-            return ApiResponse.error("Yêu cầu này đã được xử lý trước đó.");
+            return ApiResponse.error(messages.t("error.refund.alreadyProcessed"));
         }
 
         // 2. Cập nhật trạng thái
@@ -200,26 +195,14 @@ public class PaymentService {
                 // 2. [FIX] Gửi thông báo cho OWNER
                 User owner = booking.getProperty().getOwner();
                 if (owner != null) {
-                    notificationService.sendNotification(
-                            owner.getUserId(), // [SỬA] Lấy String ID
-                            "Hoàn tiền Booking #" + booking.getBookingId(),
-                            "Admin đã chấp thuận hoàn tiền " + amountFormatted + " VNĐ cho khách hàng. Số dư của bạn sẽ được cập nhật.",
-                            NotificationType.BOOKING_CANCELLED_BY_GUEST, // [SỬA] Dùng Type của Owner (Vì hoàn tiền thường đi kèm hủy)
-                            relatedId
-                    );
+                    notificationService.sendNotification(owner.getUserId(), NotificationType.BOOKING_CANCELLED_BY_GUEST, relatedId, "notification.refund.approvedForOwner", relatedId, refund.getAmount());
                 }
 
                 // 3. [MỚI] Gửi thông báo cho CUSTOMER (Quan trọng)
                 // Khách cần biết yêu cầu của mình đã được duyệt
                 User customer = booking.getUser();
                 if (customer != null) {
-                    notificationService.sendNotification(
-                            customer.getUserId(),
-                            "Yêu cầu hoàn tiền được duyệt",
-                            "Yêu cầu hoàn tiền " + amountFormatted + " VNĐ cho đơn #" + booking.getBookingId() + " đã được chấp thuận.",
-                            NotificationType.REFUND_PROCESSED, // [SỬA] Dùng Type của Customer
-                            relatedId
-                    );
+                    notificationService.sendNotification(customer.getUserId(), NotificationType.REFUND_PROCESSED, relatedId, "notification.refund.requestApproved", refund.getAmount(), relatedId);
                 }
             }
 
@@ -228,21 +211,15 @@ public class PaymentService {
                 // Nên báo cho khách biết tại sao bị từ chối
                 User customer = booking.getUser();
                 if (customer != null) {
-                    notificationService.sendNotification(
-                            customer.getUserId(),
-                            "Yêu cầu hoàn tiền bị từ chối",
-                            "Admin đã từ chối hoàn tiền cho đơn #" + booking.getBookingId() + ". Lý do: " + adminNote,
-                            NotificationType.GENERAL, // Dùng type chung vì không có Type REJECTED_REFUND
-                            relatedId
-                    );
+                    notificationService.sendNotification(customer.getUserId(), NotificationType.GENERAL, relatedId, "notification.refund.requestRejected", relatedId, adminNote);
                 }
             }
 
         } catch (Exception e) {
-            System.err.println("Lỗi gửi email/thông báo hoàn tiền: " + e.getMessage());
+            log.warn("Failed to send refund email/notifications: {}", e.getMessage());
         }
 
-        return ApiResponse.success(isApproved ? "Đã duyệt hoàn tiền" : "Đã từ chối hoàn tiền", null);
+        return ApiResponse.success(isApproved ? messages.t("api.refund.approved") : messages.t("api.refund.rejected"), null);
     }
 
     public List<PaymentResponseDTO> getUserTransactionHistory(String userId) {
@@ -257,6 +234,6 @@ public class PaymentService {
     private void sendConfirmationEmail(Booking booking, String trxRef) {
         try {
             emailService.sendBookingConfirmationEmail(booking.getUser().getEmail(), booking.getUser().getFullName(), String.valueOf(booking.getBookingId()));
-        } catch (Exception e) { System.err.println("Error mail: " + e.getMessage()); }
+        } catch (Exception e) { log.warn("Failed to send booking confirmation email: {}", e.getMessage()); }
     }
 }

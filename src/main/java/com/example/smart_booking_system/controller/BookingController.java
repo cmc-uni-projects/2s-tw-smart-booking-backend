@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.BookingResponseDTO;
 import com.example.smart_booking_system.dto.request.BookingRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
@@ -18,6 +19,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookingController {
 
+    private final Messages messages;
+
     private final BookingService bookingService;
 
 
@@ -30,7 +33,7 @@ public class BookingController {
             BookingResponseDTO result = bookingService.createBooking(req);
             return ResponseEntity.ok(result);
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Create booking failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -51,9 +54,9 @@ public class BookingController {
     public ResponseEntity<?> approveRefund(@PathVariable int bookingId) {
         try {
             bookingService.approveRefund(bookingId);
-            return ResponseEntity.ok("Đã duyệt hoàn tiền và gửi mail thành công!");
+            return ResponseEntity.ok(messages.t("api.refund.approvedAndMailed"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Approve refund failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -65,7 +68,7 @@ public class BookingController {
         try {
             return ResponseEntity.ok(bookingService.getBookingById(bookingId));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Get booking failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -78,7 +81,7 @@ public class BookingController {
             List<BookingResponseDTO> list = bookingService.getBookingsByUserId(userId);
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Get bookings by user failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -91,7 +94,7 @@ public class BookingController {
             List<BookingResponseDTO> list = bookingService.getBookingsByPropertyId(propertyId);
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Get bookings by property failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -104,7 +107,7 @@ public class BookingController {
         try {
             return ResponseEntity.ok(bookingService.getAllBookings());
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Get all bookings failed: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -112,7 +115,7 @@ public class BookingController {
     @PreAuthorize("hasRole('OWNER') or hasRole('ADMIN')")
     public ResponseEntity<?> checkIn(@PathVariable int bookingId) {
         bookingService.checkInBooking(bookingId);
-        return ResponseEntity.ok("Check-in thành công");
+        return ResponseEntity.ok(messages.t("api.booking.checkedIn"));
     }
 
     // Check-out (Mới - Thay thế logic checkout cũ)
@@ -121,9 +124,9 @@ public class BookingController {
     public ResponseEntity<?> checkOut(@PathVariable int bookingId) {
         try {
             bookingService.checkOutBooking(bookingId);
-            return ResponseEntity.ok("Check-out thành công!");
+            return ResponseEntity.ok(messages.t("api.booking.checkedOut"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Check-out thất bại: " + ex.getMessage());
+            return ResponseEntity.badRequest().body(messages.of(ex));
         }
     }
 
@@ -135,16 +138,16 @@ public class BookingController {
     ) {
         try {
             BookingResponseDTO result = bookingService.applyPromotion(bookingId, code);
-            return ResponseEntity.ok(ApiResponse.success("Áp dụng mã giảm giá thành công", result));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.promotion.applied"), result));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(ex)));
         }
     }
 
     @GetMapping("/room/{roomId}/availability")
     public ResponseEntity<ApiResponse> getRoomAvailability(@PathVariable int roomId) {
         List<Map<String, String>> occupiedDates = bookingService.getRoomAvailability(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy lịch bận thành công", occupiedDates));    }
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.booking.availability"), occupiedDates));    }
 
 
     @PutMapping("/{bookingId}/remove-promotion")
@@ -156,9 +159,9 @@ public class BookingController {
         try {
             // Gọi sang Service để xử lý
             BookingResponseDTO result = bookingService.removePromotion(bookingId, code);
-            return ResponseEntity.ok(ApiResponse.success("Đã gỡ bỏ mã giảm giá thành công", result));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.promotion.removed"), result));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(ex)));
         }
     }
 }

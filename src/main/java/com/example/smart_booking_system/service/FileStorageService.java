@@ -73,8 +73,8 @@ public class FileStorageService {
     // ===========================================
     public String storeImageFile(MultipartFile file, String subDirectory) {
         try {
-            if (file.isEmpty()) throw new BadRequestException("Empty file");
-            if (!isImageFile(file)) throw new BadRequestException("Invalid file type");
+            if (file.isEmpty()) throw new BadRequestException("error.file.empty");
+            if (!isImageFile(file)) throw new BadRequestException("error.file.invalidType");
 
             String extension = FilenameUtils.getExtension(file.getOriginalFilename());
             String fileName = UUID.randomUUID().toString() + "." + extension;
@@ -95,7 +95,7 @@ public class FileStorageService {
             return key;
 
         } catch (IOException e) {
-            throw new InternalServerException("Upload failed: " + e.getMessage());
+            throw new InternalServerException("error.file.uploadFailed", e.getMessage());
         }
     }
 
@@ -123,6 +123,10 @@ public class FileStorageService {
     // 🔐 SIGNED URL
     // ===========================================
     public String generateSignedUrl(String key) {
+        // Already a public URL (e.g. seeded demo images) -> nothing to sign
+        if (key != null && (key.startsWith("http://") || key.startsWith("https://"))) {
+            return key;
+        }
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucket)
@@ -137,7 +141,7 @@ public class FileStorageService {
             return presigner.presignGetObject(presignRequest).url().toString();
 
         } catch (Exception e) {
-            throw new RuntimeException("Could not generate signed URL");
+            throw new InternalServerException("error.file.signedUrl");
         }
     }
 }

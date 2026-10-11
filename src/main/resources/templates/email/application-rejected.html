@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Đơn đã bị từ chối - TravelMate</title>
+    <title th:text="#{email.applicationRejected.title1}">Đơn đã bị từ chối - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
@@ -24,15 +24,15 @@
         <img src="cid:logoImage" alt="TravelMate Logo" border="0">
     </div>
     <div class="content">
-        <h2>❌ Xin chào <strong th:text="${applicantName}">Bạn</strong>, Đơn đã bị TỪ CHỐI.</h2>
-        <p>Chúng tôi rất tiếc phải thông báo, đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã bị <strong>TỪ CHỐI</strong>.</p>
-        <p>Bạn có thể nộp lại đơn đăng ký mới (sử dụng chức năng "Nộp đơn" trên hệ thống) với thông tin chính xác hơn.</p>
+        <h2 th:utext="#{email.applicationRejected.h21(${#strings.escapeXml((applicantName))})}">❌ Xin chào <strong th:text="${applicantName}">Bạn</strong>, Đơn đã bị TỪ CHỐI.</h2>
+        <p th:utext="#{email.applicationRejected.p1}">Chúng tôi rất tiếc phải thông báo, đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã bị <strong>TỪ CHỐI</strong>.</p>
+        <p th:text="#{email.applicationRejected.p2}">Bạn có thể nộp lại đơn đăng ký mới (sử dụng chức năng "Nộp đơn" trên hệ thống) với thông tin chính xác hơn.</p>
         <div class="reason-box">
-            <strong style="color: #dc3545;">Lý do từ chối:</strong>
+            <strong style="color: #dc3545;" th:text="#{email.common.rejectionReason}">Lý do từ chối:</strong>
             <p style="margin: 5px 0 0 0; color: #555;" th:text="${reason}">Thông tin cung cấp chưa rõ ràng.</p>
         </div>
     </div>
-    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
+    <div class="footer"><p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>

@@ -1,6 +1,9 @@
 package com.example.smart_booking_system.exception;
 
 import com.example.smart_booking_system.dto.response.ApiResponse;
+import com.example.smart_booking_system.i18n.Messages;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -13,103 +16,73 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Turns exceptions into ApiResponse errors in the request language (Accept-Language).
+ * Business errors carry an i18n key (see AppException); unexpected errors are logged once with
+ * their stack trace and answered with a generic message (no internal details leak to clients).
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<?>> handleResourceNotFoundException(
-            ResourceNotFoundException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(ex.getMessage(), request.getDescription(false)));
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final Messages messages;
+
+    public GlobalExceptionHandler(Messages messages) {
+        this.messages = messages;
     }
 
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ApiResponse<?>> handleBadRequestException(
-            BadRequestException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ex.getMessage(), request.getDescription(false)));
-    }
-
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ApiResponse<?>> handleUnauthorizedException(
-            UnauthorizedException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(ex.getMessage(), request.getDescription(false)));
-    }
-
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<ApiResponse<?>> handleForbiddenException(
-            ForbiddenException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(ex.getMessage(), request.getDescription(false)));
-    }
-
-    @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ApiResponse<?>> handleConflictException(
-            ConflictException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(ex.getMessage(), request.getDescription(false)));
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ApiResponse<?>> handleAppException(AppException ex, WebRequest request) {
+        return error(ex.getStatus(), ex.getMessageKey(), messages.t(ex.getMessageKey(), ex.getArgs()), request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<?>> handleAccessDeniedException(
-            AccessDeniedException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Access denied: " + ex.getMessage(), request.getDescription(false)));
+    public ResponseEntity<ApiResponse<?>> handleAccessDenied(AccessDeniedException ex, WebRequest request) {
+        return error(HttpStatus.FORBIDDEN, "error.accessDenied", messages.t("error.accessDenied"), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        // Default messages are already interpolated from messages*.properties ({key}) in the request locale
+        ex.getBindingResult().getAllErrors().forEach(e ->
+                errors.put(e instanceof FieldError fe ? fe.getField() : e.getObjectName(), e.getDefaultMessage()));
         ApiResponse<Map<String, String>> response = new ApiResponse<>();
         response.setSuccess(false);
-        response.setMessage("Validation failed");
+        response.setMessage(messages.t("error.validation"));
+        response.setCode("error.validation");
         response.setData(errors);
-
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<?>> handleGlobalException(
-            Exception ex, WebRequest request) {
-        ex.printStackTrace();
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal server error: " + ex.getMessage(), request.getDescription(false)));
-    }
-
-    // 1. Xử lý khi sai Tài khoản hoặc Mật khẩu
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<?>> handleBadCredentialsException(
-            BadCredentialsException ex, WebRequest request) {
-        // Trả về 401 Unauthorized
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Tài khoản hoặc mật khẩu không chính xác", request.getDescription(false)));
+    public ResponseEntity<ApiResponse<?>> handleBadCredentials(BadCredentialsException ex, WebRequest request) {
+        return error(HttpStatus.UNAUTHORIZED, "auth.badCredentials", messages.t("auth.badCredentials"), request);
     }
 
-    // 2. Xử lý khi Tài khoản chưa kích hoạt (Chưa xác thực email)
     @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ApiResponse<?>> handleDisabledException(
-            DisabledException ex, WebRequest request) {
-        // Trả về 403 Forbidden (hoặc 401 tùy bạn chọn, nhưng 403 rõ nghĩa hơn cho trường hợp này)
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt!", request.getDescription(false)));
+    public ResponseEntity<ApiResponse<?>> handleDisabled(DisabledException ex, WebRequest request) {
+        return error(HttpStatus.FORBIDDEN, "auth.notVerified", messages.t("auth.notVerified"), request);
     }
 
-    // 3. (Tùy chọn) Xử lý khi tài khoản bị khóa
     @ExceptionHandler(LockedException.class)
-    public ResponseEntity<ApiResponse<?>> handleLockedException(
-            LockedException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Tài khoản đã bị khóa. Vui lòng liên hệ admin.", request.getDescription(false)));
+    public ResponseEntity<ApiResponse<?>> handleLocked(LockedException ex, WebRequest request) {
+        return error(HttpStatus.FORBIDDEN, "auth.locked", messages.t("auth.locked"), request);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<?>> handleUnexpected(Exception ex, WebRequest request) {
+        log.error("Unhandled exception on {}", request.getDescription(false), ex);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "error.unexpected", messages.t("error.unexpected"), request);
+    }
+
+    private static ResponseEntity<ApiResponse<?>> error(HttpStatus status, String code, String message, WebRequest request) {
+        ApiResponse<?> body = ApiResponse.error(message, request.getDescription(false));
+        body.setCode(code);
+        return ResponseEntity.status(status).body(body);
     }
 }

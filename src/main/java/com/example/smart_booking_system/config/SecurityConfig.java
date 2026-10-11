@@ -100,6 +100,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/properties/search").permitAll()
                         .requestMatchers("/api/v1/properties/featured").permitAll()
                         .requestMatchers("/api/v1/properties/{id}").permitAll()
+                        // Read-only data a guest needs to view a hotel page
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/properties/{id}/policies",
+                                "/api/v1/rating/property/**",
+                                "/api/v1/rooms/property/**",
+                                "/api/v1/rooms/{roomId}/price-forecast",
+                                "/api/v1/room-details/**",
+                                "/api/v1/bookings/room/{roomId}/availability",
+                                "/api/v1/promotions/all"
+                        ).permitAll()
                         .requestMatchers("/api/v1/payments/**").authenticated()
 
                         // ===== 2. GENERAL AUTHENTICATED ROUTES =====

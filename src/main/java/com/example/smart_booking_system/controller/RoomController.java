@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.request.room.RoomRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
@@ -22,13 +23,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RoomController {
 
+    private final Messages messages;
+
     private final RoomService roomService;
 
     // 1. Lấy danh sách phòng
     @GetMapping("/property/{propertyId}")
     public ResponseEntity<?> getRoomsByProperty(@PathVariable int propertyId) {
         List<RoomResponseDTO> rooms = roomService.getRoomsByPropertyId(propertyId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", rooms));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.listed"), rooms));
     }
 
     // 2. Thêm phòng mới (Multipart)
@@ -43,9 +46,9 @@ public class RoomController {
             RoomRequestDTO dto = mapper.readValue(roomDataJson, RoomRequestDTO.class);
 
             RoomResponseDTO savedRoom = roomService.addRoom(dto, images);
-            return ResponseEntity.ok(ApiResponse.success("Thêm phòng thành công", savedRoom));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.created"), savedRoom));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi thêm phòng: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -54,7 +57,7 @@ public class RoomController {
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> deleteRoom(@PathVariable int roomId) {
         roomService.deleteRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Xóa phòng thành công", null));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.deleted"), null));
     }
 
     // 4. Cập nhật (Hỗ trợ cả thông tin & upload thêm ảnh)
@@ -74,16 +77,16 @@ public class RoomController {
             // ✅ Gọi Service truyền cả DTO và Images
             RoomResponseDTO updatedRoom = roomService.updateRoom(roomId, dto, images);
 
-            return ResponseEntity.ok(ApiResponse.success("Cập nhật thành công", updatedRoom));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.updated"), updatedRoom));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Lỗi cập nhật: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 
     @GetMapping("/{roomId}")
     public ResponseEntity<?> getRoomDetail(@PathVariable int roomId) {
         RoomResponseDTO room = roomService.getRoomById(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết phòng thành công", room));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.loaded"), room));
     }
 
     // 5. Kiểm tra tên phòng đã tồn tại trong cùng cơ sở lưu trú chưa
@@ -95,9 +98,9 @@ public class RoomController {
     ) {
         boolean exists = roomService.checkRoomNameExists(propertyId, roomName, excludeRoomId);
         if (exists) {
-            return ResponseEntity.status(409).body(ApiResponse.error("Tên phòng đã tồn tại trong cơ sở lưu trú này"));
+            return ResponseEntity.status(409).body(ApiResponse.error(messages.t("error.room.nameTaken")));
         }
-        return ResponseEntity.ok(ApiResponse.success("Tên hợp lệ", true));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.name.available"), true));
     }
 
     // Dự báo giá
@@ -108,7 +111,7 @@ public class RoomController {
             @RequestParam(defaultValue = "14") int days
     ) {
         List<PriceForecastDTO> forecast = roomService.getPriceForecast(roomId, startDate, days);
-        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu dự báo giá thành công", forecast));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.forecast"), forecast));
     }
 
 }

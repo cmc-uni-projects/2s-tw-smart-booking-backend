@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.RoomImageResponseDTO;
 import com.example.smart_booking_system.service.RoomImageService;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/room-images")
 public class RoomImageController {
+
+    @Autowired
+    private Messages messages;
 
     private final RoomImageService roomImageService;
 
@@ -42,9 +47,9 @@ public class RoomImageController {
     ) {
         try {
             roomImageService.deleteRoomImage(roomId, imageId);
-            return ResponseEntity.ok(ApiResponse.success("Đã xóa ảnh thành công", null));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.image.deleted"), null));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
     @PutMapping("/{roomId}/{imageId}/set-cover")
@@ -54,9 +59,9 @@ public class RoomImageController {
     ) {
         try {
             roomImageService.setCoverImage(roomId, imageId);
-            return ResponseEntity.ok(ApiResponse.success("Đã đặt ảnh bìa thành công", null));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.image.coverSet"), null));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.of(e)));
         }
     }
 }

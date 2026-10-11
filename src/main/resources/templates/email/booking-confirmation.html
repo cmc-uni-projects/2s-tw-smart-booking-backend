@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Xác nhận đặt phòng - TravelMate</title>
+    <title th:text="#{email.bookingConfirmation.title1}">Xác nhận đặt phòng - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
@@ -26,23 +26,23 @@
         <img src="cid:logoImage" alt="TravelMate Logo" border="0">
     </div>
     <div class="content">
-        <h2>Xin chào <strong th:text="${username}">Khách hàng</strong>,</h2>
-        <p>Cảm ơn bạn đã lựa chọn <strong>TravelMate</strong>. Chúng tôi vui mừng thông báo đơn đặt phòng của bạn đã được <strong>XÁC NHẬN THÀNH CÔNG</strong>.</p>
+        <h2 th:utext="#{email.common.greeting(${#strings.escapeXml((username))})}">Xin chào <strong th:text="${username}">Khách hàng</strong>,</h2>
+        <p th:utext="#{email.bookingConfirmation.p1}">Cảm ơn bạn đã lựa chọn <strong>TravelMate</strong>. Chúng tôi vui mừng thông báo đơn đặt phòng của bạn đã được <strong>XÁC NHẬN THÀNH CÔNG</strong>.</p>
         <div class="info-box">
-            <strong style="color: #006494; font-size: 16px;">Thông tin đặt phòng:</strong>
+            <strong style="color: #006494; font-size: 16px;" th:text="#{email.bookingConfirmation.strong1}">Thông tin đặt phòng:</strong>
             <hr style="border: 0; border-top: 1px dashed #d1ecf1; margin: 10px 0;">
-            <strong>Mã đặt phòng:</strong> <span th:text="${bookingId}" style="font-weight: bold;">#CODE</span><br>
-            <strong>Ngày nhận phòng:</strong> <span th:text="${checkInDate}">01/01/2024</span><br>
-            <strong>Ngày trả phòng:</strong> <span th:text="${checkOutDate}">05/01/2024</span><br>
-            <strong>Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;">✅ Đã xác nhận</span>
+            <strong th:text="#{email.common.bookingCode}">Mã đặt phòng:</strong> <span th:text="${bookingId}" style="font-weight: bold;">#CODE</span><br>
+            <strong th:text="#{email.bookingConfirmation.strong3}">Ngày nhận phòng:</strong> <span th:text="${checkInDate}">01/01/2024</span><br>
+            <strong th:text="#{email.bookingConfirmation.strong4}">Ngày trả phòng:</strong> <span th:text="${checkOutDate}">05/01/2024</span><br>
+            <strong th:text="#{email.common.status}">Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;" th:text="#{email.bookingConfirmation.span1}">✅ Đã xác nhận</span>
         </div>
-        <p>Bạn có thể xem chi tiết đơn đặt phòng, hướng dẫn check-in và quản lý chuyến đi bằng cách nhấn vào nút bên dưới:</p>
+        <p th:text="#{email.bookingConfirmation.p2}">Bạn có thể xem chi tiết đơn đặt phòng, hướng dẫn check-in và quản lý chuyến đi bằng cách nhấn vào nút bên dưới:</p>
         <div style="text-align: center;">
-            <a th:href="${bookingUrl}" class="btn-action">Xem Chi Tiết Đặt Phòng</a>
+            <a th:href="${bookingUrl}" class="btn-action" th:text="#{email.bookingConfirmation.a1}">Xem Chi Tiết Đặt Phòng</a>
         </div>
-        <p style="margin-top: 25px; font-size: 13px; color: #888;">Nếu bạn không thực hiện yêu cầu này hoặc có thắc mắc, vui lòng liên hệ với bộ phận hỗ trợ ngay lập tức.</p>
+        <p style="margin-top: 25px; font-size: 13px; color: #888;" th:text="#{email.bookingConfirmation.p3}">Nếu bạn không thực hiện yêu cầu này hoặc có thắc mắc, vui lòng liên hệ với bộ phận hỗ trợ ngay lập tức.</p>
     </div>
-    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
+    <div class="footer"><p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>

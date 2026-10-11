@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.ChatResponseDTO;
 import com.example.smart_booking_system.dto.request.ChatRequestDTO;
 import com.example.smart_booking_system.dto.response.ApiResponse;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AiController {
 
+    private final Messages messages;
+
     private final AiService aiService;
 
     @PostMapping("/chat")
@@ -31,12 +34,12 @@ public class AiController {
             ChatResponseDTO aiResult = aiService.processChat(userId, request.getMessage());
 
             return ResponseEntity.ok(
-                    ApiResponse.success("AI trả lời thành công", aiResult)
+                    ApiResponse.success(messages.t("api.ai.answered"), aiResult)
             );
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Lỗi xử lý AI: " + e.getMessage()));
+                    .body(ApiResponse.error(messages.of(e)));
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.response.FileUploadResponse;
 import com.example.smart_booking_system.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -15,13 +16,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FileUploadController {
 
+    private final Messages messages;
+
     private final FileStorageService fileStorageService;
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFiles(@RequestParam("files") List<MultipartFile> files) {
 
         if (files == null || files.isEmpty()) {
-            return ResponseEntity.badRequest().body("Không có file nào được upload!");
+            return ResponseEntity.badRequest().body(messages.t("error.file.noneUploaded"));
         }
 
         List<FileUploadResponse> responses = new ArrayList<>();

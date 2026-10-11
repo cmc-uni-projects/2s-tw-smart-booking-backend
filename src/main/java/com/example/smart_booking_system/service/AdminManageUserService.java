@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.i18n.UserLocales;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.response.admin.AdminUserResponseDTO;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
@@ -16,6 +18,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AdminManageUserService {
+
+    private final Messages messages;
+    private final UserLocales userLocales;
 
     private final UserRepository userRepository;
     private final EmailService emailService;
@@ -41,7 +46,7 @@ public class AdminManageUserService {
     @Transactional(readOnly = true)
     public AdminUserResponseDTO getUserById(String userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound", userId));
         return convertToDTO(user);
     }
 
@@ -49,7 +54,7 @@ public class AdminManageUserService {
     @Transactional
     public void updateUserStatus(String userId, String status, String reason) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         String newStatus = status.toUpperCase();
         user.setStatus(newStatus);
@@ -59,7 +64,7 @@ public class AdminManageUserService {
         if ("BANNED".equals(newStatus) || "SUSPENDED".equals(newStatus)) {
             if (reason == null || reason.trim().isEmpty()) {
                 // Nếu khóa mà không nhập lý do -> Gán lý do mặc định hoặc Báo lỗi tùy bạn
-                reason = "Vi phạm điều khoản sử dụng của hệ thống.";
+                reason = messages.t(userLocales.of(user), "account.defaultLockReason");
             }
             // Gửi email
             emailService.sendAccountLockedEmail(user.getEmail(), user.getFullName(), reason);

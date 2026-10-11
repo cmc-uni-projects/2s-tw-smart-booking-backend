@@ -29,7 +29,7 @@ public class RoomDetailService {
         // 1. Room (Lấy thông tin phòng)
         // ============================
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + roomId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound", roomId));
 
         RoomResponseDTO roomDTO = new RoomResponseDTO();
         roomDTO.setRoomId(room.getRoomId());

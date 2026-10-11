@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.dto.RoomAmenityResponseDTO;
 import com.example.smart_booking_system.entity.Amenity;
 import com.example.smart_booking_system.entity.Room;
@@ -39,10 +41,10 @@ public class RoomAmenityService {
     public List<RoomAmenityResponseDTO> addMultipleAmenities(int roomId, List<Integer> amenityIds) {
 
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
         if (!room.isActive())
-            throw new IllegalArgumentException("Room is inactive");
+            throw new BadRequestException("error.room.inactive");
 
         List<Integer> invalidAmenityIds = new ArrayList<>();
 
@@ -55,7 +57,7 @@ public class RoomAmenityService {
         }
 
         if (!invalidAmenityIds.isEmpty()) {
-            throw new IllegalArgumentException("Invalid amenityIds: " + invalidAmenityIds);
+            throw new BadRequestException("error.amenity.invalidIds", invalidAmenityIds);
         }
 
         // 2. ADD PHASE
@@ -95,21 +97,21 @@ public class RoomAmenityService {
         // 1. Tìm RoomAmenity cũ
         // ✅ SỬA: findByRoom_RoomIdAndAmenity_AmenityId
         RoomAmenity existing = roomAmenityRepository.findByRoom_RoomIdAndAmenity_AmenityId(roomId, oldAmenityId)
-                .orElseThrow(() -> new IllegalArgumentException("This amenity does not belong to this room"));
+                .orElseThrow(() -> new BadRequestException("error.amenity.notLinked"));
 
         // 2. Lấy amenity mới
         Amenity newAmenity = amenityRepository.findById(newAmenityId)
-                .orElseThrow(() -> new IllegalArgumentException("New amenity not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.amenity.notFound"));
 
         if (newAmenity.getAmenityType() != AmenityType.ROOM) {
-            throw new IllegalArgumentException("Amenity type must be ROOM");
+            throw new BadRequestException("error.amenity.wrongType");
         }
 
         // 3. Kiểm tra trùng
         boolean alreadyAssigned = roomAmenityRepository.existsByRoom_RoomIdAndAmenity_AmenityId(roomId, newAmenityId);
 
         if (alreadyAssigned) {
-            throw new IllegalArgumentException("This room already has this amenity");
+            throw new BadRequestException("error.amenity.alreadyAdded");
         }
 
         // 4. Update
@@ -125,7 +127,7 @@ public class RoomAmenityService {
 
         // 1. Tìm bản ghi
         RoomAmenity existing = roomAmenityRepository.findByRoom_RoomIdAndAmenity_AmenityId(roomId, amenityId)
-                .orElseThrow(() -> new IllegalArgumentException("This amenity does not belong to this room"));
+                .orElseThrow(() -> new BadRequestException("error.amenity.notLinked"));
 
         // 2. Soft Delete (Set active = false)
         // Lưu ý: Nếu repository ko có hàm softDelete, ta set thủ công và save

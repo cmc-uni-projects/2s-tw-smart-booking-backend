@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.response.ApiResponse;
 import com.example.smart_booking_system.dto.response.owner.OwnerDashboardDTO;
 import com.example.smart_booking_system.entity.Booking;
@@ -32,6 +34,8 @@ import java.util.Map;
 @PreAuthorize("hasRole('OWNER')")
 public class OwnerDashboardController {
 
+    private final Messages messages;
+
     private final BookingRepository bookingRepo;
     private final PropertyRepository propertyRepo;
     private final UserRepository userRepo;
@@ -43,7 +47,7 @@ public class OwnerDashboardController {
             // 1. Lấy thông tin Owner đang đăng nhập
             String username = authentication.getName();
             User owner = userRepo.findByEmail(username)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin chủ sở hữu"));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
             String ownerId = owner.getUserId();
 
             LocalDate today = LocalDate.now();
@@ -75,7 +79,7 @@ public class OwnerDashboardController {
             List<OwnerDashboardDTO.ReviewDTO> recentReviews = reviewsRaw.stream()
                     .map(r -> OwnerDashboardDTO.ReviewDTO.builder()
                             .id(r.getRatingId())
-                            .user(r.getUserId() != null ? r.getUserId().getFullName() : "Ẩn danh")
+                            .user(r.getUserId() != null ? r.getUserId().getFullName() : messages.t("common.anonymous"))
                             .rating(r.getRating())
                             .text(r.getComment())
                             // ✅ FIX LỖI 500 Ở ĐÂY: Kiểm tra null cho createdAt
@@ -112,11 +116,10 @@ public class OwnerDashboardController {
                     .recentBookings(recentBookings)
                     .build();
 
-            return ResponseEntity.ok(ApiResponse.success("Lấy thống kê Owner Dashboard thành công", response));
+            return ResponseEntity.ok(ApiResponse.success(messages.t("api.dashboard.loaded"), response));
 
         } catch (Exception e) {
-            e.printStackTrace(); // Log lỗi ra console server để debug
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi Server: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 

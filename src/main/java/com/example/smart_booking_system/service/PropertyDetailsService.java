@@ -30,7 +30,7 @@ public class PropertyDetailsService {
         // 1. Lấy Property (Thông tin chính)
         // ============================
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Property not found with id: " + propertyId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound", propertyId));
 
         // Lấy thông tin chi tiết (Diện tích)
         // Nếu chưa có detail thì trả về null hoặc object rỗng tùy logic, ở đây lấy area nếu có

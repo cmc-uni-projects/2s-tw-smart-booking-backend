@@ -13,24 +13,24 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank(message = "Full name is required")
-    @Size(min = 2, max = 255, message = "Full name must be between 2 and 255 characters")
+    @NotBlank(message = "{validation.fullName.required}")
+    @Size(min = 2, max = 255, message = "{validation.fullName.size}")
     private String fullName;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    @Size(max = 255, message = "Email must not exceed 255 characters")
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.invalid}")
+    @Size(max = 255, message = "{validation.email.size}")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+    @NotBlank(message = "{validation.password.required}")
+    @Size(min = 8, max = 100, message = "{validation.password.size}")
     @Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message = "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
+            message = "{validation.password.pattern}"
     )
     private String password;
 
-    @NotBlank(message = "Password confirmation is required")
+    @NotBlank(message = "{validation.password.confirmRequired}")
     private String confirmPassword;
 
     // === ĐÃ XÓA TRƯỜNG phoneNumber TẠI ĐÂY ===

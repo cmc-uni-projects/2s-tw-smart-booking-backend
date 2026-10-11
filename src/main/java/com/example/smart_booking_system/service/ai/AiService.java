@@ -1,5 +1,8 @@
 package com.example.smart_booking_system.service.ai;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.example.smart_booking_system.i18n.Messages;
+import lombok.extern.slf4j.Slf4j;
 import com.example.smart_booking_system.dto.ChatResponseDTO;
 import com.example.smart_booking_system.entity.Property;
 import com.example.smart_booking_system.entity.Room;
@@ -25,6 +28,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
+@Slf4j
 public class AiService {
 
     private final UserRepository userRepository;
@@ -33,6 +37,9 @@ public class AiService {
     private final BookingSessionManager sessionManager;
 
     private WebClient webClient;
+
+    @Autowired
+    private Messages messages;
 
     public AiService(
             UserRepository userRepository,
@@ -76,7 +83,7 @@ public class AiService {
             Bạn phải trả về CHÍNH XÁC 2 phần, theo đúng thứ tự:
                     
             RESPONSE:
-            <một đoạn văn tiếng Việt tự nhiên, truyền cảm, không markdown, không bullet, không quá 5 câu, không tiêu đề>
+            <một đoạn văn tự nhiên bằng ngôn ngữ được yêu cầu (REPLY LANGUAGE), không markdown, không bullet, không quá 5 câu, không tiêu đề>
                     
             PAYLOAD:
             {
@@ -155,7 +162,7 @@ public class AiService {
     public ChatResponseDTO processChat(String userId, String userMessage) {
 
         if (userMessage == null || userMessage.isEmpty()) {
-            return new ChatResponseDTO("Dạ anh/chị gửi nội dung giúp em ạ.", "NORMAL_CHAT", null);
+            return new ChatResponseDTO(messages.t("chat.emptyMessage"), "NORMAL_CHAT", null);
         }
 
         String clean = preprocess(userMessage);
@@ -177,11 +184,11 @@ public class AiService {
 
             if (session.getCity() == null) {
                 session.setStep(BookingSession.Step.WAITING_CITY);
-                return new ChatResponseDTO("Bạn muốn tìm phòng ở thành phố nào ạ?", "NORMAL_CHAT", null);
+                return new ChatResponseDTO(messages.t("chat.askCity"), "NORMAL_CHAT", null);
             }
             if (session.getCapacity() == null) {
                 session.setStep(BookingSession.Step.WAITING_CAPACITY);
-                return new ChatResponseDTO("Bạn muốn tìm phòng cho bao nhiêu người ạ?", "NORMAL_CHAT", null);
+                return new ChatResponseDTO(messages.t("chat.askGuests"), "NORMAL_CHAT", null);
             }
 
             session.setStep(BookingSession.Step.READY);
@@ -191,7 +198,7 @@ public class AiService {
         // ---------------- NORMAL CHAT ----------------
         String aiReply = callGemini(clean);
         if (aiReply == null) {
-            return new ChatResponseDTO("Xin lỗi, em chưa hiểu ý anh/chị ạ.", "NORMAL_CHAT", null);
+            return new ChatResponseDTO(messages.t("chat.notUnderstood"), "NORMAL_CHAT", null);
         }
 
         String responseText = aiReply;
@@ -224,7 +231,7 @@ public class AiService {
             session.setCity(newCity);
             session.setStep(BookingSession.Step.WAITING_CAPACITY);
             return new ChatResponseDTO(
-                    "Dạ mình chuyển sang tìm phòng ở " + newCity + " ạ. Bạn muốn tìm phòng cho bao nhiêu người ạ?",
+                    messages.t("chat.switchCity", newCity),
                     "NORMAL_CHAT",
                     null
             );
@@ -241,9 +248,9 @@ public class AiService {
             if (newCity != null) {
                 session.setCity(newCity);
                 session.setStep(BookingSession.Step.WAITING_CAPACITY);
-                return new ChatResponseDTO("Bạn muốn tìm phòng cho bao nhiêu người ạ?", "NORMAL_CHAT", null);
+                return new ChatResponseDTO(messages.t("chat.askGuests"), "NORMAL_CHAT", null);
             }
-            return new ChatResponseDTO("Anh/chị cho em biết thành phố mình muốn tìm phòng ạ.", "NORMAL_CHAT", null);
+            return new ChatResponseDTO(messages.t("chat.needCity"), "NORMAL_CHAT", null);
         }
 
         if (session.getStep() == BookingSession.Step.WAITING_CAPACITY) {
@@ -252,7 +259,7 @@ public class AiService {
                 session.setStep(BookingSession.Step.READY);
                 return executeSearch(userId, session.getCity(), newCap, session);
             }
-            return new ChatResponseDTO("Anh/chị cho em biết số lượng người ạ?", "NORMAL_CHAT", null);
+            return new ChatResponseDTO(messages.t("chat.needGuests"), "NORMAL_CHAT", null);
         }
 
         if (session.getStep() == BookingSession.Step.READY) {
@@ -260,7 +267,7 @@ public class AiService {
         }
 
         session.reset();
-        return new ChatResponseDTO("Mình bắt đầu lại giúp em được không ạ?", "NORMAL_CHAT", null);
+        return new ChatResponseDTO(messages.t("chat.restart"), "NORMAL_CHAT", null);
     }
 
     // ==========================================================
@@ -274,9 +281,8 @@ public class AiService {
         List<Property> results = propertyDetailRepository.findAvailableProperties(cityKeyword, capacity);
 
         String reply = results.isEmpty()
-                ? "Dạ hiện tại em chưa tìm được chỗ phù hợp ạ."
-                : String.format("Dạ em đã tìm được %d chỗ ở phù hợp tại %s cho %d người ạ.",
-                results.size(), cityRaw, capacity);
+                ? messages.t("chat.noResults")
+                : messages.t("chat.found", results.size(), cityRaw, capacity);
 
         session.reset();
 
@@ -298,6 +304,7 @@ public class AiService {
             ObjectNode sys = objectMapper.createObjectNode();
             sys.putArray("parts").addObject().put("text",
                     BASE_INSTRUCTION + "\nToday: " + LocalDateTime.now()
+                            + "\nREPLY LANGUAGE: " + (org.springframework.context.i18n.LocaleContextHolder.getLocale().getLanguage().equals("en") ? "English" : "Vietnamese")
             );
             req.set("system_instruction", sys);
 
@@ -320,7 +327,8 @@ public class AiService {
             return root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText("");
 
         } catch (Exception e) {
-            return "Xin lỗi anh/chị, hệ thống đang quá tải ạ.";
+            log.warn("Gemini call failed: {}", e.getMessage());
+            return messages.t("chat.overloaded");
         }
     }
 
@@ -339,8 +347,8 @@ public class AiService {
 
     private boolean detectBookingIntent(String text) {
         String s = text.toLowerCase();
-        return s.matches(".*(tìm phòng|đặt phòng|thuê phòng|book).*")
-                || s.matches(".*\\d+\\s*(người|khách).*");
+        return s.matches(".*(tìm phòng|đặt phòng|thuê phòng|book|find a room|find room|hotel room|rooms? for).*")
+                || s.matches(".*\\d+\\s*(người|khách|people|persons|guests|adults).*");
     }
 
     private Integer extractCapacity(String text) {
@@ -351,11 +359,11 @@ public class AiService {
 
     // ❗ FIX: extract city KHÔNG lấy dư chữ “cho”, “2 người”, “với”…
     private String extractCity(String text) {
-        Matcher m = Pattern.compile("\\b(?:ở|tại)\\s+([\\p{L}\\s]+)", Pattern.CASE_INSENSITIVE).matcher(text);
+        Matcher m = Pattern.compile("(?:^|\\s)(?:ở|tại|in|at)\\s+([\\p{L}\\s]+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS).matcher(text);
         if (m.find()) {
             String raw = m.group(1).trim();
             // cắt chữ nối
-            raw = raw.replaceAll("\\b(cho|để|với|cần|muốn)\\b.*", "").trim();
+            raw = raw.replaceAll("(?U)\\b(cho|để|với|cần|muốn|for|with|from|on)\\b.*", "").trim();
             raw = raw.replaceAll("\\d+", "").trim();
             return raw;
         }
@@ -381,7 +389,7 @@ public class AiService {
             root.put("type", "NO_RESULT");
             root.put(
                     "message",
-                    String.format("Xin lỗi anh chị em không tìm thấy dữ liệu ở %s ạ.", city)
+                    messages.t("chat.noData", city)
             );
             return root.toString();
         }

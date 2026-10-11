@@ -1,0 +1,16 @@
+# Liquibase master changelog. Add new changes as new files; never edit a changeset that has run.
+# Contexts: changesets without a context run everywhere; `context:demo` ones only when
+# LIQUIBASE_CONTEXTS includes "demo" (see application.properties: spring.liquibase.contexts).
+databaseChangeLog:
+  - include:
+      file: changes/0001-baseline-schema.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0002-reference-data.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0003-i18n-columns.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/0100-demo-data.sql
+      relativeToChangelogFile: true

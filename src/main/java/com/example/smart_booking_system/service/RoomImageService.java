@@ -35,10 +35,10 @@ public class RoomImageService {
     public void setCoverImage(int roomId, int imageId) {
 
         RoomImage image = roomImageRepository.findById(imageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Image not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.image.notFound"));
 
         if (image.getRoom().getRoomId() != roomId) {
-            throw new BadRequestException("Image does not belong to this room");
+            throw new BadRequestException("error.image.wrongOwner");
         }
 
         roomImageRepository.resetCoverImageByRoomId(roomId);
@@ -51,10 +51,10 @@ public class RoomImageService {
     public List<RoomImageResponseDTO> uploadMultipleRoomImages(int roomId, List<MultipartFile> files) {
 
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new BadRequestException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFound"));
 
         if (files == null || files.isEmpty()) {
-            throw new BadRequestException("No files uploaded");
+            throw new BadRequestException("error.file.noneUploaded");
         }
 
         List<RoomImageResponseDTO> result = new ArrayList<>();
@@ -107,10 +107,10 @@ public class RoomImageService {
     public void deleteRoomImage(int roomId, int imageId) {
 
         RoomImage img = roomImageRepository.findById(imageId)
-                .orElseThrow(() -> new BadRequestException("Image not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.image.notFound"));
 
         if (img.getRoom().getRoomId() != roomId) {
-            throw new BadRequestException("This image does not belong to this room");
+            throw new BadRequestException("error.image.wrongOwner");
         }
 
         fileStorageService.deleteFile(img.getImageUrl()); // dùng key đầy đủ

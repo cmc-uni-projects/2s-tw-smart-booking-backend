@@ -31,7 +31,7 @@ public class SearchHistoryService {
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng cho lịch sử"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
 
         SearchHistory history = new SearchHistory(user, searchTerm.trim());
         searchHistoryRepository.save(history);

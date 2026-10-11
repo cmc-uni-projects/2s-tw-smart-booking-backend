@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.entity.SearchHistory;
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.SearchHistoryService;
@@ -20,6 +21,8 @@ import java.util.stream.Collectors;
 @PreAuthorize("hasRole('CUSTOMER') or hasRole('OWNER') or hasRole('ADMIN')")
 public class SearchHistoryController {
 
+    private final Messages messages;
+
     private final SearchHistoryService searchHistoryService;
 
     /**
@@ -30,7 +33,7 @@ public class SearchHistoryController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         if (userDetails == null) {
-            return ResponseEntity.status(401).body("Yêu cầu đăng nhập");
+            return ResponseEntity.status(401).body(messages.t("error.auth.loginRequired"));
         }
 
         String userId = userDetails.getUserId();

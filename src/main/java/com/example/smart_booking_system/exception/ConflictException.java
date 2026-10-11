@@ -1,7 +1,15 @@
 package com.example.smart_booking_system.exception;
 
-public class ConflictException extends RuntimeException {
-    public ConflictException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class ConflictException extends AppException {
+
+    public ConflictException(String messageKey, Object... args) {
+        super(messageKey, args);
+    }
+
+    @Override
+    public HttpStatus getStatus() {
+        return HttpStatus.CONFLICT;
     }
 }

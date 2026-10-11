@@ -1,5 +1,9 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.exception.UnauthorizedException;
+import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.exception.ForbiddenException;
+import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.dto.request.RatingRequestDTO;
 import com.example.smart_booking_system.entity.Booking;
 import com.example.smart_booking_system.entity.Property;
@@ -73,18 +77,18 @@ public class RatingService {
     @Transactional
     public Rating createRating(RatingRequestDTO dto, List<MultipartFile> files) {
         if (ratingRepository.existsByBookingId_BookingId(dto.getBookingId())) {
-            throw new RuntimeException("Bạn đã đánh giá đơn đặt phòng này rồi.");
+            throw new BadRequestException("error.rating.alreadyReviewed");
         }
 
         Booking booking = bookingRepository.findById(dto.getBookingId())
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.booking.notFound"));
 
         if (booking.getStatus() != BookingStatus.COMPLETED) {
-            throw new RuntimeException("Bạn chỉ có thể đánh giá khi chuyến đi đã hoàn thành.");
+            throw new BadRequestException("error.rating.notCompleted");
         }
 
         RatingType type = classify(dto.getStars(), dto.getComment());
-        if (type == RatingType.VIOLATION) throw new RuntimeException("Đánh giá chứa từ ngữ không phù hợp.");
+        if (type == RatingType.VIOLATION) throw new BadRequestException("error.rating.inappropriate");
 
         Rating rating = new Rating();
         rating.setBookingId(booking);
@@ -118,13 +122,13 @@ public class RatingService {
     @Transactional
     public Rating updateRating(int id, RatingRequestDTO dto, List<MultipartFile> files) {
         Rating rating = ratingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.rating.notFound"));
 
         rating.setRating(dto.getStars());
         rating.setComment(dto.getComment());
 
         RatingType type = classify(dto.getStars(), dto.getComment());
-        if (type == RatingType.VIOLATION) throw new RuntimeException("Nội dung không phù hợp.");
+        if (type == RatingType.VIOLATION) throw new BadRequestException("error.rating.inappropriate");
         rating.setRatingType(type);
 
         if (files != null && !files.isEmpty()) {
@@ -152,7 +156,7 @@ public class RatingService {
 
     public void deleteRating(int id) {
         Rating rating = ratingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.rating.notFound"));
         int propertyId = rating.getBookingId().getProperty().getPropertyId();
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -163,7 +167,7 @@ public class RatingService {
         String ownerEmail = rating.getUserId().getEmail();
 
         if (!isAdmin && !currentUsername.equals(ownerEmail)) {
-            throw new RuntimeException("Bạn không có quyền xóa đánh giá này.");
+            throw new ForbiddenException("error.rating.cannotDelete");
         }
 
         List<RatingImage> imgs = ratingImageRepository.getImagesByRatingId(id);
@@ -191,7 +195,7 @@ public class RatingService {
 
     public Rating pinRating(int ratingId, boolean pin) {
         Rating rating = ratingRepository.findById(ratingId)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.rating.notFound"));
 
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -200,13 +204,13 @@ public class RatingService {
         if (auth.getPrincipal() instanceof CustomUserDetails) {
             currentUserId = ((CustomUserDetails) auth.getPrincipal()).getUserId();
         } else {
-            throw new RuntimeException("Không xác thực được người dùng.");
+            throw new UnauthorizedException("error.auth.notLoggedIn");
         }
 
         if (!isAdmin) {
             String propertyOwnerId = String.valueOf(rating.getBookingId().getProperty().getOwner().getUserId());
             if (!currentUserId.equals(propertyOwnerId)) {
-                throw new RuntimeException("Bạn không có quyền ghim đánh giá của khách sạn này.");
+                throw new ForbiddenException("error.rating.cannotPin");
             }
         }
 
@@ -214,7 +218,7 @@ public class RatingService {
             int propertyId = rating.getBookingId().getProperty().getPropertyId();
             int currentPinnedCount = ratingRepository.countByBookingId_Property_PropertyIdAndIsPinnedTrue(propertyId);
             if (currentPinnedCount >= 3) {
-                throw new RuntimeException("Chỉ được ghim tối đa 3 bình luận.");
+                throw new BadRequestException("error.rating.pinLimit");
             }
         }
 
@@ -224,7 +228,7 @@ public class RatingService {
 
     public Rating hideRating(int ratingId, boolean hide) {
         Rating rating = ratingRepository.findById(ratingId)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.rating.notFound"));
 
         rating.setHidden(hide);
         Rating saved = ratingRepository.save(rating);
@@ -245,7 +249,7 @@ public class RatingService {
 
         BigDecimal avgRating = BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP);
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new RuntimeException("Property not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
         property.setReviewCount(count);
         property.setRating(avgRating);
@@ -253,8 +257,8 @@ public class RatingService {
     }
 
     public Rating getRatingById(int id) {
-        Rating rating = ratingRepository.findById(id).orElseThrow(() -> new RuntimeException("Rating not found"));
-        if (rating.isHidden()) throw new RuntimeException("This rating is hidden.");
+        Rating rating = ratingRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("error.rating.notFound"));
+        if (rating.isHidden()) throw new ResourceNotFoundException("error.rating.hidden");
         return attachImages(rating);
     }
 
@@ -271,7 +275,7 @@ public class RatingService {
             RatingType type = RatingType.valueOf(ratingTypeStr.toUpperCase());
             return paginate(ratingRepository.getRatingByRatingType(type), page);
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Loại đánh giá không hợp lệ: " + ratingTypeStr);
+            throw new BadRequestException("error.rating.invalidType", ratingTypeStr);
         }
     }
 

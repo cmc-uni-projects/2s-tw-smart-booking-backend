@@ -5,9 +5,14 @@ import com.example.smart_booking_system.entity.Notification;
 import com.example.smart_booking_system.entity.User;
 import com.example.smart_booking_system.enums.NotificationType;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
+import com.example.smart_booking_system.i18n.Messages;
+import com.example.smart_booking_system.i18n.UserLocales;
 import com.example.smart_booking_system.repository.NotificationRepository;
 import com.example.smart_booking_system.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,14 +20,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
+/**
+ * In-app notifications. Senders pass an i18n key prefix + arguments: "notification.booking.created"
+ * resolves "notification.booking.created.title" / ".message" from i18n/messages*.properties.
+ * The key and arguments are stored, so the inbox is rendered in the reader's current language;
+ * title/message also keep a copy in the recipient's preferred language (and are the only text for
+ * notifications created before keys existed).
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final Messages messages;
+    private final UserLocales userLocales;
+    private final ObjectMapper objectMapper;
 
     // --- ĐỊNH NGHĨA SCOPE ---
     private static final List<NotificationType> CUSTOMER_TYPES = Arrays.asList(
@@ -39,7 +56,6 @@ public class NotificationService {
             NotificationType.SYSTEM
     );
 
-    // [BỔ SUNG] Danh sách thông báo cho Admin
     private static final List<NotificationType> ADMIN_TYPES = Arrays.asList(
             NotificationType.ADMIN_NEW_OWNER_REGISTRATION,
             NotificationType.ADMIN_NEW_PROPERTY_SUBMISSION,
@@ -66,54 +82,50 @@ public class NotificationService {
     @Transactional
     public void markAsRead(Long id, String userId) {
         if (!notificationRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Notification not found");
+            throw new ResourceNotFoundException("error.notification.notFound");
         }
         notificationRepository.markAsRead(id, userId);
     }
 
     // --- PHẦN 2: LOGIC GHI (CREATE/SEND) ---
 
+    /**
+     * @param key  key prefix, e.g. "notification.booking.created" (".title" / ".message" are appended)
+     * @param args MessageFormat arguments ({0}, {1}, …); strings and numbers are stored as JSON
+     */
     @Transactional
-    public void sendNotification(String userId, String title, String message, NotificationType type, String relatedEntityId) {
+    public void sendNotification(String userId, NotificationType type, String relatedEntityId, String key, Object... args) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found to send notification"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.user.notFound"));
+        notificationRepository.save(build(user, type, relatedEntityId, key, args));
+    }
 
-        Notification notification = Notification.builder()
+    /** Same notification for every admin (each rendered in that admin's language). */
+    @Transactional
+    public void sendToAllAdmins(NotificationType type, String relatedEntityId, String key, Object... args) {
+        List<User> admins = userRepository.findByRoleName("ADMIN");
+        if (admins.isEmpty()) {
+            log.warn("No admin account to notify about {}", key);
+            return;
+        }
+        notificationRepository.saveAll(admins.stream()
+                .map(admin -> build(admin, type, relatedEntityId, key, args))
+                .collect(Collectors.toList()));
+    }
+
+    private Notification build(User user, NotificationType type, String relatedEntityId, String key, Object[] args) {
+        Locale locale = userLocales.of(user);
+        return Notification.builder()
                 .user(user)
-                .title(title)
-                .message(message)
+                .titleKey(key + ".title")
+                .messageKey(key + ".message")
+                .params(toJson(args))
+                .title(messages.t(locale, key + ".title", args))
+                .message(messages.t(locale, key + ".message", args))
                 .type(type)
                 .isRead(false)
                 .relatedEntityId(relatedEntityId)
                 .build();
-
-        notificationRepository.save(notification);
-    }
-
-    // [BỔ SUNG] Gửi thông báo cho TẤT CẢ Admin
-    @Transactional
-    public void sendToAllAdmins(String title, String message, NotificationType type, String relatedEntityId) {
-        // Tìm tất cả user có role là ADMIN
-        List<User> admins = userRepository.findByRoleName("ADMIN");
-
-        if (admins.isEmpty()) {
-            return; // Không có admin nào thì bỏ qua
-        }
-
-        // Tạo danh sách notification cho từng admin
-        List<Notification> notifications = admins.stream()
-                .map(admin -> Notification.builder()
-                        .user(admin)
-                        .title(title)
-                        .message(message)
-                        .type(type)
-                        .isRead(false)
-                        .relatedEntityId(relatedEntityId)
-                        .build())
-                .collect(Collectors.toList());
-
-        // Lưu hàng loạt (Batch insert)
-        notificationRepository.saveAll(notifications);
     }
 
     // --- HELPER METHODS ---
@@ -121,19 +133,43 @@ public class NotificationService {
     private List<NotificationType> getTypesByScope(String scope) {
         if ("OWNER".equalsIgnoreCase(scope)) return OWNER_TYPES;
         if ("CUSTOMER".equalsIgnoreCase(scope)) return CUSTOMER_TYPES;
-        if ("ADMIN".equalsIgnoreCase(scope)) return ADMIN_TYPES; // [BỔ SUNG] Xử lý scope ADMIN
+        if ("ADMIN".equalsIgnoreCase(scope)) return ADMIN_TYPES;
         return Arrays.asList(NotificationType.values());
     }
 
-    private NotificationResponseDTO convertToDTO(Notification notification) {
+    private NotificationResponseDTO convertToDTO(Notification n) {
+        Object[] args = fromJson(n.getParams());
+        // Render in the reader's language (Accept-Language) when the key is known; else the stored copy
+        String title = n.getTitleKey() != null ? messages.t(n.getTitleKey(), args) : n.getTitle();
+        String message = n.getMessageKey() != null ? messages.t(n.getMessageKey(), args) : n.getMessage();
         return NotificationResponseDTO.builder()
-                .id(notification.getId())
-                .title(notification.getTitle())
-                .message(notification.getMessage())
-                .type(notification.getType())
-                .isRead(notification.isRead())
-                .createdAt(notification.getCreatedAt())
-                .relatedEntityId(notification.getRelatedEntityId())
+                .id(n.getId())
+                .title(title)
+                .message(message)
+                .type(n.getType())
+                .isRead(n.isRead())
+                .createdAt(n.getCreatedAt())
+                .relatedEntityId(n.getRelatedEntityId())
                 .build();
+    }
+
+    private String toJson(Object[] args) {
+        if (args == null || args.length == 0) return null;
+        try {
+            return objectMapper.writeValueAsString(args);
+        } catch (JsonProcessingException e) {
+            log.warn("Cannot serialise notification params", e);
+            return null;
+        }
+    }
+
+    private Object[] fromJson(String json) {
+        if (json == null || json.isBlank()) return new Object[0];
+        try {
+            return objectMapper.readValue(json, Object[].class);
+        } catch (JsonProcessingException e) {
+            log.warn("Cannot read notification params {}", json, e);
+            return new Object[0];
+        }
     }
 }

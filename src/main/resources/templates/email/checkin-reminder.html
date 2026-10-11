@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Nhắc nhở Check-in - TravelMate</title>
+    <title th:text="#{email.checkinReminder.title1}">Nhắc nhở Check-in - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
@@ -40,28 +40,28 @@
         <img src="cid:logoImage" alt="TravelMate Logo" border="0">
     </div>
     <div class="content">
-        <h2>⏰ Sẵn sàng cho chuyến đi ngày mai?</h2>
+        <h2 th:text="#{email.checkinReminder.h21}">⏰ Sẵn sàng cho chuyến đi ngày mai?</h2>
 
-        <p>Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((username))})}">Xin chào <strong th:text="${username}">Khách hàng</strong>,</p>
 
-        <p>TravelMate gửi lời nhắc nhở thân thiện rằng bạn có một chuyến đi sắp tới vào ngày mai. Chúng tôi hy vọng bạn đã chuẩn bị sẵn sàng cho kỳ nghỉ tuyệt vời này!</p>
+        <p th:text="#{email.checkinReminder.p2}">TravelMate gửi lời nhắc nhở thân thiện rằng bạn có một chuyến đi sắp tới vào ngày mai. Chúng tôi hy vọng bạn đã chuẩn bị sẵn sàng cho kỳ nghỉ tuyệt vời này!</p>
 
         <div class="booking-info">
-            <div><strong>🏨 Khách sạn:</strong> <span th:text="${propertyName}">Luxury Resort</span></div>
-            <div><strong>📅 Ngày nhận phòng:</strong> <span th:text="${checkInDate}">2024-01-01</span></div>
-            <div><strong>🎫 Mã đặt phòng:</strong> #<span th:text="${bookingId}">12345</span></div>
-            <div><strong>📍 Địa chỉ:</strong> Xem chi tiết trong đơn hàng</div>
+            <div><strong th:text="#{email.checkinReminder.strong1}">🏨 Khách sạn:</strong> <span th:text="${propertyName}">Luxury Resort</span></div>
+            <div><strong th:text="#{email.checkinReminder.strong2}">📅 Ngày nhận phòng:</strong> <span th:text="${checkInDate}">2024-01-01</span></div>
+            <div><strong th:text="#{email.common.bookingCodeIcon}">🎫 Mã đặt phòng:</strong> #<span th:text="${bookingId}">12345</span></div>
+            <div th:utext="#{email.checkinReminder.div1}"><strong>📍 Địa chỉ:</strong> Xem chi tiết trong đơn hàng</div>
         </div>
 
-        <p>Vui lòng kiểm tra lại thông tin và mang theo giấy tờ tùy thân (CCCD/Hộ chiếu) để thủ tục nhận phòng diễn ra thuận lợi.</p>
+        <p th:text="#{email.checkinReminder.p3}">Vui lòng kiểm tra lại thông tin và mang theo giấy tờ tùy thân (CCCD/Hộ chiếu) để thủ tục nhận phòng diễn ra thuận lợi.</p>
 
         <div style="text-align: center;">
-            <a th:href="${bookingUrl}" class="btn-action">Xem chi tiết đơn đặt phòng</a>
+            <a th:href="${bookingUrl}" class="btn-action" th:text="#{email.checkinReminder.a1}">Xem chi tiết đơn đặt phòng</a>
         </div>
     </div>
     <div class="footer">
-        <p>Bạn nhận được email này vì bạn có đơn đặt phòng tại TravelMate.</p>
-        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
+        <p th:text="#{email.checkinReminder.p4}">Bạn nhận được email này vì bạn có đơn đặt phòng tại TravelMate.</p>
+        <p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
     </div>
 </div>
 </body>

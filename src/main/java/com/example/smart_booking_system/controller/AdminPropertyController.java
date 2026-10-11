@@ -1,5 +1,6 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.i18n.Messages;
 import com.example.smart_booking_system.dto.RoomResponseDTO;
 import com.example.smart_booking_system.dto.PropertyResponseDTO; // Đảm bảo bạn có DTO này
 import com.example.smart_booking_system.dto.request.admin.PropertyReviewDTO;
@@ -29,6 +30,8 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminPropertyController {
 
+    private final Messages messages;
+
     private final PropertyService propertyService;
     private final RoomService roomService; // Inject service quản lý phòng
 
@@ -44,9 +47,9 @@ public class AdminPropertyController {
             List<PropertyDetailDTO> properties = propertyService.getPropertiesByStatus(propertyStatus);
             return ResponseEntity.ok(properties);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Trạng thái không hợp lệ: " + status));
+            return ResponseEntity.badRequest().body(ApiResponse.error(messages.t("error.status.invalid", status)));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -62,14 +65,14 @@ public class AdminPropertyController {
             PropertyDetailDTO reviewedProperty = propertyService.reviewProperty(propertyId, reviewDTO, adminUsername);
 
             String message = (reviewDTO.getStatus() == PropertyStatus.APPROVE)
-                    ? "Duyệt cơ sở thành công"
-                    : "Từ chối cơ sở thành công";
+                    ? messages.t("api.property.approved")
+                    : messages.t("api.property.rejected");
 
             return ResponseEntity.ok(ApiResponse.success(message, reviewedProperty));
         } catch (ResourceNotFoundException | IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(messages.of(e)));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Lỗi server: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(messages.of(e)));
         }
     }
 
@@ -85,7 +88,7 @@ public class AdminPropertyController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         Page<PropertyResponseDTO> properties = propertyService.getAllActiveProperties(pageable);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành công", properties));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.list.loaded"), properties));
     }
 
     // [NEW] Dừng hoạt động (Suspend) một khách sạn
@@ -95,7 +98,7 @@ public class AdminPropertyController {
             @RequestBody @Valid SuspendRequestDTO request
     ) {
         propertyService.suspendProperty(id, request.getReason());
-        return ResponseEntity.ok(ApiResponse.success("Đã dừng hoạt động cơ sở lưu trú", null));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.property.suspended"), null));
     }
 
     // [NEW] Lấy danh sách phòng của một khách sạn cụ thể
@@ -103,7 +106,7 @@ public class AdminPropertyController {
     public ResponseEntity<ApiResponse> getPropertyRooms(@PathVariable Integer id) {
         // [FIX] Gọi hàm mới: getAllRoomsByPropertyId (lấy tất cả active/inactive/suspended)
         List<RoomResponseDTO> rooms = roomService.getAllRoomsByPropertyId(id);
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phòng thành công", rooms));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.listed"), rooms));
     }
 
     // [NEW] Dừng hoạt động (Suspend) một phòng cụ thể
@@ -114,21 +117,21 @@ public class AdminPropertyController {
             @RequestBody @Valid SuspendRequestDTO request
     ) {
         roomService.suspendRoom(roomId, request.getReason());
-        return ResponseEntity.ok(ApiResponse.success("Đã dừng hoạt động phòng", null));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.suspended"), null));
     }
 
     // 2. API Kích hoạt lại Khách sạn
     @PutMapping("/{id}/activate")
     public ResponseEntity<ApiResponse> activateProperty(@PathVariable Integer id) {
         propertyService.activateProperty(id);
-        return ResponseEntity.ok(ApiResponse.success("Đã mở lại hoạt động cơ sở lưu trú", null));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.property.reactivated"), null));
     }
 
     // 3. API Kích hoạt lại Phòng
     @PutMapping("/rooms/{roomId}/activate")
     public ResponseEntity<ApiResponse> activateRoom(@PathVariable Integer roomId) {
         roomService.activateRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Đã mở lại hoạt động phòng", null));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.room.reactivated"), null));
     }
 
     @GetMapping("/list") // Đổi tên path để rõ ràng hơn, hoặc dùng lại /active nhưng thêm param
@@ -143,6 +146,6 @@ public class AdminPropertyController {
         // Đảm bảo Repository có hàm findByPropertyStatus trả về Page
         Page<PropertyResponseDTO> properties = propertyService.getPropertiesByStatusPaginated(propertyStatus, pageable);
 
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thành công", properties));
+        return ResponseEntity.ok(ApiResponse.success(messages.t("api.list.loaded"), properties));
     }
 }

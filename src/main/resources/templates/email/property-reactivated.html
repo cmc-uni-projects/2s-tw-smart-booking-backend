@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Thông báo mở lại hoạt động</title>
+    <title th:text="#{email.propertyReactivated.title1}">Thông báo mở lại hoạt động</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f6f6f6; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -18,11 +18,11 @@
         <h1>TravelMate Notification</h1>
     </div>
     <div class="content">
-        <p>Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
-        <p>Tin vui! Cơ sở lưu trú <strong><span th:text="${propertyName}">Tên KS</span></strong> của bạn đã được quản trị viên <strong>mở lại hoạt động</strong>.</p>
-        <p>Hiện tại, khách hàng đã có thể tìm kiếm và đặt phòng trở lại.</p>
-        <p>Chúc bạn kinh doanh thuận lợi!</p>
-        <a href="#" class="btn">Truy cập trang quản lý</a>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((ownerName))})}">Xin chào <strong th:text="${ownerName}">Chủ sở hữu</strong>,</p>
+        <p th:utext="#{email.propertyReactivated.p2(${#strings.escapeXml((propertyName))})}">Tin vui! Cơ sở lưu trú <strong><span th:text="${propertyName}">Tên KS</span></strong> của bạn đã được quản trị viên <strong>mở lại hoạt động</strong>.</p>
+        <p th:text="#{email.propertyReactivated.p3}">Hiện tại, khách hàng đã có thể tìm kiếm và đặt phòng trở lại.</p>
+        <p th:text="#{email.propertyReactivated.p4}">Chúc bạn kinh doanh thuận lợi!</p>
+        <a href="#" class="btn" th:text="#{email.propertyReactivated.a1}">Truy cập trang quản lý</a>
     </div>
 </div>
 </body>

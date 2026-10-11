@@ -32,10 +32,10 @@ public class PropertyImageService {
     // =============================
     public void setCoverImage(int propertyId, int imageId) {
         PropertyImage img = propertyImageRepository.findById(imageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Image not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.image.notFound"));
 
         if (img.getProperty().getPropertyId() != propertyId) {
-            throw new BadRequestException("Image does not belong to this property");
+            throw new BadRequestException("error.image.wrongOwner");
         }
 
         propertyImageRepository.resetCoverImageByPropertyId(propertyId);
@@ -51,10 +51,10 @@ public class PropertyImageService {
                                                                        List<MultipartFile> files) {
 
         Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new BadRequestException("Property not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.property.notFound"));
 
         if (files == null || files.isEmpty()) {
-            throw new BadRequestException("No files uploaded");
+            throw new BadRequestException("error.file.noneUploaded");
         }
 
         return files.stream().map(file -> {
@@ -103,10 +103,10 @@ public class PropertyImageService {
     public void deletePropertyImage(int propertyId, int imageId) {
 
         PropertyImage img = propertyImageRepository.findById(imageId)
-                .orElseThrow(() -> new BadRequestException("Image not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("error.image.notFound"));
 
         if (img.getProperty().getPropertyId() != propertyId) {
-            throw new BadRequestException("This image does not belong to this property");
+            throw new BadRequestException("error.image.wrongOwner");
         }
 
         // Delete from cloud

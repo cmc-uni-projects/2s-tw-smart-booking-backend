@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yêu cầu Hoàn tiền bị từ chối - TravelMate</title>
+    <title th:text="#{email.refundRejected.title1}">Yêu cầu Hoàn tiền bị từ chối - TravelMate</title>
     <style>
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -102,31 +102,31 @@
     </div>
     <div class="content">
 
-        <h2>Thông báo từ chối hoàn tiền</h2>
+        <h2 th:text="#{email.refundRejected.h21}">Thông báo từ chối hoàn tiền</h2>
 
-        <p>
+        <p th:utext="#{email.common.greeting(${#strings.escapeXml((username))})}">
             Xin chào <strong th:text="${username}">Khách hàng</strong>,
         </p>
 
-        <p>
+        <p th:utext="#{email.refundRejected.p2(${#strings.escapeXml((bookingId))})}">
             Yêu cầu hoàn tiền cho đơn đặt phòng <strong>#<span th:text="${bookingId}"></span></strong> của bạn đã được đội ngũ TravelMate xem xét. Rất tiếc phải thông báo, yêu cầu này đã bị **từ chối**.
         </p>
 
         <div class="info-box">
-            <strong style="color: #dc3545;">Chi tiết từ chối:</strong><br>
+            <strong style="color: #dc3545;" th:text="#{email.refundRejected.strong1}">Chi tiết từ chối:</strong><br>
             <hr style="border: 0; border-top: 1px dashed #f5c6cb; margin: 10px 0;">
-            <span>Mã đặt phòng:</span> <strong>#<span th:text="${bookingId}">123</span></strong><br>
-            <span>Lý do từ chối từ Admin:</span> <br>
+            <span th:text="#{email.common.bookingCode}">Mã đặt phòng:</span> <strong>#<span th:text="${bookingId}">123</span></strong><br>
+            <span th:text="#{email.refundRejected.span2}">Lý do từ chối từ Admin:</span> <br>
             <span class="total-amount" th:text="${reason}">Lý do từ chối chi tiết sẽ được hiển thị ở đây.</span>
         </div>
 
-        <p style="margin-top: 20px;">
+        <p style="margin-top: 20px;" th:text="#{email.refundRejected.p3}">
             Nếu bạn có bất kỳ thắc mắc nào về quyết định này hoặc cần thêm thông tin, vui lòng liên hệ với bộ phận hỗ trợ khách hàng của chúng tôi để được giải đáp.
         </p>
     </div>
 
     <div class="footer">
-        <p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
+        <p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p>
     </div>
 </div>
 </body>

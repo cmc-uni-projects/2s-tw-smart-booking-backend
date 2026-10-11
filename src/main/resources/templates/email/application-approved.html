@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Đơn đã được duyệt - TravelMate</title>
+    <title th:text="#{email.applicationApproved.title1}">Đơn đã được duyệt - TravelMate</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f9fb; margin: 0; padding: 0; color: #333; }
         .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); border: 1px solid #e3eef3; }
@@ -24,11 +24,11 @@
         <img src="cid:logoImage" alt="TravelMate Logo" border="0">
     </div>
     <div class="content">
-        <h2>✅ Chúc mừng <strong th:text="${applicantName}">Bạn</strong>! Đơn đã được DUYỆT.</h2>
-        <p>Đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã được <strong>DUYỆT</strong>.</p>
-        <p>Từ bây giờ, bạn đã có thể đăng nhập vào hệ thống với vai trò chủ khách sạn để bắt đầu đăng tải và quản lý cơ sở của mình.</p>
+        <h2 th:utext="#{email.applicationApproved.h21(${#strings.escapeXml((applicantName))})}">✅ Chúc mừng <strong th:text="${applicantName}">Bạn</strong>! Đơn đã được DUYỆT.</h2>
+        <p th:utext="#{email.applicationApproved.p1}">Đơn đăng ký trở thành chủ khách sạn của bạn tại <strong>TravelMate</strong> đã được <strong>DUYỆT</strong>.</p>
+        <p th:text="#{email.applicationApproved.p2}">Từ bây giờ, bạn đã có thể đăng nhập vào hệ thống với vai trò chủ khách sạn để bắt đầu đăng tải và quản lý cơ sở của mình.</p>
     </div>
-    <div class="footer"><p>&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
+    <div class="footer"><p th:text="#{email.common.footer}">&copy; 2025 TravelMate. Mọi quyền được bảo lưu.</p></div>
 </div>
 </body>
 </html>
