@@ -1,0 +1,7 @@
+apiVersion: v2
+name: smart-booking
+description: TravelMate / Smart Booking System - Spring Boot backend, React frontend, optional in-cluster MySQL and Mailpit
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords: [booking, spring-boot, react]

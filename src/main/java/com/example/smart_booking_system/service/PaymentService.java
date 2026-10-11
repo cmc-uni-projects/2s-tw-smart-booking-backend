@@ -110,7 +110,7 @@ public class PaymentService {
 
         } catch (Exception e) {
             // Log lỗi notification không được làm ảnh hưởng transaction chính
-            log.warn("Failed to send payment notifications: {}", e.getMessage());
+            log.warn("Failed to send payment notifications (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         return ApiResponse.success(messages.t("api.payment.success"), new PaymentResponseDTO(payment, null));
@@ -216,7 +216,7 @@ public class PaymentService {
             }
 
         } catch (Exception e) {
-            log.warn("Failed to send refund email/notifications: {}", e.getMessage());
+            log.warn("Failed to send refund email/notifications (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         return ApiResponse.success(isApproved ? messages.t("api.refund.approved") : messages.t("api.refund.rejected"), null);
@@ -234,6 +234,6 @@ public class PaymentService {
     private void sendConfirmationEmail(Booking booking, String trxRef) {
         try {
             emailService.sendBookingConfirmationEmail(booking.getUser().getEmail(), booking.getUser().getFullName(), String.valueOf(booking.getBookingId()));
-        } catch (Exception e) { log.warn("Failed to send booking confirmation email: {}", e.getMessage()); }
+        } catch (Exception e) { log.warn("Failed to send booking confirmation email (booking {}): {}", booking.getBookingId(), e.getMessage(), e); }
     }
 }

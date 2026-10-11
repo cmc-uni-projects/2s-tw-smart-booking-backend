@@ -1,0 +1,37 @@
+{{- if .Values.mailpit.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sb.fullname" . }}-mailpit
+  labels:
+    {{- include "sb.labels" . | nindent 4 }}
+    {{- include "sb.selector" (list . "mailpit") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "sb.selector" (list . "mailpit") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "sb.selector" (list . "mailpit") | nindent 8 }}
+    spec:
+      containers:
+        - name: mailpit
+          image: {{ .Values.mailpit.image }}
+          ports:
+            - { name: smtp, containerPort: 1025 }
+            - { name: http, containerPort: 8025 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sb.fullname" . }}-mailpit
+  labels: {{- include "sb.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "sb.selector" (list . "mailpit") | nindent 4 }}
+  ports:
+    - { name: smtp, port: 1025, targetPort: smtp }
+    - { name: http, port: 8025, targetPort: http }
+{{- end }}

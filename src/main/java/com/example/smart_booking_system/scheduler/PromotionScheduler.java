@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.scheduler;
 
+import com.example.smart_booking_system.logging.QuietLogging;
+
 import lombok.extern.slf4j.Slf4j;
 import com.example.smart_booking_system.entity.Promotion;
 import com.example.smart_booking_system.enums.PromotionStatus;
@@ -24,6 +26,7 @@ public class PromotionScheduler {
      * Cron: "0 * * * * ?" nghĩa là chạy mỗi phút một lần.
      * Như vậy nếu mã hết hạn lúc 14:02, thì chậm nhất 14:03 hệ thống sẽ quét thấy và update.
      */
+    @QuietLogging // runs every minute
     @Scheduled(cron = "0 * * * * ?")
     @Transactional
     public void autoExpirePromotions() {

@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.logging.QuietLogging;
+
 
 import com.example.smart_booking_system.entity.BlacklistedToken;
 import com.example.smart_booking_system.repository.BlacklistedTokenRepository;
@@ -20,6 +22,7 @@ public class TokenBlacklistService {
         }
     }
 
+    @QuietLogging // checked by the JWT filter on every authenticated request
     public boolean isBlacklisted(String token) {
         return repo.existsByToken(token);
     }

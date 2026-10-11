@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.controller;
 
+import com.example.smart_booking_system.logging.QuietLogging;
+
 import com.example.smart_booking_system.security.CustomUserDetails;
 import com.example.smart_booking_system.service.NotificationService;
 import com.example.smart_booking_system.i18n.Messages;
@@ -37,6 +39,7 @@ public class NotificationController {
 
     // 2. Đếm số lượng chưa đọc (Thêm param scope)
     // GET /api/v1/notifications/unread-count?scope=CUSTOMER
+    @QuietLogging // polled by the UI every minute
     @GetMapping("/unread-count")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getUnreadCount(

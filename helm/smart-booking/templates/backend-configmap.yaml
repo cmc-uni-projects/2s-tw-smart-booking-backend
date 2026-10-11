@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sb.fullname" . }}-backend
+  labels: {{- include "sb.labels" . | nindent 4 }}
+data:
+  SERVER_PORT: {{ .Values.backend.port | quote }}
+  # behind the ingress: trust X-Forwarded-* (scheme/host for OAuth2 redirect URLs)
+  FORWARD_HEADERS_STRATEGY: framework
+  SPRING_PROFILES_ACTIVE: {{ .Values.backend.profile | quote }}
+  LIQUIBASE_CONTEXTS: {{ .Values.backend.liquibaseContexts | quote }}
+  DB_HOST: {{ include "sb.dbHost" . | quote }}
+  DB_PORT: {{ include "sb.dbPort" . | quote }}
+  DB_NAME: {{ .Values.database.name | quote }}
+  DB_USER_NAME: {{ .Values.database.user | quote }}
+  FRONTEND_URL: {{ .Values.publicUrl | trimSuffix "/" | quote }}
+  MAIL_HOST: {{ .Values.config.mail.host | quote }}
+  MAIL_PORT: {{ .Values.config.mail.port | quote }}
+  MAIL_USERNAME: {{ .Values.config.mail.username | quote }}
+  {{- if .Values.mailpit.enabled }}
+  LOCAL_MAIL_HOST: {{ printf "%s-mailpit" (include "sb.fullname" .) | quote }}
+  LOCAL_MAIL_PORT: "1025"
+  {{- end }}
+  R2_ENDPOINT: {{ required "config.storage.endpoint is required (S3/R2 endpoint URL)" .Values.config.storage.endpoint | quote }}
+  R2_BUCKET_NAME: {{ .Values.config.storage.bucket | quote }}
+  GOOGLE_CLIENT_ID: {{ .Values.config.oauth.googleClientId | quote }}
+  FACEBOOK_CLIENT_ID: {{ .Values.config.oauth.facebookClientId | quote }}
+  LOG_PATH: /app/logs
+  LOG_LEVEL_APP: {{ .Values.backend.logging.appLevel | quote }}
+  LOG_LEVEL_SERVICE: {{ .Values.backend.logging.serviceLevel | quote }}
+  LOG_SLOW_THRESHOLD_MS: {{ .Values.backend.logging.slowThresholdMs | quote }}
+  LOG_MAX_LENGTH: {{ .Values.backend.logging.maxLength | quote }}

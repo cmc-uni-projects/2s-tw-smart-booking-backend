@@ -94,7 +94,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
         try {
             notificationService.sendToAllAdmins(NotificationType.ADMIN_NEW_OWNER_REGISTRATION, savedApp.getId().toString(), "notification.admin.ownerApplication", applicant.getFullName());
         } catch (Exception e) {
-            log.warn("Failed to notify admins about owner application: {}", e.getMessage());
+            log.warn("Failed to notify admins about owner application (application {}): {}", savedApp.getId(), e.getMessage(), e);
         }
 
         // Email giữ nguyên
@@ -112,7 +112,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
             emailService.sendHtmlEmail(applicant.getEmail(), subject, templateName, context);
 
         } catch (Exception e) {
-            log.warn("Failed to send owner application confirmation email: {}", e.getMessage());
+            log.warn("Failed to send owner application confirmation email (application {}): {}", savedApp.getId(), e.getMessage(), e);
         }
 
         return convertToDTO(savedApp);
@@ -183,7 +183,7 @@ public class OwnerApplicationServiceImpl implements OwnerApplicationService {
                     notificationService.sendNotification(applicant.getUserId(), NotificationType.REJECTION, savedApp.getId().toString(), "notification.ownerApplication.rejected", reviewDTO.getReason() != null ? reviewDTO.getReason() : messages.t(userLocales.of(applicant), "common.noReason"));
                 }
             } catch (Exception e) {
-                log.warn("Failed to notify applicant about review result: {}", e.getMessage());
+                log.warn("Failed to notify applicant about review result (application {}): {}", savedApp.getId(), e.getMessage(), e);
             }
         }
 

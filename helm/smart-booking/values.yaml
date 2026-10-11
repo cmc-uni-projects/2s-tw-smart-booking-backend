@@ -1,0 +1,114 @@
+# Default values for smart-booking. Example overrides: values-local.yaml (k3d/kind/minikube), values-dev.yaml.
+# One host serves everything: /api, /oauth2, /login/oauth2, /images -> backend, the rest -> frontend.
+
+# Public URL of the app (used for CORS, OAuth2 redirects and links in emails)
+publicUrl: http://smart-booking.localhost
+
+global:
+  imagePullSecrets: []   # e.g. [{ name: regcred }]
+
+backend:
+  image:
+    repository: smart-booking-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Keep 1: @Scheduled jobs (auto-cancel, reminders) and the AI chat state are not cluster-aware.
+  replicas: 1
+  # Recreate avoids two pods running the scheduled jobs during a rollout
+  strategy: Recreate
+  # local = emails to Mailpit, demo data; dev = real SMTP, prod data only
+  profile: dev
+  # Liquibase contexts: "demo" also loads the demo dataset, "prod" only reference data
+  liquibaseContexts: prod
+  port: 8080
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 768Mi }          # the image caps the heap at 350 MB
+  logging:
+    appLevel: INFO                       # controllers/jobs: request + response with inputs/outputs
+    serviceLevel: INFO                   # services: entry/exit with arguments/results (WARN = slow/failures only)
+    slowThresholdMs: 1000
+    maxLength: 2000
+    # Daily files in /app/logs besides stdout. emptyDir unless persistence is enabled.
+    persistence:
+      enabled: false
+      size: 2Gi
+      storageClass: ""
+  # Extra plain env vars for the backend container
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+frontend:
+  image:
+    # Build with VITE_API_URL=/api/v1 so the browser calls the API on the same host (see README.md)
+    repository: smart-booking-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+ingress:
+  enabled: true
+  className: ""                          # e.g. traefik (k3d/k3s), nginx
+  annotations: {}
+  tls: []                                # [{ secretName: smart-booking-tls, hosts: [smart-booking.example.com] }]
+  # Host defaults to the host part of publicUrl
+  host: ""
+
+# Application settings (non-secret)
+config:
+  mail:
+    host: smtp.gmail.com                 # profile dev only
+    port: 587
+    username: noreply@travelmate.local   # also the From address
+  storage:                               # Cloudflare R2 / any S3-compatible endpoint
+    endpoint: ""                         # e.g. https://<account>.r2.cloudflarestorage.com
+    bucket: smart-booking
+  oauth:
+    googleClientId: local-dummy
+    facebookClientId: local-dummy
+
+# Secrets. Either fill these in (a Secret is created) or point existingSecret at your own Secret
+# with the same keys: DB_USER_PASSWORD, MYSQL_ROOT_PASSWORD, JWT_SECRET, MAIL_PASSWORD, GEMINI_API_KEY,
+# R2_ACCESS_KEY, R2_SECRET_KEY, GOOGLE_CLIENT_SECRET, FACEBOOK_CLIENT_SECRET
+existingSecret: ""
+secrets:
+  dbPassword: ""
+  mysqlRootPassword: ""
+  jwtSecret: ""                          # >= 64 bytes: openssl rand -hex 64
+  mailPassword: unused
+  geminiApiKey: local-dummy
+  r2AccessKey: ""
+  r2SecretKey: ""
+  googleClientSecret: local-dummy
+  facebookClientSecret: local-dummy
+
+# Database. With mysql.enabled the chart runs MySQL 8 itself; otherwise set externalDatabase.
+database:
+  name: smart_booking
+  user: smart_booking
+externalDatabase:
+  host: ""
+  port: 3306
+
+mysql:
+  enabled: true
+  image: mysql:8.0
+  persistence:
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 1Gi }
+
+# Mailpit catches emails of the "local" profile (UI on port 8025: kubectl port-forward svc/<release>-mailpit 8025)
+mailpit:
+  enabled: false
+  image: axllent/mailpit:v1.24

@@ -267,7 +267,7 @@ public class PropertyServiceImpl implements PropertyService {
         try {
             notificationService.sendToAllAdmins(NotificationType.ADMIN_NEW_PROPERTY_SUBMISSION, String.valueOf(saved.getPropertyId()), "notification.admin.propertySubmitted", owner.getFullName(), saved.getPropertyName());
         } catch (Exception e) {
-            log.warn("Failed to notify admins about property submission: {}", e.getMessage());
+            log.warn("Failed to notify admins about property submission (property {}): {}", saved.getPropertyId(), e.getMessage(), e);
         }
 
         // TỰ ĐỘNG TẠO ROOM NẾU LÀ HOMESTAY HOẶC VILLA
@@ -516,7 +516,7 @@ public class PropertyServiceImpl implements PropertyService {
                     notificationService.sendNotification(owner.getUserId(), NotificationType.REJECTION, String.valueOf(saved.getPropertyId()), "notification.property.rejected", saved.getPropertyName(), reviewDTO.getReason() != null ? reviewDTO.getReason() : messages.t(userLocales.of(saved.getOwner()), "common.noReason"));
                 }
             } catch (Exception e) {
-                log.warn("Failed to notify owner about property review: {}", e.getMessage());
+                log.warn("Failed to notify owner about property review (property {}): {}", saved.getPropertyId(), e.getMessage(), e);
             }
         }
 

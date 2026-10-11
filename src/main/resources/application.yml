@@ -6,6 +6,8 @@
 
 server:
   port: ${SERVER_PORT:8080}
+  # "framework" behind a reverse proxy / ingress (trust X-Forwarded-* for OAuth2 redirect URLs); "none" when exposed directly
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 spring:
   application:
@@ -98,6 +100,8 @@ app:
   logging:
     # Calls slower than this are logged at WARN (logging/LoggingAspect)
     slow-threshold-ms: ${LOG_SLOW_THRESHOLD_MS:1000}
+    # Max characters of logged arguments / results per line (longer values are cut)
+    max-length: ${LOG_MAX_LENGTH:2000}
 
 gemini:
   api:
@@ -116,13 +120,28 @@ file:
   static-path-pattern: ${FILE_STATIC_PATH_PATTERN:/images/**}
   static-url-prefix: ${FILE_STATIC_URL_PREFIX:/images}
 
+# Only health is exposed: /actuator/health, /health/liveness, /health/readiness (Kubernetes probes)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    # an SMTP or disk hiccup must not take pods out of service
+    mail:
+      enabled: false
+
 # Console + one file per day in logs/ (see logback-spring.xml)
 logging:
   file:
     path: ${LOG_PATH:logs}
   level:
     root: INFO
-    # One INFO line per HTTP request (controllers) + scheduler jobs
-    com.example.smart_booking_system: INFO
-    # Service entry/exit with masked arguments: set to DEBUG to trace a flow
+    # INFO: request/response of every controller call with inputs and outputs, scheduler jobs
+    com.example.smart_booking_system: ${LOG_LEVEL_APP:INFO}
+    # INFO: entry (arguments) / exit (return value) of every service call. WARN = only slow calls and failures
     com.example.smart_booking_system.service: ${LOG_LEVEL_SERVICE:INFO}

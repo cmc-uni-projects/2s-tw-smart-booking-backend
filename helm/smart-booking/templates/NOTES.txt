@@ -1,0 +1,14 @@
+Smart Booking is deploying (profile: {{ .Values.backend.profile }}, Liquibase contexts: {{ .Values.backend.liquibaseContexts }}).
+
+App:   {{ .Values.publicUrl }}
+Watch: kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+Logs:  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "sb.fullname" . }}-backend -f
+{{- if .Values.mailpit.enabled }}
+Mail:  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sb.fullname" . }}-mailpit 8025  ->  http://localhost:8025
+{{- end }}
+{{- if .Values.mysql.enabled }}
+DB:    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sb.fullname" . }}-mysql 3307:3306  ->  localhost:3307
+{{- end }}
+{{- if eq .Values.backend.profile "local" }}
+Note: profile "local" sends every email to Mailpit{{ if not .Values.mailpit.enabled }} - but mailpit.enabled=false, so emails will fail{{ end }}.
+{{- end }}

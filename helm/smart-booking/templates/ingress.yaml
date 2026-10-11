@@ -1,0 +1,38 @@
+{{- if .Values.ingress.enabled }}
+{{- $backend := printf "%s-backend" (include "sb.fullname" .) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "sb.fullname" . }}
+  labels: {{- include "sb.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ include "sb.host" . | quote }}
+      http:
+        paths:
+          # API, OAuth2 login/callback and locally stored images go to Spring Boot.
+          # Note: only /login/oauth2 - /login itself is the React login page.
+          {{- range list "/api" "/oauth2" "/login/oauth2" "/images" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backend }}
+                port: { name: http }
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "sb.fullname" . }}-frontend
+                port: { name: http }
+{{- end }}

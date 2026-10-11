@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.logging.QuietLogging;
+
 import com.example.smart_booking_system.dto.response.notification.NotificationResponseDTO;
 import com.example.smart_booking_system.entity.Notification;
 import com.example.smart_booking_system.entity.User;
@@ -70,6 +72,7 @@ public class NotificationService {
                 .map(this::convertToDTO);
     }
 
+    @QuietLogging // polled by the UI every minute
     public long getUnreadCount(String userId, String scope) {
         return notificationRepository.countByUserIdAndIsReadFalseAndTypeIn(userId, getTypesByScope(scope));
     }

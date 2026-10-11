@@ -23,6 +23,8 @@
 | AI | Google **Gemini** REST API (`gemini-flash-latest`) | — | ✅ | `service/ai/AiService.java` |
 | Scheduling | Spring `@Scheduled` (`@EnableScheduling`) | — | ✅ | `scheduler/*` |
 | Logging | SLF4J/Logback + **Spring AOP** aspect, MDC request id | managed | ✅ | `logging/*` — see [11](./11-logging.md) |
+| Health | spring-boot-starter-actuator (health only, k8s probes) | managed | ✅ | `/actuator/health/{liveness,readiness}` |
+| Deployment | Docker Compose (local), **Helm** chart (Kubernetes) | | ✅ | `docker-compose.yml`, `helm/smart-booking` — see [12](./12-kubernetes.md) |
 | i18n (backend) | Spring `MessageSource` (`i18n/messages*`, `i18n/emails*`), `Accept-Language` | managed | ✅ | `i18n/*` — see [10](./10-i18n.md) |
 | Boilerplate | Lombok | 1.18.40 | ✅ | `@Data`, `@RequiredArgsConstructor` … |
 | Env loading | dotenv-java (reads `.env` via custom `EnvironmentPostProcessor`) | 3.0.0 | ✅ | `config/DotenvEnvironmentPostProcessor.java`, `META-INF/spring.factories` |

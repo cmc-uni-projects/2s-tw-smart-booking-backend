@@ -201,7 +201,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             send(to, template, subjectKey, variables, subjectArgs);
         } catch (Exception e) {
-            log.error("Email '{}' to {} failed: {}", template, to, e.getMessage());
+            log.error("Email '{}' to {} failed: {}", template, to, e.getMessage(), e);
             throw new RuntimeException("Failed to send email " + template, e);
         }
     }
@@ -211,7 +211,7 @@ public class EmailServiceImpl implements EmailService {
         try {
             send(to, template, subjectKey, variables, subjectArgs);
         } catch (Exception e) {
-            log.error("Email '{}' to {} failed: {}", template, to, e.getMessage());
+            log.error("Email '{}' to {} failed: {}", template, to, e.getMessage(), e);
         }
     }
 

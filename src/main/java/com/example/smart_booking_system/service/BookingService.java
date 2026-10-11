@@ -1,5 +1,7 @@
 package com.example.smart_booking_system.service;
 
+import com.example.smart_booking_system.logging.QuietLogging;
+
 import com.example.smart_booking_system.exception.BadRequestException;
 import com.example.smart_booking_system.exception.ResourceNotFoundException;
 import com.example.smart_booking_system.exception.ConflictException;
@@ -184,7 +186,7 @@ public class BookingService {
                     booking.getTotalPrice().toString()
             );
         } catch (Exception e) {
-            logger.warn("Failed to send payment reminder email: {}", e.getMessage());
+            logger.warn("Failed to send payment reminder email (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         // ========================================================================
@@ -204,7 +206,7 @@ public class BookingService {
             notificationService.sendNotification(user.getUserId(), NotificationType.BOOKING_SUCCESS, relatedId, "notification.booking.created", propertyName);
 
         } catch (Exception e) {
-            logger.warn("Failed to send booking notifications (booking kept): {}", e.getMessage());
+            logger.warn("Failed to send booking notifications (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         return convertToDTO(booking);
@@ -297,7 +299,7 @@ public class BookingService {
                     booking.getTotalPrice(), penaltyAmount, refundAmount
             );
         } catch (Exception e) {
-            logger.warn("Failed to send cancellation email: {}", e.getMessage());
+            logger.warn("Failed to send cancellation email (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         // ========================================================================
@@ -324,7 +326,7 @@ public class BookingService {
             }
 
         } catch (Exception e) {
-            logger.warn("Failed to send cancellation notifications: {}", e.getMessage());
+            logger.warn("Failed to send cancellation notifications (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         return convertToDTO(booking);
@@ -336,6 +338,7 @@ public class BookingService {
     // HÀM MỚI: TỰ ĐỘNG QUÉT ĐƠN QUÁ HẠN (Scheduler sẽ gọi hàm này)
     // ================================
     @Transactional
+    @QuietLogging // runs every minute
     public void scanAndCancelExpiredBookings() {
         // Thời gian hiện tại trừ đi 5 phút
         LocalDateTime expirationTime = LocalDateTime.now().minusMinutes(5);
@@ -355,7 +358,7 @@ public class BookingService {
                     cancelBooking(booking.getBookingId());
                     logger.info("Auto-cancelled expired booking {}", booking.getBookingId());
                 } catch (Exception e) {
-                    logger.error("Failed to auto-cancel booking {}: {}", booking.getBookingId(), e.getMessage());
+                    logger.error("Failed to auto-cancel booking {}: {}", booking.getBookingId(), e.getMessage(), e);
                 }
             }
         }
@@ -389,12 +392,12 @@ public class BookingService {
                     String.format("%,.0f", booking.getPenaltyAmount())
             );
         } catch (Exception e) {
-            logger.warn("Failed to send refund success email: {}", e.getMessage());
+            logger.warn("Failed to send refund success email (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
         try {
             notificationService.sendNotification(booking.getUser().getUserId(), NotificationType.REFUND_PROCESSED, String.valueOf(booking.getBookingId()), "notification.refund.approved", String.valueOf(booking.getBookingId()));
         } catch (Exception e) {
-            logger.warn("Failed to send refund approval notification: {}", e.getMessage());
+            logger.warn("Failed to send refund approval notification (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
     }
 
@@ -462,7 +465,7 @@ public class BookingService {
             logger.info("Sent checkout thank-you email for booking {}", bookingId);
         } catch (Exception e) {
             // Log lỗi nhưng không chặn transaction checkout (để khách vẫn checkout được dù lỗi mail)
-            logger.warn("Failed to send checkout thank-you email: {}", e.getMessage());
+            logger.warn("Failed to send checkout thank-you email (booking {}): {}", bookingId, e.getMessage(), e);
         }
     }
 
@@ -877,7 +880,7 @@ public class BookingService {
             String nameTo = booking.getCustomerName() != null ? booking.getCustomerName() : booking.getUser().getFullName();
             emailService.sendBookingConfirmationEmail(emailTo, nameTo, String.valueOf(bookingId));
         } catch (Exception e) {
-            logger.warn("Failed to send booking confirmation email: {}", e.getMessage());
+            logger.warn("Failed to send booking confirmation email (booking {}): {}", bookingId, e.getMessage(), e);
         }
 
         // ========================================================================
@@ -902,7 +905,7 @@ public class BookingService {
             }
 
         } catch (Exception e) {
-            logger.warn("Failed to send payment notifications: {}", e.getMessage());
+            logger.warn("Failed to send payment notifications (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
         }
 
         // 5. Kiểm tra gửi mail nhắc nhở check-in ngay lập tức (Giữ nguyên)
@@ -938,7 +941,7 @@ public class BookingService {
                     logger.info("Sent check-in reminder for booking {}", booking.getBookingId());
 
                 } catch (Exception e) {
-                    logger.warn("Failed to send check-in reminder for booking {}: {}", booking.getBookingId(), e.getMessage());
+                    logger.warn("Failed to send check-in reminder for booking {}: {}", booking.getBookingId(), e.getMessage(), e);
                 }
             }
         } else {
@@ -971,7 +974,7 @@ public class BookingService {
                 );
                 logger.info("Sent immediate check-in reminder for booking {}", booking.getBookingId());
             } catch (Exception e) {
-                logger.warn("Failed to send immediate check-in reminder: {}", e.getMessage());
+                logger.warn("Failed to send immediate check-in reminder (booking {}): {}", booking.getBookingId(), e.getMessage(), e);
             }
         }
     }

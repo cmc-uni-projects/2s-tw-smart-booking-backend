@@ -1,0 +1,65 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sb.fullname" . }}-mysql
+  labels:
+    {{- include "sb.labels" . | nindent 4 }}
+    {{- include "sb.selector" (list . "mysql") | nindent 4 }}
+spec:
+  serviceName: {{ include "sb.fullname" . }}-mysql
+  replicas: 1
+  selector:
+    matchLabels: {{- include "sb.selector" (list . "mysql") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "sb.selector" (list . "mysql") | nindent 8 }}
+    spec:
+      containers:
+        - name: mysql
+          image: {{ .Values.mysql.image }}
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - { name: TZ, value: Asia/Ho_Chi_Minh }
+            - { name: MYSQL_DATABASE, value: {{ .Values.database.name | quote }} }
+            - { name: MYSQL_USER, value: {{ .Values.database.user | quote }} }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "sb.secretName" . }}, key: DB_USER_PASSWORD } }
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "sb.secretName" . }}, key: MYSQL_ROOT_PASSWORD } }
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 5
+            failureThreshold: 30
+          resources: {{- toYaml .Values.mysql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.mysql.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mysql.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sb.fullname" . }}-mysql
+  labels: {{- include "sb.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "sb.selector" (list . "mysql") | nindent 4 }}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+{{- end }}

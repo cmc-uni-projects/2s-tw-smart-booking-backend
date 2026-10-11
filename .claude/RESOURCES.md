@@ -29,11 +29,19 @@
 - [Vite — Env Variables and Modes](https://vite.dev/guide/env-and-mode)
   Use for: the `VITE_*` env-var mismatch.
 
+## Knowledge — Kubernetes (added 2026-10-11)
+- [Kubernetes Basics tutorial](https://kubernetes.io/docs/tutorials/kubernetes-basics/) — official interactive intro. Use for: first contact (primary source of lesson 0002).
+- [Kubernetes Concepts](https://kubernetes.io/docs/concepts/) — Pods, Deployments, Services, Ingress, volumes. Use for: "what is X".
+- [kubectl Quick Reference](https://kubernetes.io/docs/reference/kubectl/quick-reference/) — official cheat sheet. Use for: commands beyond the runbook.
+- [k3d docs](https://k3d.io/) — local clusters in Docker. Use for: cluster create/stop/start/delete, image import.
+- [Helm docs — Using Helm](https://helm.sh/docs/intro/using_helm/) and [Chart template guide](https://helm.sh/docs/chart_template_guide/) — Use for: install/upgrade/uninstall, reading `helm/smart-booking/templates`.
+
 ## Wisdom (Communities)
 - [Stack Overflow — `spring-boot` / `spring-security` / `reactjs` tags](https://stackoverflow.com/questions/tagged/spring-security)
   Use for: concrete, reproducible errors.
 - [r/SpringBoot](https://www.reddit.com/r/SpringBoot/) and [r/reactjs](https://www.reddit.com/r/reactjs/)
   Use for: design questions ("how should I enforce ownership checks?"), code-review style feedback.
+- [r/kubernetes](https://www.reddit.com/r/kubernetes/) and the [Kubernetes Slack](https://slack.k8s.io/) (#kubernetes-novice) — Use for: Kubernetes questions from beginners.
 - Your project teammates (original repo `bquang016/Smart_Booking_System_Backend`) — the best source for *why* something was built a certain way.
 
 ## Gaps

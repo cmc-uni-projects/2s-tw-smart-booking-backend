@@ -2,7 +2,7 @@
 
 **Time:** ~20 min · **Win:** you can trace a real request from a React button to a MySQL row and name every file on the way.
 
-← [Index](../README.md) · Reference: [Code map](../reference/code-map.md) · [Glossary](../reference/glossary.md) · Next: *(0002 coming)*
+← [Index](../README.md) · Reference: [Code map](../reference/code-map.md) · [Glossary](../reference/glossary.md) · Next: [0002 Run it on Kubernetes](./0002-run-it-on-kubernetes.md)
 
 ---
 

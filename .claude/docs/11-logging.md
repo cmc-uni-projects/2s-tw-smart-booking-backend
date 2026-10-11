@@ -4,22 +4,37 @@ Instead of `log.info` calls scattered through every method, one **aspect** (`log
 
 ## What gets logged
 
-| Layer (pointcut) | INFO | WARN | ERROR | DEBUG |
-|---|---|---|---|---|
-| Controllers (`@RestController`) | one line per request: `GET /api/v1/notifications -> NotificationController.getNotifications 200 in 22ms user=admin@travelmate.vn` | status ≥ 400, slow requests, `AppException` (with its message key) | unexpected exceptions | arguments |
-| Services (`..service..`) | n/a | calls slower than the threshold | n/a | `→ method(args)`, `← method = result (ms)`, `✗ method threw …` |
-| Jobs (`@Scheduled`) | n/a | slow runs | failures with stack trace | start / finish |
-
-`RequestIdFilter` (first filter in the chain) puts a request id in the MDC (taken from an incoming `X-Request-Id` or 8 random hex chars) and echoes it back in the `X-Request-Id` response header. Every log line of that request carries it:
+Inputs and outputs of every call, at INFO:
 
 ```
-2026-10-11 02:00:13.056  INFO [b780f3de] c.e.s.controller.NotificationController  : GET /api/v1/notifications -> … 200 in 22ms user=admin@travelmate.vn
+→ POST /api/v1/auth/login AuthController.login(request=LoginRequest{email="customer@travelmate.vn", password=***, twoFactorCode=null}) user=anonymous
+  → AuthServiceImpl.login(request=LoginRequest{email="customer@travelmate.vn", password=***, twoFactorCode=null})
+  ← AuthServiceImpl.login = LoginResponse{accessToken=***, …, user=UserResponse{userId="…", fullName="Lê Hoàng Nam", …}} (236ms)
+← POST /api/v1/auth/login 200 in 242ms result=ResponseEntity[200] ApiResponse{success=true, message="Đăng nhập thành công", …}
 ```
+
+| Layer (pointcut) | INFO | WARN | ERROR |
+|---|---|---|---|
+| Controllers (`@RestController`) | `→` request line: route (query secrets masked), handler, arguments, user · `←` response line: status, duration, returned value | status ≥ 400, slow requests, business errors (`AppException`, with message key and arguments) | unexpected exceptions (with arguments) |
+| Services (`..service..`) | `→` entry with arguments · `←` exit with return value and duration · `✗` business rejection; indented by call depth | slow calls, unexpected exceptions (with arguments) | n/a |
+| Jobs (`@Scheduled`) | start / finish | slow runs | failures with stack trace |
+
+Methods annotated **`@QuietLogging`** log the same lines at DEBUG (failures and slow calls still at WARN/ERROR): the UI's unread-count polling, the every-minute jobs (`checkExpiredBookings`, `scanAndCancelExpiredBookings`, `autoExpirePromotions`) and the JWT filter's blacklist check. Put it on any new high-frequency method.
+
+Hand-written log lines cover business events (`Email '…' sent to … (en)`, `Booking 14 payment confirmed`, `Auto-cancelled expired booking 12`) and failures of side effects, which name the booking/property/application and include the stack trace (`Failed to send booking notifications (booking 14): …`).
+
+`RequestIdFilter` (first filter in the chain) puts a request id in the MDC (taken from an incoming `X-Request-Id` or 8 random hex chars) and echoes it back in the `X-Request-Id` response header. Every log line of that request carries it, so `grep 1f2e3d4c` shows one request's whole trace.
 
 Requests rejected before reaching a controller (401/403 from the security filters, 404) are logged by the filter as a WARN line.
 
-## Masking
-`LogSanitizer` decides how arguments and results appear: values whose name looks secret (`password`, `token`, `secret`, `otp`, `card`, `cvv`, `accountNumber`, `authorization`, `credential`) become `***`; DTOs are printed as JSON maps with those fields masked; JPA entities only as their class name (avoids lazy loading and leaking personal data); uploads as name + size; everything is cut at 300 characters.
+## How values are rendered (`LogSanitizer`)
+- **Secrets are masked by name** at any depth (argument, field or map key matching `password`, `token`, `secret`, `otp`, `card`, `cvv`, `accountNumber`, `authorization`, `credential`, `apiKey`) → `***`; so are `token=`/`code=`/`password=` query parameters.
+- **DTOs** and other project objects: field by field.
+- **JPA entities**: their column values; relations only as `Entity#id`, collections as `(size)` or `(lazy)`. Logging never triggers lazy loading or extra SQL.
+- **Collections / pages / maps**: size plus the first 5 elements (`ListN(7)[1, 2, 3, 4, 5, …+2]`, `Page[0/3, total=25] […]`); `ResponseEntity[201] body`; uploads as `File(name, size)`; request/response/binding objects are skipped.
+- Strings are cut at 200 characters, a whole line's arguments/result at `app.logging.max-length` (default 2000).
+
+Personal data (names, emails, phones) does appear at INFO. Raise `LOG_LEVEL_SERVICE`/`LOG_LEVEL_APP` to `WARN` where that is not acceptable.
 
 ## Where logs go
 
@@ -35,14 +50,15 @@ logging:
   file:
     path: ${LOG_PATH:logs}
   level:
-    com.example.smart_booking_system: INFO
-    com.example.smart_booking_system.service: ${LOG_LEVEL_SERVICE:INFO}   # DEBUG = trace every service call
+    com.example.smart_booking_system: ${LOG_LEVEL_APP:INFO}              # controllers + jobs
+    com.example.smart_booking_system.service: ${LOG_LEVEL_SERVICE:INFO}  # WARN = only slow calls / failures
 app:
   logging:
     slow-threshold-ms: ${LOG_SLOW_THRESHOLD_MS:1000}
+    max-length: ${LOG_MAX_LENGTH:2000}
 ```
 
-Set `LOG_LEVEL_SERVICE=DEBUG` (and optionally `LOG_SLOW_THRESHOLD_MS`) in `.env`, then `docker compose up -d backend`.
+Set the variables in `.env` (Docker Compose) or `backend.logging.*` (Helm), then restart the backend. `DEBUG` additionally shows the `@QuietLogging` calls.
 
 ## Why an aspect
 - Consistent format and no forgotten log lines: every new controller or service gets them automatically.

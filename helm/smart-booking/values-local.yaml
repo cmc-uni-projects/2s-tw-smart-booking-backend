@@ -1,0 +1,32 @@
+# Local cluster (k3d / kind / minikube): profile "local" -> emails go to the in-cluster Mailpit, demo data loaded.
+#   helm upgrade --install smart-booking helm/smart-booking -n smart-booking --create-namespace -f helm/smart-booking/values-local.yaml
+# Throwaway secrets below are for a local cluster only.
+
+publicUrl: http://smart-booking.localhost:8080      # k3d: --port "8080:80@loadbalancer"
+
+backend:
+  image: { repository: smart-booking-backend, tag: local, pullPolicy: IfNotPresent }
+  profile: local
+  liquibaseContexts: demo
+frontend:
+  image: { repository: smart-booking-frontend, tag: k8s, pullPolicy: IfNotPresent }
+
+ingress:
+  className: traefik                                  # k3d/k3s default; nginx for kind/minikube
+  host: smart-booking.localhost
+
+config:
+  storage:
+    # No object storage in this setup: demo images are external URLs; uploads need a real S3/R2 endpoint here.
+    endpoint: http://storage.invalid:9000
+    bucket: smart-booking
+
+secrets:
+  dbPassword: local-db-password
+  mysqlRootPassword: local-root-password
+  jwtSecret: 0f6c4b3e1a2d9c8b7a6f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a0
+  r2AccessKey: unused
+  r2SecretKey: unused-secret
+
+mailpit:
+  enabled: true

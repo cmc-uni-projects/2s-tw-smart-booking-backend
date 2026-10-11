@@ -1,0 +1,46 @@
+# Shared dev environment: profile "dev" -> real SMTP (Gmail), reference data only, Cloudflare R2.
+# Keep real secrets out of git: create the Secret yourself and reference it, e.g.
+#   kubectl -n smart-booking create secret generic smart-booking-secrets \
+#     --from-literal=DB_USER_PASSWORD=... --from-literal=MYSQL_ROOT_PASSWORD=... --from-literal=JWT_SECRET=... \
+#     --from-literal=MAIL_PASSWORD=<gmail app password> --from-literal=GEMINI_API_KEY=... \
+#     --from-literal=R2_ACCESS_KEY=... --from-literal=R2_SECRET_KEY=... \
+#     --from-literal=GOOGLE_CLIENT_SECRET=... --from-literal=FACEBOOK_CLIENT_SECRET=...
+#   helm upgrade --install smart-booking helm/smart-booking -n smart-booking -f helm/smart-booking/values-dev.yaml
+
+publicUrl: https://smart-booking-dev.example.com
+
+backend:
+  image: { repository: registry.example.com/smart-booking-backend, tag: "0.1.0", pullPolicy: IfNotPresent }
+  profile: dev
+  liquibaseContexts: prod
+  logging:
+    persistence: { enabled: true, size: 2Gi }
+frontend:
+  image: { repository: registry.example.com/smart-booking-frontend, tag: "0.1.0", pullPolicy: IfNotPresent }
+
+ingress:
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  tls:
+    - secretName: smart-booking-dev-tls
+      hosts: [smart-booking-dev.example.com]
+
+config:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your.account@gmail.com
+  storage:
+    endpoint: https://<account-id>.r2.cloudflarestorage.com
+    bucket: smart-booking
+  oauth:
+    googleClientId: <google-client-id>
+    facebookClientId: <facebook-app-id>
+
+existingSecret: smart-booking-secrets
+
+# In-cluster MySQL (set mysql.enabled=false + externalDatabase.host for a managed database)
+mysql:
+  enabled: true
+  persistence: { size: 10Gi }

@@ -19,16 +19,19 @@ Teaching workspace for the TravelMate / Smart Booking System (backend: this repo
 | [08 Running locally](./docs/08-running-locally.md) | docker compose for both repos, URLs, accounts, what doesn't work |
 | [09 Database migrations](./docs/09-database-migrations.md) | Liquibase changelogs, contexts, demo seed data, how to change the schema |
 | [10 i18n](./docs/10-i18n.md) | Vietnamese/English across frontend, API messages, notifications and emails; coding rules and checks |
-| [11 Logging](./docs/11-logging.md) | AOP logging aspect, request ids, log levels, masking |
+| [11 Logging](./docs/11-logging.md) | AOP logging with inputs/outputs, request ids, `@QuietLogging`, masking, daily files |
+| [12 Kubernetes](./docs/12-kubernetes.md) | Helm chart: architecture, profiles, secrets, local k3d test |
 
 ## Quick reference (`reference/`)
 - [Glossary](./reference/glossary.md)
 - [Code map: "where is X?"](./reference/code-map.md)
+- [k8s runbook](./reference/k8s-runbook.md): start, logs, stop, delete the app on a local Kubernetes cluster
 
 ## Lessons (`lessons/`)
 | # | Lesson | Win |
 |---|---|---|
 | 0001 | [The big picture](./lessons/0001-the-big-picture.md) | trace a request through both repos |
+| 0002 | [Run it on Kubernetes](./lessons/0002-run-it-on-kubernetes.md) | start the app on a local k3d cluster, read its logs, delete it |
 
 ## Other
 - [RESOURCES.md](./RESOURCES.md): trusted sources & communities

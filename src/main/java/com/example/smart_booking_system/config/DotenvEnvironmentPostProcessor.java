@@ -13,7 +13,8 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        Dotenv dotenv = Dotenv.load();
+        // .env is optional: Docker Compose mounts one, Kubernetes passes plain environment variables
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         Map<String, Object> map = new HashMap<>();
         dotenv.entries().forEach(entry -> map.put(entry.getKey(), entry.getValue()));
 
